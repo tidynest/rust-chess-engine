@@ -4,5 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-chess-core = { path = "../chess-core" }
 anyhow = { workspace = true }
+chess = { workspace = true }
+chess-core = { path = "../chess-core" }
+tokio = { workspace = true }
+stockfish = "0.2.11"
+vampirc-uci = { workspace = true }
+
+[[example]]
+name = "test_stockfish"
+path = "examples/test_stockfish.rs"

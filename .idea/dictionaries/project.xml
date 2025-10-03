@@ -1,7 +1,18 @@
 <component name="ProjectDictionaryState">
   <dictionary name="project">
     <words>
+      <w>bestmove</w>
       <w>eframe</w>
+      <w>isready</w>
+      <w>kiwipete</w>
+      <w>movegen</w>
+      <w>movetime</w>
+      <w>perft</w>
+      <w>readyok</w>
+      <w>setoption</w>
+      <w>startpos</w>
+      <w>ucinewgame</w>
+      <w>uciok</w>
     </words>
   </dictionary>
 </component>
