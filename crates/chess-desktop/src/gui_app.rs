@@ -33,10 +33,24 @@ pub struct ChessApp {
     stockfish_rx: Option<Receiver<EngineResponse>>,
     engine_thinking: bool,
     engine_evaluation: Option<f32>,
-    engine_depth: u32,
+    engine_depth_current: u32,
     engine_nodes: u64,
     engine_best_move: Option<String>,
     engine_pv: Vec<String>,
+
+    // Engine configuration
+    engine_depth: u32,
+    engine_movetime: Option<u64>,
+    engine_mode: EngineMode,
+    engine_skill_level: i32,
+    show_engine_settings: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EngineMode {
+    Depth,
+    TimeLimit,
+    FullStrength,
 }
 
 impl ChessApp {
@@ -66,33 +80,42 @@ impl ChessApp {
                 // Engine event loop
                 while let Ok(cmd) = engine_rx.recv() {
                     match cmd {
-                        EngineCommand::GetBestMove(fen) => {
+                        EngineCommand::GetBestMove { fen, depth, movetime, skill_level } => {
+                            // Configure skill level if not full strength
+                            if skill_level < 20 {
+                                let _ = stockfish.send_command(&format!(
+                                    "setoption name Skill Level value {}", skill_level
+                                )).await;
+                                let _ = stockfish.wait_ready().await;
+                            } else {
+                                // Reset to full strength
+                                let _ = stockfish.send_command("setoption name Skill Level value 20").await;
+                                let _ = stockfish.wait_ready().await;
+                            }
+
                             // Set position
                             let position_cmd = format!("fen {}", fen);
                             if stockfish.set_position(&position_cmd).await.is_err() {
                                 continue;
                             }
 
-                            // Start search (depth 15, about 1-2 seconds)
-                            if stockfish.go(Some(15), None).await.is_err() {
+                            // Start search with configured parameters
+                            if stockfish.go(depth, movetime).await.is_err() {
                                 continue;
                             }
 
                             // Stream responses to UI
                             while let Some(resp) = stockfish.recv_response().await {
-                                // Send to UI thread
                                 if ui_tx.send(resp.clone()).is_err() {
                                     break;
                                 }
 
-                                // Stop when we get bestmove
                                 if matches!(resp, EngineResponse::BestMove { .. }) {
                                     break;
                                 }
                             }
                         }
                         EngineCommand::Quit => break,
-                        _ => {}
                     }
                 }
 
@@ -127,10 +150,17 @@ impl ChessApp {
             stockfish_rx: Some(ui_rx),
             engine_thinking: false,
             engine_evaluation: None,
-            engine_depth: 0,
+            engine_depth_current: 0,  // <-- FIXED: renamed from engine_depth
             engine_nodes: 0,
             engine_best_move: None,
             engine_pv: Vec::new(),
+
+            // Engine configuration (defaults)
+            engine_depth: 20,
+            engine_movetime: Some(1000), // 1 second
+            engine_mode: EngineMode::Depth,
+            engine_skill_level: 20, // Full strength
+            show_engine_settings: false,
         }
     }
 
@@ -153,9 +183,20 @@ impl ChessApp {
         // Request move
         if let Some(tx) = &self.stockfish_tx {
             let fen = self.game_history.current_board().to_string();
-            let _ = tx.send(EngineCommand::GetBestMove(fen));
-            self.engine_thinking = true;
-            self.engine_best_move = None;
+            let _ = tx.send(EngineCommand::GetBestMove {
+                fen,
+                depth: if self.engine_mode == EngineMode::Depth {
+                    Some(self.engine_depth)
+                } else {
+                    None
+                },
+                movetime: if self.engine_mode == EngineMode::TimeLimit {
+                    self.engine_movetime
+                } else {
+                    None
+                },
+                skill_level: self.engine_skill_level,
+            });
         }
     }
 
@@ -696,6 +737,63 @@ impl eframe::App for ChessApp {
                         if ui.radio_value(&mut self.computer_color, ChessColor::Black, "Black").clicked() {}
                     });
 
+                    // Engine settings collapsible section
+                    ui.collapsing("Engine Settings", |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label("Mode:");
+                            ui.radio_value(&mut self.engine_mode, EngineMode::Depth, "Depth");
+                            ui.radio_value(&mut self.engine_mode, EngineMode::TimeLimit, "Time");
+                        });
+
+                        match self.engine_mode {
+                            EngineMode::Depth => {
+                                ui.horizontal(|ui| {
+                                    ui.label("Depth:");
+                                    ui.add(egui::Slider::new(&mut self.engine_depth, 5..=30)
+                                        .suffix(" ply"));
+                                });
+                                ui.label(format!("Stronger = slower (current: {})", self.engine_depth));
+                            }
+                            EngineMode::TimeLimit => {
+                                let mut time_ms = self.engine_movetime.unwrap_or(1000);
+                                ui.horizontal(|ui| {
+                                    ui.label("Time limit:");
+                                    ui.add(egui::Slider::new(&mut time_ms, 100..=10000)
+                                        .suffix(" ms")
+                                        .logarithmic(true));
+                                });
+                                self.engine_movetime = Some(time_ms);
+                                ui.label(format!("Per move: {:.1}s", time_ms as f32 / 1000.0));
+                            }
+                            EngineMode::FullStrength => {
+                                ui.label("Maximum strength, no limits");
+                            },
+                        }
+
+                        ui.separator();
+
+                        ui.horizontal(|ui| {
+                            ui.label("Skill Level:");
+                            ui.add(egui::Slider::new(&mut self.engine_skill_level, 0..=20));
+                        });
+
+                        let elo = if self.engine_skill_level == 20 {
+                            "3200+".to_string()
+                        } else {
+                            format!("~{}", 1350 + self.engine_skill_level * 75)
+                        };
+                        ui.label(format!("Elo: {} (0=beginner, 20=master)", elo));
+
+                        ui.separator();
+
+                        if ui.button("Reset to defaults").clicked() {
+                            self.engine_depth = 20;
+                            self.engine_movetime = Some(1000);
+                            self.engine_mode = EngineMode::Depth;
+                            self.engine_skill_level = 20;
+                        }
+                    });
+
                     if self.engine_thinking {
                         ui.horizontal(|ui| {
                             ui.spinner();
@@ -718,7 +816,7 @@ impl eframe::App for ChessApp {
                         });
                         ui.horizontal(|ui| {
                             ui.label("Depth:");
-                            ui.label(format!("{}", self.engine_depth));
+                            ui.label(format!("{}", self.engine_depth_current));
                         });
                         ui.horizontal(|ui| {
                             ui.label("Nodes:");

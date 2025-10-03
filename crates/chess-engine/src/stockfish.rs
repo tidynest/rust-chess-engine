@@ -11,16 +11,13 @@ use tokio::time::{timeout, Duration};
 /// Commands that can be sent to the engine
 #[derive(Debug, Clone)]
 pub enum EngineCommand {
-    /// Initialise the engine in UCI mode
-    Init,
-    /// Set up a position (FEN string or "startpos moves e2e4 e7e5")
-    Position(String),
-    /// Start searching with optional depth or move time (milliseconds)
-    Go { depth: Option<u32>, movetime: Option<u64> },
-    /// Stop the current search
-    Stop,
-    /// Request best move for a position (convenience - combines Position + Go)
-    GetBestMove(String),
+    /// Request best move for a position with configurable settings
+    GetBestMove {
+        fen: String,
+        depth: Option<u32>,
+        movetime: Option<u64>,
+        skill_level: i32,
+    },
     /// Quit the engine
     Quit,
 }
@@ -130,7 +127,7 @@ impl StockfishEngine {
     }
 
     /// Send a raw command to the engine
-    async fn send_command(&self, cmd: &str) -> Result<()> {
+    pub async fn send_command(&self, cmd: &str) -> Result<()> {
         self.stdin_tx
             .send(format!("{}\n", cmd))
             .context("Failed to send command to engine")?;
