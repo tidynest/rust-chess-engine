@@ -1,8 +1,10 @@
+use std::str::FromStr;
 use chess::{ChessMove, Color as ChessColor,
             File, Piece as ChessPiece, Rank, Square as ChessSquare};
 use chess_core::{ChessEngine, GameState, Color, notation, GameHistory};
-use eframe::egui::{self, Response, Ui, Vec2, Pos2, Rect, Color32,
-                   CornerRadius};
+use chess_engine::{EngineCommand, EngineResponse, StockfishEngine};
+use eframe::egui::{self, Response, Ui, Vec2, Pos2, Rect, Color32, CornerRadius};
+use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 
 pub struct ChessApp {
     engine: ChessEngine,
@@ -23,10 +25,82 @@ pub struct ChessApp {
     // Drag and drop state
     dragging_piece: Option<(ChessSquare, ChessPiece, ChessColor)>,
     drag_pos: Option<Pos2>,
+
+    // Stockfish engine integration
+    play_vs_computer: bool,
+    computer_color: ChessColor,
+    stockfish_tx: Option<Sender<EngineCommand>>,
+    stockfish_rx: Option<Receiver<EngineResponse>>,
+    engine_thinking: bool,
+    engine_evaluation: Option<f32>,
+    engine_depth: u32,
+    engine_nodes: u64,
+    engine_best_move: Option<String>,
+    engine_pv: Vec<String>,
 }
 
 impl ChessApp {
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+        // Create channels for engine communication
+        let (engine_tx, engine_rx) = channel();
+        let (ui_tx, ui_rx) = channel();
+
+        // Spawn engine thread
+        std::thread::spawn(move || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                // Initialise Stockfish
+                let mut stockfish = match StockfishEngine::new("stockfish").await {
+                    Ok(engine) => engine,
+                    Err(e) => {
+                        eprintln!("Failed to start Stockfish: {}", e);
+                        return;
+                    }
+                };
+
+                if let Err(e) = stockfish.initialise().await {
+                    eprintln!("Failed to initialise Stockfish: {}", e);
+                    return;
+                }
+
+                // Engine event loop
+                while let Ok(cmd) = engine_rx.recv() {
+                    match cmd {
+                        EngineCommand::GetBestMove(fen) => {
+                            // Set position
+                            let position_cmd = format!("fen {}", fen);
+                            if stockfish.set_position(&position_cmd).await.is_err() {
+                                continue;
+                            }
+
+                            // Start search (depth 15, about 1-2 seconds)
+                            if stockfish.go(Some(15), None).await.is_err() {
+                                continue;
+                            }
+
+                            // Stream responses to UI
+                            while let Some(resp) = stockfish.recv_response().await {
+                                // Send to UI thread
+                                if ui_tx.send(resp.clone()).is_err() {
+                                    break;
+                                }
+
+                                // Stop when we get bestmove
+                                if matches!(resp, EngineResponse::BestMove { .. }) {
+                                    break;
+                                }
+                            }
+                        }
+                        EngineCommand::Quit => break,
+                        _ => {}
+                    }
+                }
+
+                // Cleanup
+                let _ = stockfish.quit().await;
+            });
+        });
+
         Self {
             engine: ChessEngine::new(),
             game_history: GameHistory::new(),
@@ -45,6 +119,82 @@ impl ChessApp {
 
             dragging_piece: None,
             drag_pos: None,
+
+            // Engine state
+            play_vs_computer: false,
+            computer_color: ChessColor::Black,
+            stockfish_tx: Some(engine_tx),
+            stockfish_rx: Some(ui_rx),
+            engine_thinking: false,
+            engine_evaluation: None,
+            engine_depth: 0,
+            engine_nodes: 0,
+            engine_best_move: None,
+            engine_pv: Vec::new(),
+        }
+    }
+
+    fn request_engine_move(&mut self) {
+        if !self.play_vs_computer || self.engine_thinking {
+            return;
+        }
+
+        // Check if it's computer's turn
+        let current_turn = if self.engine.side_to_move() == Color::White {
+            ChessColor::White
+        } else {
+            ChessColor::Black
+        };
+
+        if current_turn != self.computer_color {
+            return;
+        }
+
+        // Request move
+        if let Some(tx) = &self.stockfish_tx {
+            let fen = self.game_history.current_board().to_string();
+            let _ = tx.send(EngineCommand::GetBestMove(fen));
+            self.engine_thinking = true;
+            self.engine_best_move = None;
+        }
+    }
+
+    fn apply_engine_move(&mut self, move_str: &str) {
+        // Parse move in long algebraic notation (e.g. "e2e4")
+        if move_str.len() < 4 {
+            return;
+        }
+
+        let from_str = &move_str[0..2];
+        let to_str = &move_str[2..4];
+
+        // Parse squares
+        if let (Ok(from), Ok(to)) = (
+            ChessSquare::from_str(from_str),
+            ChessSquare::from_str(to_str),
+        ) {
+            // Check for promotion
+            let promotion = if move_str.len() > 4 {
+                match &move_str[4..5] {
+                    "q" => Some(ChessPiece::Queen),
+                    "r" => Some(ChessPiece::Rook),
+                    "b" => Some(ChessPiece::Bishop),
+                    "n" => Some(ChessPiece::Knight),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+
+            // Try to make the move
+            let full_move_str = format!("{}{}", from_str, to_str);
+            if let Some(mv) = notation::parse_algebraic(&full_move_str) {
+                if self.engine.make_move(mv).is_ok() {
+                    self.game_history.make_move(ChessMove::new(from, to, promotion));
+                    self.move_history.push(full_move_str);
+                    self.last_move = Some((from, to));
+                }
+            }
         }
     }
 
@@ -171,51 +321,68 @@ impl ChessApp {
             }
         }
 
-        // Handle input
-        if response.clicked() {
-            if let Some(square) = self.get_square_from_pos(response.interact_pointer_pos().unwrap(), board_rect, square_size) {
-                self.handle_square_click(square);
-            }
-        }
+        // Handle input (only if it's human's turn
+        let is_human_turn = !self.play_vs_computer || {
+            let current_turn = if self.engine.side_to_move() == Color::White {
+                ChessColor::White
+            } else {
+                ChessColor::Black
+            };
+            current_turn != self.computer_color
+        };
 
-        if response.drag_started() {
-            if let Some(square) = self.get_square_from_pos(response.interact_pointer_pos().unwrap(), board_rect, square_size) {
-                let our_square = chess_core::Square::new(
-                    square.get_file().to_index() as u8,
-                    square.get_rank().to_index() as u8,
-                ).unwrap();
-
-                if let Some(piece) = self.engine.piece_at(our_square) {
-                    if piece.color == self.engine.side_to_move() {
-                        // Store as chess crate types for now
-                        self.dragging_piece = Some((
-                            square,
-                            convert_to_chess_piece(piece.piece_type),
-                            if piece.color == Color::White { ChessColor::White } else { ChessColor::Black }
-                        ));
-                        self.selected_square = Some(square);
-                        self.update_legal_moves();
-                    }
+        if is_human_turn {
+            if response.clicked() {
+                if let Some(square) = self.get_square_from_pos(
+                    response.interact_pointer_pos().unwrap(), board_rect, square_size) {
+                        self.handle_square_click(square);
                 }
             }
-        }
 
-        if response.dragged() {
-            self.drag_pos = response.interact_pointer_pos();
-        }
-
-        if response.drag_stopped() {
-            if let Some((from_square, _, _)) = self.dragging_piece {
-                if let Some(to_square) = self.get_square_from_pos(
-                    response.interact_pointer_pos().unwrap_or(Pos2::ZERO),
+            if response.drag_started() {
+                if let Some(square) = self.get_square_from_pos(
+                    response
+                        .interact_pointer_pos().unwrap(),
                     board_rect,
                     square_size
                 ) {
-                    self.try_make_move(from_square, to_square);
+                    let our_square = chess_core::Square::new(
+                        square.get_file().to_index() as u8,
+                        square.get_rank().to_index() as u8,
+                    ).unwrap();
+
+                    if let Some(piece) = self.engine.piece_at(our_square) {
+                        if piece.color == self.engine.side_to_move() {
+                            // Store as chess crate types for now
+                            self.dragging_piece = Some((
+                                square,
+                                convert_to_chess_piece(piece.piece_type),
+                                if piece.color == Color::White { ChessColor::White } else { ChessColor::Black }
+                            ));
+                            self.selected_square = Some(square);
+                            self.update_legal_moves();
+                        }
+                    }
                 }
             }
-            self.dragging_piece = None;
-            self.drag_pos = None;
+
+            if response.dragged() {
+                self.drag_pos = response.interact_pointer_pos();
+            }
+
+            if response.drag_stopped() {
+                if let Some((from_square, _, _)) = self.dragging_piece {
+                    if let Some(to_square) = self.get_square_from_pos(
+                        response.interact_pointer_pos().unwrap_or(Pos2::ZERO),
+                        board_rect,
+                        square_size
+                    ) {
+                        self.try_make_move(from_square, to_square);
+                    }
+                }
+                self.dragging_piece = None;
+                self.drag_pos = None;
+            }
         }
 
         response
@@ -231,6 +398,7 @@ impl ChessApp {
             chess_core::PieceType::Pawn => '♟',
         };
 
+        // Draw piece colour
         let text_color = if piece.color == Color::White {
             Color32::from_rgb(255, 255, 255)
         } else {
@@ -304,15 +472,12 @@ impl ChessApp {
     fn handle_square_click(&mut self, square: ChessSquare) {
         if let Some(selected) = self.selected_square {
             if selected == square {
-                // Deselect
                 self.selected_square = None;
                 self.legal_moves_for_selected.clear();
             } else {
-                // Try to make a move
                 self.try_make_move(selected, square);
             }
         } else {
-            // Check if there's a piece on this square
             let our_square = chess_core::Square::new(
                 square.get_file().to_index() as u8,
                 square.get_rank().to_index() as u8,
@@ -328,12 +493,10 @@ impl ChessApp {
     }
 
     fn try_make_move(&mut self, from: ChessSquare, to: ChessSquare) {
-        // Convert to our notation
         let from_str = format!("{}", from);
         let to_str = format!("{}", to);
         let move_str = format!("{}{}", from_str, to_str);
 
-        // Try to parse and make the move
         if let Some(mv) = notation::parse_algebraic(&move_str) {
             if self.engine.make_move(mv).is_ok() {
                 self.game_history.make_move(chess::ChessMove::new(from, to, None));  // Also record in game history and convert to chess crate move
@@ -341,11 +504,12 @@ impl ChessApp {
                 self.last_move = Some((from, to));
                 self.selected_square = None;
                 self.legal_moves_for_selected.clear();
+
+                self.request_engine_move();
                 return;
             }
         }
 
-        // If move failed, check if clicking on own piece
         let our_square = chess_core::Square::new(
             to.get_file().to_index() as u8,
             to.get_rank().to_index() as u8,
@@ -366,19 +530,14 @@ impl ChessApp {
     fn update_legal_moves(&mut self) {
         self.legal_moves_for_selected.clear();
         if let Some(square) = self.selected_square {
-            // Get legal moves from engine
             let all_moves = self.engine.legal_moves();
-
-            // Convert our square
             let our_square = chess_core::Square::new(
                 square.get_file().to_index() as u8,
                 square.get_rank().to_index() as u8,
             ).unwrap();
 
-            // Filter moves from this square
             for mv in all_moves {
                 if mv.from == our_square {
-                    // Create a chess crate move for display
                     let chess_move = ChessMove::new(
                         square,
                         ChessSquare::make_square(
@@ -394,7 +553,6 @@ impl ChessApp {
     }
 }
 
-// Helper functions for piece type conversion
 fn convert_piece_type(piece: ChessPiece) -> chess_core::PieceType {
     match piece {
         ChessPiece::Pawn => chess_core::PieceType::Pawn,
@@ -417,10 +575,46 @@ fn convert_to_chess_piece(piece_type: chess_core::PieceType) -> ChessPiece {
     }
 }
 
-// eframe::App implementation
 impl eframe::App for ChessApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Top panel with menu
+        // Poll engine responses
+        let mut best_move_to_apply: Option<String> = None;
+
+        if let Some(rx) = &self.stockfish_rx {
+            loop {
+                match rx.try_recv() {
+                    Ok(EngineResponse::Info { depth, score, nodes, nps: _, pv}) => {
+                        self.engine_depth = depth;
+                        self.engine_evaluation = Some(score as f32 / 100.0);
+                        self.engine_nodes = nodes;
+                        self.engine_pv = pv;
+                    }
+                    Ok(EngineResponse::BestMove {mv, .. }) => {
+                        best_move_to_apply = Some(mv);
+                        self.engine_thinking = false;
+                        break;
+                    }
+                    Err(TryRecvError::Empty) => break,
+                    Err(TryRecvError::Disconnected) => {
+                        eprintln!("Chess Engine thread disconnected");
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // Apply the move after releasing the borrow
+        if let Some(mv) = best_move_to_apply {
+            self.engine_best_move = Some(mv.clone());
+            self.apply_engine_move(&mv);
+        }
+
+        // Request repaint while engine is thinking
+        if self.engine_thinking {
+            ctx.request_repaint();
+        }
+
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.menu_button("Game", |ui| {
@@ -431,6 +625,8 @@ impl eframe::App for ChessApp {
                         self.legal_moves_for_selected.clear();
                         self.move_history.clear();
                         self.last_move = None;
+                        self.engine_thinking = false;
+                        self.engine_nodes = 0;
                     }
 
                     ui.separator();
@@ -442,6 +638,10 @@ impl eframe::App for ChessApp {
                     ui.separator();
 
                     if ui.button("❌ Quit").clicked() {
+                        // Send quit to engine thread
+                        if let Some(tx) = &self.stockfish_tx {
+                            let _ = tx.send(EngineCommand::Quit);
+                        }
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 });
@@ -471,7 +671,6 @@ impl eframe::App for ChessApp {
             });
         });
 
-        // Right panel with game info
         egui::SidePanel::right("right_panel")
             .default_width(250.0)
             .resizable(true)
@@ -479,12 +678,61 @@ impl eframe::App for ChessApp {
                 ui.heading("Game Information");
                 ui.separator();
 
-                // Game status
                 self.draw_game_status(ui);
 
                 ui.separator();
 
-                // Move history
+                // Engine controls
+                ui.heading("Computer Opponent");
+                ui.horizontal(|ui| {
+                    ui.label("Play vs Computer");
+                   ui.checkbox(&mut self.play_vs_computer, "");
+                });
+
+                if self.play_vs_computer {
+                    ui.horizontal(|ui| {
+                        ui.label("Computer plays:");
+                        if ui.radio_value(&mut self.computer_color, ChessColor::White, "White").clicked() {}
+                        if ui.radio_value(&mut self.computer_color, ChessColor::Black, "Black").clicked() {}
+                    });
+
+                    if self.engine_thinking {
+                        ui.horizontal(|ui| {
+                            ui.spinner();
+                            ui.label("Engine thinking...");
+                        });
+                    }
+
+                    // Engine analysis display
+                    if let Some(eval) = self.engine_evaluation {
+                        ui.separator();
+                        ui.heading("Engine Analysis");
+                        ui.horizontal(|ui| {
+                            ui.label("Evaluation:");
+                            let eval_text = if eval > 0.0 {
+                                format!("+{:.2}", eval)
+                            } else {
+                                format!("{:.2}", eval)
+                            };
+                            ui.label(egui::RichText::new(eval_text).strong());
+                        });
+                        ui.horizontal(|ui| {
+                            ui.label("Depth:");
+                            ui.label(format!("{}", self.engine_depth));
+                        });
+                        ui.horizontal(|ui| {
+                            ui.label("Nodes:");
+                            ui.label(format!("{}", self.engine_nodes));
+                        });
+                        if !self.engine_pv.is_empty() {
+                            ui.label("Principal Variation:");
+                            ui.label(self.engine_pv[..self.engine_pv.len().min(5)].join(" "));
+                        }
+                    }
+                }
+
+                ui.separator();
+
                 ui.heading("Move History");
                 egui::ScrollArea::vertical()
                     .max_height(300.0)
@@ -504,7 +752,6 @@ impl eframe::App for ChessApp {
 
                 ui.separator();
 
-                // Controls
                 ui.heading("Controls");
                 ui.label("• Click to select a piece");
                 ui.label("• Click again to move");
@@ -512,7 +759,6 @@ impl eframe::App for ChessApp {
                 ui.label("• Green dots show legal moves");
             });
 
-        // Left panel with current position info
         egui::SidePanel::left("left_panel")
             .default_width(200.0)
             .resizable(true)
@@ -520,12 +766,10 @@ impl eframe::App for ChessApp {
                 ui.heading("Position Info");
                 ui.separator();
 
-                // Material count
                 self.draw_material_count(ui);
 
                 ui.separator();
 
-                // Selected square info
                 if let Some(square) = self.selected_square {
                     ui.heading("Selected Square");
                     ui.label(format!("Square: {}", square));
@@ -542,17 +786,13 @@ impl eframe::App for ChessApp {
                 }
             });
 
-        // Central panel with chess board
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 ui.heading("Chess Board");
 
-                // Draw the chess board
                 self.draw_board(ui);
 
-                // Quick action buttons below the board
                 ui.horizontal(|ui| {
-                    // New game button
                     if ui.button("🔄 New Game").clicked() {
                         self.engine = ChessEngine::new();
                         self.game_history = GameHistory::new();
@@ -560,16 +800,16 @@ impl eframe::App for ChessApp {
                         self.legal_moves_for_selected.clear();
                         self.move_history.clear();
                         self.last_move = None;
+                        self.engine_thinking = false;
+                        self.engine_evaluation = None;
                     }
 
-                    // Flip board button
                     if ui.button("🔃 Flip Board").clicked() {
                         self.board_flip = !self.board_flip;
                     }
 
                     ui.separator();
 
-                    // Undo button
                     if ui.add_enabled(self.game_history.can_undo(), egui::Button::new("⬅ Undo")).clicked() {
                         if self.game_history.undo() {
                             self.sync_engine_from_history();
@@ -578,7 +818,6 @@ impl eframe::App for ChessApp {
                         }
                     }
 
-                    // Redo button
                     if ui.add_enabled(self.game_history.can_redo(), egui::Button::new("➡ Redo")).clicked() {
                         if self.game_history.redo() {
                             self.sync_engine_from_history();
@@ -592,7 +831,6 @@ impl eframe::App for ChessApp {
     }
 }
 
-// Helper methods for UI components
 impl ChessApp {
     fn draw_game_status(&self, ui: &mut Ui) {
         if self.engine.is_checkmate() {
@@ -617,7 +855,6 @@ impl ChessApp {
         let mut white_material = 0;
         let mut black_material = 0;
 
-        // Count material (simple point system)
         for rank in 0..8 {
             for file in 0..8 {
                 if let Some(sq) = chess_core::Square::new(file, rank) {
@@ -650,7 +887,7 @@ impl ChessApp {
             ui.label(format!("{}", black_material));
         });
 
-        let diff = white_material as i32 - black_material as i32;
+        let diff = white_material - black_material;
         if diff > 0 {
             ui.colored_label(Color32::from_rgb(200, 200, 200), format!("White +{}", diff));
         } else if diff < 0 {
@@ -661,11 +898,9 @@ impl ChessApp {
     }
 
     fn sync_engine_from_history(&mut self) {
-        // Reconstruct engine state from current history position
         let fen = self.game_history.current_board().to_string();
         self.engine = ChessEngine::from_fen(&fen).unwrap_or_else(|_| ChessEngine::new());
 
-        // Update move history display
         self.move_history.clear();
         for i in 0..self.game_history.move_count() {
             if let Some(mv) = self.game_history.get_move(i) {

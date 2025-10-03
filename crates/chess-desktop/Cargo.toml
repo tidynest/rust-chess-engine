@@ -19,6 +19,7 @@ chess-engine = { path = "../chess-engine" }
 chess = { workspace = true}
 anyhow = { workspace = true }
 thiserror = { workspace = true}
+tokio = { workspace = true}
 
 # GUI Dependencies from Workspace
 eframe = { workspace = true}

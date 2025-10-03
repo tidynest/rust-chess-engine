@@ -19,6 +19,8 @@ pub enum EngineCommand {
     Go { depth: Option<u32>, movetime: Option<u64> },
     /// Stop the current search
     Stop,
+    /// Request best move for a position (convenience - combines Position + Go)
+    GetBestMove(String),
     /// Quit the engine
     Quit,
 }
