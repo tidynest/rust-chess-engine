@@ -69,7 +69,7 @@ impl StockfishEngine {
 
         // Create channels for async communication
         let (stdin_tx, mut stdin_rx) = mpsc::unbounded_channel::<String>();
-        let (stdout_tx, mut stdout_rx) = mpsc::unbounded_channel::<String>();
+        let (stdout_tx, stdout_rx) = mpsc::unbounded_channel::<String>();
 
         // Spawn writer task - writes commands to stdin
         tokio::spawn(async move {
