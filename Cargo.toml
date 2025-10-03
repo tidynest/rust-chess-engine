@@ -1,0 +1,69 @@
+[workspace]
+members = [
+    "crates/chess-core",
+    "crates/chess-engine",
+    "crates/chess-desktop",
+]
+resolver = "2"
+
+[workspace.dependencies]
+# Core Dependencies
+anyhow = "1.0.100"
+chess = "3.2.0"
+serde = { version = "1.0.228", features = ["derive"] }
+thiserror = "2.0.16"
+
+# GUI Dependencies
+egui = "0.32.3"
+eframe = "0.32.3"
+
+# Additional GUI Support
+image = {  version = "0.25.8", default-features = false, features = ["png"] }
+egui_extras = { version = "0.32.3", features = ["image"] }
+
+# Async for future Stockfish integration
+tokio = { version = "1.47.1", features = ["full"] }
+uciengine = "0.1.33"
+vampirc-uci = "0.11.1"
+
+# Development
+env_logger = "0.11.8"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+dead_code = "warn"
+unused_imports = "warn"
+unused_variables = "warn"
+
+[workspace.lints.clippy]
+# Always fix these
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+
+# Improve these
+complexity = "warn"
+perf = "warn"
+style = "warn"
+
+# Performance critical for chess
+cast_lossless = "warn"
+inefficient_to_string = "warn"
+needless_pass_by_value = "warn"
+trivially_copy_pass_by_ref = "warn"
+
+# Safety critical
+indexing_slicing = "warn"
+panic = "warn"
+unwrap_used = "warn"
+expect_used = "warn"
+
+# Code quality
+missing_const_for_fn = "warn"
+unnecessary_wraps = "warn"
+
+[profile.release]
+opt-level = 3           # Maximum optimisation
+lto = "fat"             # Link-time optimisation
+codegen-units = 1       # Better optimisation
+panic = "abort"         # Smaller binary
+strip = true            # Remove debug symbols
