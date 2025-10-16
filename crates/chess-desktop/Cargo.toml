@@ -11,6 +11,10 @@ path = "src/cli.rs"
 name = "chess-gui"
 path = "src/gui.rs"
 
+[lib]
+name = "chess_desktop"
+path = "src/lib.rs"
+
 [dependencies]
 chess-core = { path = "../chess-core" }
 chess-engine = { path = "../chess-engine" }

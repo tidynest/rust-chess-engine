@@ -2,17 +2,31 @@
   <dictionary name="project">
     <words>
       <w>bestmove</w>
+      <w>bqkbnr</w>
       <w>eframe</w>
+      <w>egui's</w>
       <w>isready</w>
       <w>kiwipete</w>
+      <w>lichess</w>
       <w>movegen</w>
       <w>movetime</w>
+      <w>pbppp</w>
       <w>perft</w>
+      <w>pppbbppp</w>
+      <w>pppp</w>
+      <w>ppqpb</w>
+      <w>qppp</w>
       <w>readyok</w>
+      <w>redos</w>
+      <w>rnbq</w>
+      <w>rnbqk</w>
+      <w>rnbqkb</w>
+      <w>rnbqkbnr</w>
       <w>setoption</w>
       <w>startpos</w>
       <w>ucinewgame</w>
       <w>uciok</w>
+      <w>undos</w>
     </words>
   </dictionary>
 </component>

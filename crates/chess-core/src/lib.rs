@@ -90,15 +90,12 @@ pub struct Move {
 /// Game errors
 #[derive(Error, Debug)]
 pub enum GameError {
-    // Illegal move
     #[error("Invalid move: {0}")]
     InvalidMove(String),
-
-    // Game is finished
+    
     #[error("Game is already over")]
     GameOver,
-
-    // Invalid position
+    
     #[error("Invalid position")]
     InvalidPosition,
 }
@@ -113,15 +110,12 @@ pub enum StorageError {
     StorageError(String),
 }
 
-// Next to implement:
 pub mod engine;
 pub mod display;
 pub mod game;
 pub mod traits;
-pub mod position;
 pub mod notation;
 
 pub use engine::ChessEngine;
 pub use game::GameHistory;
-pub use position::Position;
 pub use traits::{ChessAnalyser, GameRenderer, GameState, GameStorage};

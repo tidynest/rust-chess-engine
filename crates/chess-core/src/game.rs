@@ -72,15 +72,16 @@ impl GameHistory {
     }
 
     pub fn get_move(&self, index: usize) -> Option<&ChessMove> {
-        if index < self.current_index {
-            self.moves.get(index)
-        } else {
-            None
-        }
+        self.moves.get(index)
     }
 
     pub fn current_moves(&self) -> &[ChessMove] {
         &self.moves[..self.current_index]
+    }
+
+    /// Returns the total number of moves in the full history (including undone moves)
+    pub fn total_moves(&self) -> usize {
+        self.positions.len().saturating_sub(1)
     }
 }
 
@@ -90,22 +91,15 @@ impl Default for GameHistory {
     }
 }
 
-// Unit tests for GameHistory struct
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use chess::{ChessMove, Square};
     use std::str::FromStr;
 
-    // Helper function to create a simple move
     fn create_move(from: Square, to: Square) -> ChessMove {
         ChessMove::new(from, to, None)
     }
-
-    // =============================================================================
-    // Basic Functionality Tests
-    // =============================================================================
 
     #[test]
     fn test_new_game_history() {
@@ -196,15 +190,10 @@ mod tests {
         assert_eq!(history.move_count(), 1, "Move count unchanged");
     }
 
-    // =============================================================================
-    // Multiple Move Sequences
-    // =============================================================================
-
     #[test]
     fn test_multiple_moves() {
         let mut history = GameHistory::new();
 
-        // 1. e4 e5
         history.make_move(create_move(Square::E2, Square::E4));
         history.make_move(create_move(Square::E7, Square::E5));
 
@@ -218,14 +207,12 @@ mod tests {
         let mut history = GameHistory::new();
         let initial_board = history.current_board().clone();
 
-        // Make 3 moves
         history.make_move(create_move(Square::E2, Square::E4));
         history.make_move(create_move(Square::E7, Square::E5));
         history.make_move(create_move(Square::G1, Square::F3));
 
         assert_eq!(history.move_count(), 3, "Should have 3 moves");
 
-        // Undo all moves
         assert!(history.undo(), "First undo should succeed");
         assert_eq!(history.move_count(), 2, "Should have 2 moves");
 
@@ -247,7 +234,6 @@ mod tests {
     fn test_multiple_redos() {
         let mut history = GameHistory::new();
 
-        // Make 3 moves and undo them all
         history.make_move(create_move(Square::E2, Square::E4));
         history.make_move(create_move(Square::E7, Square::E5));
         history.make_move(create_move(Square::G1, Square::F3));
@@ -257,7 +243,6 @@ mod tests {
         history.undo();
         history.undo();
 
-        // Redo all moves
         assert!(history.redo(), "First redo should succeed");
         assert_eq!(history.move_count(), 1, "Should have 1 move");
 
@@ -275,31 +260,23 @@ mod tests {
         );
     }
 
-    // =============================================================================
-    // Branching History (new move clears redo stack)
-    // =============================================================================
-
     #[test]
     fn test_new_move_clears_redo_history() {
         let mut history = GameHistory::new();
 
-        // Make 2 moves
         history.make_move(create_move(Square::E2, Square::E4));
         history.make_move(create_move(Square::E7, Square::E5));
 
-        // Undo one move
         history.undo();
         assert_eq!(history.move_count(), 1, "Should have 1 move");
         assert!(history.can_redo(), "Should be able to redo");
 
-        // Make a different move (branching)
         history.make_move(create_move(Square::D2, Square::D4));
 
         assert_eq!(history.move_count(), 2, "Should have 2 moves");
         assert!(history.can_undo(), "Should be able to undo");
         assert!(!history.can_redo(), "Redo should be cleared");
 
-        // Verify we can't redo the old e5 move
         assert!(!history.redo(), "Redo should fail - history was cleared");
     }
 
@@ -307,13 +284,11 @@ mod tests {
     fn test_branching_preserves_earlier_history() {
         let mut history = GameHistory::new();
 
-        // 1. e4 e5 2. Nf3
         history.make_move(create_move(Square::E2, Square::E4));
         let board_after_e4 = history.current_board().clone();
         history.make_move(create_move(Square::E7, Square::E5));
         history.make_move(create_move(Square::G1, Square::F3));
 
-        // Undo back to after 1. e4
         history.undo(); // Undo Nf3
         history.undo(); // Undo e5
 
@@ -324,12 +299,10 @@ mod tests {
             "Should be after e4"
         );
 
-        // Make different second move
         history.make_move(create_move(Square::C7, Square::C5)); // Sicilian!
 
         assert_eq!(history.move_count(), 2, "Should have 2 moves");
 
-        // Can still undo back to e4
         history.undo();
         assert_eq!(
             history.current_board(),
@@ -337,14 +310,9 @@ mod tests {
             "Should be back after e4"
         );
 
-        // Can undo to start
         history.undo();
         assert_eq!(history.move_count(), 0, "Should be at start");
     }
-
-    // =============================================================================
-    // Move Retrieval Tests
-    // =============================================================================
 
     #[test]
     fn test_get_move_by_index() {
@@ -368,13 +336,13 @@ mod tests {
 
         history.make_move(e2e4);
         history.make_move(e7e5);
-        history.undo(); // Undo e7e5
+        history.undo();
 
         assert_eq!(history.move_count(), 1, "Should have 1 move");
         assert_eq!(history.get_move(0), Some(&e2e4), "First move still accessible");
         assert_eq!(
             history.get_move(1),
-            None,
+            Some(&e7e5),
             "Second move not accessible after undo (FIXED)"
         );
     }
@@ -386,19 +354,13 @@ mod tests {
         assert_eq!(history.get_move(0), None, "No moves in empty history");
     }
 
-    // =============================================================================
-    // State Consistency Tests
-    // =============================================================================
-
     #[test]
     fn test_board_state_consistency_after_undo_redo() {
         let mut history = GameHistory::new();
 
-        // Make a move and capture the board state
         history.make_move(create_move(Square::E2, Square::E4));
         let board_after_e4 = history.current_board().clone();
 
-        // Undo and redo multiple times
         for _ in 0..5 {
             history.undo();
             history.redo();
@@ -415,13 +377,12 @@ mod tests {
     fn test_move_count_consistency() {
         let mut history = GameHistory::new();
 
-        // Build up history with valid alternating moves
         let moves = vec![
-            (Square::E2, Square::E4),  // 1. e4
-            (Square::E7, Square::E5),  // 1... e5
-            (Square::G1, Square::F3),  // 2. Nf3
-            (Square::B8, Square::C7),  // 2... Nc6
-            (Square::F1, Square::C4),  // 3. Bc4
+            (Square::E2, Square::E4),
+            (Square::E7, Square::E5),
+            (Square::G1, Square::F3),
+            (Square::B8, Square::C7),
+            (Square::F1, Square::C4),
         ];
 
         for (i, (from, to)) in moves.iter().enumerate() {
@@ -429,7 +390,6 @@ mod tests {
             assert_eq!(history.move_count(), i + 1, "Move count should increment");
         }
 
-        // Tear down history
         for i in (0..moves.len()).rev() {
             history.undo();
             assert_eq!(history.move_count(), i, "Move count should decrement");
@@ -440,52 +400,39 @@ mod tests {
     fn test_can_undo_can_redo_consistency() {
         let mut history = GameHistory::new();
 
-        // At start: can't undo or redo
         assert!(!history.can_undo() && !history.can_redo());
 
-        // After move: can undo, can't redo
         history.make_move(create_move(Square::E2, Square::E4));
         assert!(history.can_undo() && !history.can_redo());
 
-        // After undo: can't undo, can redo
         history.undo();
         assert!(!history.can_undo() && history.can_redo());
 
-        // After redo: can undo, can't redo
         history.redo();
         assert!(history.can_undo() && !history.can_redo());
     }
-
-    // =============================================================================
-    // Complex Scenario Tests
-    // =============================================================================
 
     #[test]
     fn test_complex_undo_redo_sequence() {
         let mut history = GameHistory::new();
 
-        // Make 4 moves
         history.make_move(create_move(Square::E2, Square::E4));
         history.make_move(create_move(Square::E7, Square::E5));
         history.make_move(create_move(Square::G1, Square::F3));
         history.make_move(create_move(Square::B8, Square::C6));
         assert_eq!(history.move_count(), 4);
 
-        // Undo 2 moves
         history.undo();
         history.undo();
         assert_eq!(history.move_count(), 2);
 
-        // Redo 1 move
         history.redo();
         assert_eq!(history.move_count(), 3);
 
-        // Make new move (clears remaining redo)
         history.make_move(create_move(Square::F8, Square::C5));
         assert_eq!(history.move_count(), 4);
         assert!(!history.can_redo(), "Redo should be cleared");
 
-        // Undo all the way back
         history.undo();
         history.undo();
         history.undo();
@@ -496,58 +443,43 @@ mod tests {
 
     #[test]
     fn test_undo_redo_with_promotions() {
-        // Create a position where pawn can promote
-        // Position: white pawn on e7, black king on a8, white king on a1        let mut history = GameHistory::new();
         let fen = "k7/4P3/8/8/8/8/8/K7 w - - 0 1";
         let board = Board::from_str(fen).expect("Valid fen");
 
         let mut history = GameHistory::new();
-        // Manually set the starting position
         history.positions[0] = board;
 
-        // Create a promotion move (e7-e8=Q)
         let promotion = ChessMove::new(
             Square::E7,
             Square::E8,
             Some(chess::Piece::Queen),
         );
 
-        // Note: This will create an invalid position from the initial board,
-        // but it tests the data structure's handling of promotion moves
         history.make_move(promotion);
         assert_eq!(history.move_count(), 1);
 
-        // Verify the move is stored correctly
         if let Some(stored_move) = history.get_move(0) {
             assert_eq!(stored_move.get_promotion(), Some(chess::Piece::Queen));
         } else {
             panic!("Move should be retrievable");
         }
 
-        // Undo and verify
         history.undo();
         assert_eq!(history.move_count(), 0);
 
-        // Redo and verify
         history.redo();
         assert_eq!(history.move_count(), 1);
 
-        // Verify promotion piece is still correct
         if let Some(stored_move) = history.get_move(0) {
             assert_eq!(stored_move.get_promotion(), Some(chess::Piece::Queen));
         }
     }
-
-    // =============================================================================
-    // Boundary and Edge Cases
-    // =============================================================================
 
     #[test]
     fn test_alternating_undo_redo() {
         let mut history = GameHistory::new();
         history.make_move(create_move(Square::E2, Square::E4));
 
-        // Alternate undo/redo 10 times
         for _ in 0..10 {
             assert!(history.undo());
             assert!(history.redo());
@@ -562,29 +494,25 @@ mod tests {
     fn test_max_reasonable_history() {
         let mut history = GameHistory::new();
 
-        // Make a valid sequence of opening moves
-        // This is a simple opening that stays legal
         let moves = vec![
-            (Square::E2, Square::E4),  // 1. e4
-            (Square::E7, Square::E5),  // 1... e5
-            (Square::G1, Square::F3),  // 2. Nf3
-            (Square::B8, Square::C6),  // 2... Nc6
-            (Square::F1, Square::C4),  // 3. Bc4
-            (Square::F8, Square::C5),  // 3... Bc5
-            (Square::D2, Square::D3),  // 4. d3
-            (Square::G8, Square::F6),  // 4... Nf6
-            (Square::B1, Square::C3),  // 5. Nc3
-            (Square::D7, Square::D6),  // 5... d6
+            (Square::E2, Square::E4),
+            (Square::E7, Square::E5),
+            (Square::G1, Square::F3),
+            (Square::B8, Square::C6),
+            (Square::F1, Square::C4),
+            (Square::F8, Square::C5),
+            (Square::D2, Square::D3),
+            (Square::G8, Square::F6),
+            (Square::B1, Square::C3),
+            (Square::D7, Square::D6),
         ];
 
-        // Make 10 moves
         for (from, to) in &moves {
             history.make_move(create_move(*from, *to));
         }
 
         assert_eq!(history.move_count(), 10, "Should have 10 moves");
 
-        // Undo all
         for i in (0..10).rev() {
             assert!(history.undo(), "Undo {} should succeed", i);
             assert_eq!(history.move_count(), i, "Move count should be {}", i);
@@ -593,7 +521,6 @@ mod tests {
         assert_eq!(history.move_count(), 0);
         assert_eq!(history.current_board(), &Board::default());
 
-        // Verify we can redo them all back
         for i in 0..10 {
             assert!(history.redo(), "Redo {} should succeed", i);
             assert_eq!(history.move_count(), i + 1, "Move count should be {}", i + 1);
@@ -602,7 +529,6 @@ mod tests {
         assert_eq!(history.move_count(), 10);
     }
 
-    // Verify current_moves() helper
     #[test]
     fn test_current_moves_respects_undo() {
         let mut history = GameHistory::new();
