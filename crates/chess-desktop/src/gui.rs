@@ -1,10 +1,9 @@
-mod gui_app;
+//! GUI binary entry point
 
+use chess_desktop::ChessApp;
 use eframe::egui;
-use gui_app::ChessApp;
 
 fn main() -> eframe::Result {
-    // Initialize logging for debug output
     #[cfg(not(target_arch = "wasm32"))]
     env_logger::init();
 
@@ -25,7 +24,6 @@ fn main() -> eframe::Result {
         "Chess Engine",
         options,
         Box::new(|cc| {
-            // Configure fonts and visuals
             configure_fonts(&cc.egui_ctx);
             configure_visuals(&cc.egui_ctx);
 
@@ -36,20 +34,13 @@ fn main() -> eframe::Result {
 
 fn configure_fonts(ctx: &egui::Context) {
     let fonts = egui::FontDefinitions::default();
-
-    // You can add custom chess fonts here later
-    // For now, we'll use the default fonts which include good Unicode support
-
     ctx.set_fonts(fonts);
 }
 
 fn configure_visuals(ctx: &egui::Context) {
     let mut visuals = egui::Visuals::dark();
-
-    // Customize the theme for chess
     visuals.override_text_color = Some(egui::Color32::from_gray(200));
     visuals.panel_fill = egui::Color32::from_rgb(30, 30, 35);
     visuals.window_fill = egui::Color32::from_rgb(25, 25, 30);
-
     ctx.set_visuals(visuals);
 }

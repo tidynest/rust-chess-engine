@@ -40,11 +40,9 @@ fn main() -> Result<()> {
     let mut move_history = Vec::new();
 
     loop {
-        // Display board
         println!("\n{}", display::display_board(&engine));
         println!("{}", display::display_status(&engine));
 
-        // Check for game over
         if engine.is_checkmate() || engine.is_stalemate() {
             println!("\nGame Over!");
             print!("Play again? (y/n): ");
@@ -62,7 +60,6 @@ fn main() -> Result<()> {
             }
         }
 
-        // Get user input
         print!("\nEnter move: ");
         io::stdout().flush()?;
 
@@ -90,12 +87,10 @@ fn main() -> Result<()> {
                 println!("Undo not implemented yet");
             }
             move_str => {
-                // Skip empty input
                 if move_str.is_empty() {
                     continue;
                 }
 
-                // Try to parse and make the move
                 match notation::parse_algebraic(move_str) {
                     Some(mv) => {
                         match engine.make_move(mv) {
