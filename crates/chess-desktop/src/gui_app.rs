@@ -4,11 +4,11 @@
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chess::Board;
     use chess::Piece as ChessPiece;
     use chess_core::GameHistory;
-    use chess_desktop::ui::theme::ThemeVariant::ClassicMonochrome;
+    use chess_desktop::ChessApp;
+    use chess_desktop::ui::theme::{Theme, ThemeVariant::ClassicMonochrome};
     use std::str::FromStr;
 
     #[test]
