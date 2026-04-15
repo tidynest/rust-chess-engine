@@ -2,10 +2,10 @@
 //!
 //! Handles Stockfish engine communication, move parsing, and game history synchronization.
 
-use std::str::FromStr;
 use chess::{ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare};
 use chess_core::{Color, GameHistory, notation};
 use chess_engine::{EngineCommand, EngineResponse};
+use std::str::FromStr;
 use std::sync::mpsc::TryRecvError;
 
 use super::state::ChessApp;
@@ -32,7 +32,13 @@ impl ChessApp {
 
             loop {
                 match rx.try_recv() {
-                    Ok(EngineResponse::Info { depth, score, nodes, nps: _, pv}) => {
+                    Ok(EngineResponse::Info {
+                        depth,
+                        score,
+                        nodes,
+                        nps: _,
+                        pv,
+                    }) => {
                         eprintln!("Engine info: depth={}, score={}", depth, score);
 
                         self.engine_depth_current = depth;
@@ -50,7 +56,7 @@ impl ChessApp {
 
                         response_count += 1;
                     }
-                    Ok(EngineResponse::BestMove {mv, .. }) => {
+                    Ok(EngineResponse::BestMove { mv, .. }) => {
                         best_move_to_apply = Some(mv);
                         self.engine_thinking = false;
                         break;
@@ -208,16 +214,15 @@ impl ChessApp {
 
         let mut legal_moves = chess::MoveGen::new_legal(board);
         legal_moves.find(|m| {
-            m.get_source() == from &&
-                m.get_dest() == to &&
-                m.get_promotion() == promotion
+            m.get_source() == from && m.get_dest() == to && m.get_promotion() == promotion
         })
     }
 
     /// Synchronize engine state with game history
     pub(crate) fn sync_engine_from_history(&mut self) {
         let fen = self.game_history.current_board().to_string();
-        self.engine = chess_core::ChessEngine::from_fen(&fen).unwrap_or_else(|_| chess_core::ChessEngine::new());
+        self.engine = chess_core::ChessEngine::from_fen(&fen)
+            .unwrap_or_else(|_| chess_core::ChessEngine::new());
 
         if self.skip_history_rebuild {
             self.skip_history_rebuild = false;

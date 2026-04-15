@@ -3,7 +3,7 @@
 //! Shows current game state (check, checkmate, stalemate, in progress).
 
 use chess_core::{Color, GameState};
-use eframe::egui::{self, Ui, Color32};
+use eframe::egui::{Color32, Ui};
 
 use crate::app::state::ChessApp;
 

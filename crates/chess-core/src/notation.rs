@@ -9,11 +9,11 @@ pub fn parse_algebraic(s: &str) -> Option<Move> {
         return None;
     }
 
-    let from_file = (bytes[0] as char).to_digit(18)? as u8 -10;  // a=0, b=1, etc.
-    let from_rank = (bytes[1] as char).to_digit(10)? as u8 -1;  // 1=0, 2=1, etc.
+    let from_file = (bytes[0] as char).to_digit(18)? as u8 - 10; // a=0, b=1, etc.
+    let from_rank = (bytes[1] as char).to_digit(10)? as u8 - 1; // 1=0, 2=1, etc.
 
-    let to_file = (bytes[2] as char).to_digit(18)? as u8 -10;
-    let to_rank = (bytes[3] as char).to_digit(10)? as u8 -1;
+    let to_file = (bytes[2] as char).to_digit(18)? as u8 - 10;
+    let to_rank = (bytes[3] as char).to_digit(10)? as u8 - 1;
 
     let from = Square::new(from_file, from_rank)?;
     let to = Square::new(to_file, to_rank)?;
@@ -30,16 +30,16 @@ pub fn parse_algebraic(s: &str) -> Option<Move> {
         None
     };
 
-    Some(Move { from, to, promotion })
+    Some(Move {
+        from,
+        to,
+        promotion,
+    })
 }
 
 /// Format a move as algebraic notation
 pub fn to_algebraic(mv: &Move) -> String {
-    let mut result = format!(
-        "{}{}",
-        mv.from.to_algebraic(),
-        mv.to.to_algebraic()
-    );
+    let mut result = format!("{}{}", mv.from.to_algebraic(), mv.to.to_algebraic());
 
     if let Some(promo) = mv.promotion {
         result.push(match promo {
@@ -56,13 +56,13 @@ pub fn to_algebraic(mv: &Move) -> String {
 
 /// Convert a ChessMove to Standard Algebraic Notation with disambiguation
 pub fn format_move_san(mv: &chess::ChessMove, board: &chess::Board) -> String {
-    use chess::{Piece, BoardStatus};
+    use chess::{BoardStatus, Piece};
 
     let piece = board.piece_on(mv.get_source());
     let from = mv.get_source();
     let to = mv.get_dest();
     let is_capture = board.piece_on(to).is_some()
-        || (piece == Some(Piece::Pawn) && from.get_file() != to.get_file());  // En passant
+        || (piece == Some(Piece::Pawn) && from.get_file() != to.get_file()); // En passant
 
     if let Some(Piece::King) = piece {
         let from_file = from.get_file() as i8;
@@ -128,7 +128,7 @@ pub fn format_move_san(mv: &chess::ChessMove, board: &chess::Board) -> String {
 
             notation.push_str(&format!("{}", to));
         }
-        None => return format!("{}", mv),  // Fallback
+        None => return format!("{}", mv), // Fallback
     }
 
     let new_board = board.make_move_new(*mv);
@@ -179,13 +179,13 @@ fn needs_disambiguation(board: &chess::Board, mv: &chess::ChessMove) -> Disambig
         return Disambiguation::None;
     }
 
-    let same_file = same_dest_moves.iter().any(|m| {
-        m.get_source().get_file() == from.get_file()
-    });
+    let same_file = same_dest_moves
+        .iter()
+        .any(|m| m.get_source().get_file() == from.get_file());
 
-    let same_rank = same_dest_moves.iter().any(|m| {
-        m.get_source().get_rank() == from.get_rank()
-    });
+    let same_rank = same_dest_moves
+        .iter()
+        .any(|m| m.get_source().get_rank() == from.get_rank());
 
     match (same_file, same_rank) {
         (true, true) => Disambiguation::Both,
@@ -209,7 +209,9 @@ mod tests {
 
     #[test]
     fn test_format_move_san_capture() {
-        let board = Board::from_str("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2").unwrap();
+        let board =
+            Board::from_str("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2")
+                .unwrap();
         let mv = ChessMove::new(Square::E4, Square::D5, None);
         assert_eq!(format_move_san(&mv, &board), "exd5");
     }
@@ -230,7 +232,9 @@ mod tests {
 
     #[test]
     fn test_format_move_san_check() {
-        let board = Board::from_str("rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4").unwrap();
+        let board =
+            Board::from_str("rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4")
+                .unwrap();
         let mv = ChessMove::new(Square::C4, Square::F7, None);
         assert_eq!(format_move_san(&mv, &board), "Bxf7+");
     }

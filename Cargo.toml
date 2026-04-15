@@ -4,30 +4,33 @@ members = [
     "crates/chess-engine",
     "crates/chess-desktop",
 ]
-resolver = "2"
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
 
 [workspace.dependencies]
 # Core Dependencies
-anyhow = "1.0.100"
+anyhow = "1.0.102"
 chess = "3.2.0"
 serde = { version = "1.0.228", features = ["derive"] }
-thiserror = "2.0.16"
+thiserror = "2.0.18"
 
 # GUI Dependencies
 egui = "0.32.3"
 eframe = "0.32.3"
 
 # Additional GUI Support
-image = {  version = "0.25.8", default-features = false, features = ["png"] }
+image = { version = "0.25.10", default-features = false, features = ["png"] }
 egui_extras = { version = "0.32.3", features = ["image"] }
 
 # Async for future Stockfish integration
-tokio = { version = "1.47.1", features = ["full"] }
+tokio = { version = "1.52.0", features = ["full"] }
 uciengine = "0.1.33"
 vampirc-uci = "0.11.1"
 
 # Development
-env_logger = "0.11.8"
+env_logger = "0.11.10"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

@@ -6,7 +6,7 @@ use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::mpsc;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 
 /// Commands that can be sent to the engine
 #[derive(Debug, Clone)]
@@ -30,16 +30,13 @@ pub enum EngineResponse {
     /// Search information update
     Info {
         depth: u32,
-        score: i32,         // Centipawns (100 = 1 pawn advantage)
+        score: i32, // Centipawns (100 = 1 pawn advantage)
         nodes: u64,
-        nps: u64,           // Node per second
-        pv: Vec<String>,    // Principal variation (best line)
+        nps: u64,        // Node per second
+        pv: Vec<String>, // Principal variation (best line)
     },
     /// Engine found the best move
-    BestMove {
-        mv: String,
-        ponder: Option<String>,
-    },
+    BestMove { mv: String, ponder: Option<String> },
     /// Error or unrecognised message
     Error(String),
 }
@@ -59,7 +56,7 @@ impl StockfishEngine {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
-            .kill_on_drop(true)  // Ensure cleanup
+            .kill_on_drop(true) // Ensure cleanup
             .spawn()
             .context("Failed to spawn stockfish process")?;
 
@@ -161,7 +158,8 @@ impl StockfishEngine {
 
     /// Set the board position
     pub async fn set_position(&mut self, position_cmd: &str) -> Result<()> {
-        self.send_command(&format!("position {}", position_cmd)).await?;
+        self.send_command(&format!("position {}", position_cmd))
+            .await?;
         Ok(())
     }
 
@@ -170,7 +168,7 @@ impl StockfishEngine {
         let cmd = match (depth, movetime) {
             (Some(d), _) => format!("go depth {}", d),
             (_, Some(t)) => format!("go movetime {}", t),
-            _ => "go depth 15".to_string(),  // Default depth
+            _ => "go depth 15".to_string(), // Default depth
         };
         self.send_command(&cmd).await
     }
@@ -220,7 +218,7 @@ fn parse_engine_line(line: &str) -> EngineResponse {
 /// Parse a bestmove line
 fn parse_bestmove(line: &str) -> EngineResponse {
     let parts: Vec<&str> = line.split_whitespace().collect();
-    let mv= parts.get(1).unwrap_or(&"").to_string();
+    let mv = parts.get(1).unwrap_or(&"").to_string();
     let ponder = if parts.get(2) == Some(&"ponder") {
         parts.get(3).map(|s| s.to_string())
     } else {

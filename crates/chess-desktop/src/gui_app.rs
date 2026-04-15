@@ -2,17 +2,14 @@
 //!
 //! This is the main entry point that re-exports the modularized application.
 
-use chess_desktop::ChessApp;
-use chess_desktop::ui::theme::Theme;
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use chess::Board;
-    use std::str::FromStr;
     use chess::Piece as ChessPiece;
     use chess_core::GameHistory;
     use chess_desktop::ui::theme::ThemeVariant::ClassicMonochrome;
+    use std::str::FromStr;
 
     #[test]
     fn test_parse_uci_move_basic() {
@@ -29,9 +26,7 @@ mod tests {
 
     #[test]
     fn test_parse_uci_move_promotion() {
-        let board = Board::from_str(
-            "4k3/P7/8/8/8/8/8/4K3 w - - 0 1"
-        ).unwrap();
+        let board = Board::from_str("4k3/P7/8/8/8/8/8/4K3 w - - 0 1").unwrap();
 
         let dummy_app = create_test_app();
 
@@ -53,11 +48,7 @@ mod tests {
     #[test]
     fn test_format_pv_san_basic() {
         let dummy_app = create_test_app();
-        let pv = vec![
-            "e2e4".to_string(),
-            "e7e5".to_string(),
-            "g1f3".to_string(),
-        ];
+        let pv = vec!["e2e4".to_string(), "e7e5".to_string(), "g1f3".to_string()];
 
         let formatted = dummy_app.format_pv_san(&pv);
         assert_eq!(formatted, vec!["e4", "e5", "Nf3"]);
@@ -67,9 +58,9 @@ mod tests {
     fn test_format_pv_san_with_capture() {
         let mut dummy_app = create_test_app();
 
-        let board = Board::from_str(
-            "r1bqkbnr/ppp2ppp/2n5/3pp3/3PP3/5N2/PPP2PPP/RNBQKB1R w KQkq d6 0 4"
-        ).unwrap();
+        let board =
+            Board::from_str("r1bqkbnr/ppp2ppp/2n5/3pp3/3PP3/5N2/PPP2PPP/RNBQKB1R w KQkq d6 0 4")
+                .unwrap();
         dummy_app.game_history = GameHistory::from_board(board);
 
         let pv = vec!["e4d5".to_string()];
@@ -79,8 +70,8 @@ mod tests {
 
     fn create_test_app() -> ChessApp {
         use chess::Color as ChessColor;
-        use eframe::egui::Color32;
         use chess_desktop::app::{CapturedPiecesStyle, EngineMode};
+        use eframe::egui::Color32;
 
         ChessApp {
             engine: chess_core::ChessEngine::new(),
