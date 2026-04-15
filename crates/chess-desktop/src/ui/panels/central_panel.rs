@@ -12,14 +12,15 @@ pub fn draw(app: &mut ChessApp, ctx: &Context) {
     egui::CentralPanel::default().show(ctx, |ui| {
         ui.vertical_centered(|ui| {
             ui.heading("Chess Board");
-            ui.add_space(16.0);  // 8pt grid: 16px spacing
+            ui.add_space(16.0); // 8pt grid: 16px spacing
 
             let (max_board_size, eval_bar_width, spacing) = calculate_board_dimensions(app, ui);
 
             // Draw board and capture the left edge position for button alignment
-            let board_left_edge = draw_board_and_eval_bar(app, ui, max_board_size, eval_bar_width, spacing);
+            let board_left_edge =
+                draw_board_and_eval_bar(app, ui, max_board_size, eval_bar_width, spacing);
 
-            ui.add_space(16.0);  // 8pt grid: 16px spacing
+            ui.add_space(16.0); // 8pt grid: 16px spacing
 
             // Draw buttons aligned to the board's left edge
             draw_control_buttons(app, ui, board_left_edge);
@@ -30,16 +31,16 @@ pub fn draw(app: &mut ChessApp, ctx: &Context) {
 /// Calculate board dimensions based on available space
 fn calculate_board_dimensions(app: &ChessApp, ui: &egui::Ui) -> (f32, f32, f32) {
     let available = ui.available_size();
-    let eval_bar_width = 40.0;  // Fixed width for eval bar
-    let spacing = 8.0;  // 8pt grid spacing
+    let eval_bar_width = 40.0; // Fixed width for eval bar
+    let spacing = 8.0; // 8pt grid spacing
 
     // Calculate max board size - MORE GENEROUS than before!
     let max_board_size = if app.play_vs_computer && app.show_eval_bar {
         // Reserve space for eval bar + spacing, but be more generous
-        let available_width = available.x - eval_bar_width - spacing - 20.0;  // Reduced margin
+        let available_width = available.x - eval_bar_width - spacing - 20.0; // Reduced margin
         available_width
-            .min(available.y - 100.0)  // Less vertical reserve
-            .clamp(400.0, 900.0)  // Increased max to 900px!
+            .min(available.y - 100.0) // Less vertical reserve
+            .clamp(400.0, 900.0) // Increased max to 900px!
     } else {
         // Even more space when no eval bar
         (available.x - 20.0)
@@ -52,7 +53,13 @@ fn calculate_board_dimensions(app: &ChessApp, ui: &egui::Ui) -> (f32, f32, f32) 
 
 /// Draw board and evaluation bar side by side
 /// Returns the left edge x-coordinate of the board for button alignment
-fn draw_board_and_eval_bar(app: &mut ChessApp, ui: &mut egui::Ui, max_board_size: f32, eval_bar_width: f32, spacing: f32) -> f32 {
+fn draw_board_and_eval_bar(
+    app: &mut ChessApp,
+    ui: &mut egui::Ui,
+    max_board_size: f32,
+    eval_bar_width: f32,
+    spacing: f32,
+) -> f32 {
     let mut board_left_edge = 0.0;
 
     ui.horizontal(|ui| {
@@ -77,13 +84,9 @@ fn draw_board_and_eval_bar(app: &mut ChessApp, ui: &mut egui::Ui, max_board_size
         board_left_edge = ui.cursor().left();
 
         // Draw the board
-        ui.allocate_ui_with_layout(
-            Vec2::splat(max_board_size),
-            egui::Layout::default(),
-            |ui| {
-                app.draw_board(ui);
-            },
-        );
+        ui.allocate_ui_with_layout(Vec2::splat(max_board_size), egui::Layout::default(), |ui| {
+            app.draw_board(ui);
+        });
 
         // Draw eval bar if enabled
         if app.play_vs_computer && app.show_eval_bar {
@@ -123,26 +126,30 @@ fn draw_control_buttons(app: &mut ChessApp, ui: &mut egui::Ui, board_left_edge: 
             app.board_flip = !app.board_flip;
         }
 
-        ui.add_space(8.0);  // 8pt grid spacing
+        ui.add_space(8.0); // 8pt grid spacing
         ui.separator();
         ui.add_space(8.0);
 
-        if ui.add_enabled(app.game_history.can_undo(), egui::Button::new("⬅ Undo")).clicked() {
-            if app.game_history.undo() {
-                app.sync_engine_from_history();
-                app.selected_square = None;
-                app.legal_moves_for_selected.clear();
-                app.disable_auto_request = true;
-            }
+        if ui
+            .add_enabled(app.game_history.can_undo(), egui::Button::new("⬅ Undo"))
+            .clicked()
+            && app.game_history.undo()
+        {
+            app.sync_engine_from_history();
+            app.selected_square = None;
+            app.legal_moves_for_selected.clear();
+            app.disable_auto_request = true;
         }
 
-        if ui.add_enabled(app.game_history.can_redo(), egui::Button::new("➡ Redo")).clicked() {
-            if app.game_history.redo() {
-                app.sync_engine_from_history();
-                app.selected_square = None;
-                app.legal_moves_for_selected.clear();
-                app.disable_auto_request = true;
-            }
+        if ui
+            .add_enabled(app.game_history.can_redo(), egui::Button::new("➡ Redo"))
+            .clicked()
+            && app.game_history.redo()
+        {
+            app.sync_engine_from_history();
+            app.selected_square = None;
+            app.legal_moves_for_selected.clear();
+            app.disable_auto_request = true;
         }
     });
 }

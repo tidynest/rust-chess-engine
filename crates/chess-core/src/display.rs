@@ -1,6 +1,6 @@
 //! Display utilities for chess positions
 
-use crate::{GameState, Square, PieceType, Color};
+use crate::{Color, GameState, PieceType, Square};
 
 /// Display mode for the chess board
 pub enum DisplayMode {
@@ -95,7 +95,7 @@ fn display_board_compact(game: &dyn GameState) -> String {
     const WHITE_ASCII: [char; 6] = ['K', 'Q', 'R', 'B', 'N', 'P'];
     const BLACK_ASCII: [char; 6] = ['k', 'q', 'r', 'b', 'n', 'p'];
 
-    output.push_str("\n");
+    output.push('\n');
 
     for rank in (0..8).rev() {
         output.push_str(&format!("{} ", rank + 1));
@@ -130,7 +130,7 @@ fn display_board_compact(game: &dyn GameState) -> String {
             output.push_str(&format!(" {} ", piece_char));
         }
 
-        output.push_str("\n");
+        output.push('\n');
     }
 
     output.push_str("   a  b  c  d  e  f  g  h\n");

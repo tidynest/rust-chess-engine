@@ -2,7 +2,7 @@
 //!
 //! Displays engine evaluation as a vertical bar.
 
-use eframe::egui::{self, Ui, Vec2, Pos2, Rect, Color32};
+use eframe::egui::{self, Color32, Pos2, Rect, Ui, Vec2};
 
 use crate::app::state::ChessApp;
 
@@ -11,10 +11,8 @@ pub fn draw(app: &ChessApp, ui: &mut Ui) {
     let bar_width = ui.available_width();
     let bar_height = ui.available_height();
 
-    let (response, painter) = ui.allocate_painter(
-        Vec2::new(bar_width, bar_height),
-        egui::Sense::hover()
-    );
+    let (response, painter) =
+        ui.allocate_painter(Vec2::new(bar_width, bar_height), egui::Sense::hover());
 
     let rect = response.rect;
 
@@ -35,20 +33,12 @@ pub fn draw(app: &ChessApp, ui: &mut Ui) {
 
 /// Draw background border
 fn draw_background(painter: &egui::Painter, rect: Rect) {
-    painter.rect_filled(
-        rect,
-        4.0,
-        Color32::from_rgb(40, 40, 40),
-    );
+    painter.rect_filled(rect, 4.0, Color32::from_rgb(40, 40, 40));
 }
 
 /// Draw center line at 0.0 evaluation
 fn draw_center_line(painter: &egui::Painter, inner_rect: Rect, center_y: f32) {
-    painter.rect_filled(
-        inner_rect,
-        2.0,
-        Color32::from_rgb(60, 60, 60),
-    );
+    painter.rect_filled(inner_rect, 2.0, Color32::from_rgb(60, 60, 60));
 
     painter.line_segment(
         [

@@ -75,10 +75,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n📊 Summary:");
     if let Some((depth, score, nodes, pv)) = last_info {
         println!("   Final depth: {}", depth);
-        println!("   Evaluation: {} centipawns ({:.2} pawns)", score, score as f32 / 100.0);
+        println!(
+            "   Evaluation: {} centipawns ({:.2} pawns)",
+            score,
+            score as f32 / 100.0
+        );
         println!("   Nodes searched: {}", nodes);
         if !pv.is_empty() {
-            println!("   Principal variation: {}", pv[..pv.len().min(5)].join(" "));
+            println!(
+                "   Principal variation: {}",
+                pv[..pv.len().min(5)].join(" ")
+            );
         }
     }
     if let Some(mv) = best_move {

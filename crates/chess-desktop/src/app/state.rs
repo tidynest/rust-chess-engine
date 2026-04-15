@@ -3,10 +3,10 @@
 //! Contains the ChessApp struct and all game state.
 
 use chess::{ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare};
-use chess_core::{ChessEngine, Color, GameHistory};
+use chess_core::{ChessEngine, GameHistory};
 use chess_engine::{EngineCommand, EngineResponse, StockfishEngine};
 use eframe::egui::{Color32, Pos2};
-use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
+use std::sync::mpsc::{Receiver, Sender, channel};
 
 use crate::ui::theme::{Theme, ThemeVariant};
 
@@ -97,14 +97,24 @@ impl ChessApp {
 
                 while let Ok(cmd) = engine_rx.recv() {
                     match cmd {
-                        EngineCommand::GetBestMove { fen, depth, movetime, skill_level } => {
+                        EngineCommand::GetBestMove {
+                            fen,
+                            depth,
+                            movetime,
+                            skill_level,
+                        } => {
                             if skill_level < 20 {
-                                let _ = stockfish.send_command(&format!(
-                                    "setoption name Skill Level value {}", skill_level
-                                )).await;
+                                let _ = stockfish
+                                    .send_command(&format!(
+                                        "setoption name Skill Level value {}",
+                                        skill_level
+                                    ))
+                                    .await;
                                 let _ = stockfish.wait_ready().await;
                             } else {
-                                let _ = stockfish.send_command("setoption name Skill Level value 20").await;
+                                let _ = stockfish
+                                    .send_command("setoption name Skill Level value 20")
+                                    .await;
                                 let _ = stockfish.wait_ready().await;
                             }
 

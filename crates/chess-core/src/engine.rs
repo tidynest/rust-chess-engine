@@ -1,8 +1,10 @@
 //! Chess engine implementation using the chess crate for move generation
 
-use chess::{Board, BoardStatus, ChessMove, Color as ChessColor, File, Rank, Square as ChessSquare};
-use crate::{Color, GameError, Move, Piece, PieceType, Square};
 use crate::traits::GameState;
+use crate::{Color, GameError, Move, Piece, PieceType, Square};
+use chess::{
+    Board, BoardStatus, ChessMove, Color as ChessColor, File, Rank, Square as ChessSquare,
+};
 use std::str::FromStr;
 
 /// Wrapper around the chess crate's Board
@@ -13,7 +15,7 @@ pub struct ChessEngine {
 impl ChessEngine {
     pub fn new() -> Self {
         ChessEngine {
-            board: Board::default(),  // Standard starting position
+            board: Board::default(), // Standard starting position
         }
     }
 
@@ -41,7 +43,8 @@ impl ChessEngine {
         Square::new(
             square.get_file().to_index() as u8,
             square.get_rank().to_index() as u8,
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     /// Convert our Move to chess crate ChessMove
@@ -78,7 +81,8 @@ impl ChessEngine {
 impl GameState for ChessEngine {
     fn make_move(&mut self, chess_move: Move) -> Result<(), GameError> {
         // Convert to chess crate move and validate
-        let legal_move = self.to_chess_move(chess_move)
+        let legal_move = self
+            .to_chess_move(chess_move)
             .ok_or_else(|| GameError::InvalidMove("Illegal move".to_string()))?;
 
         // Make the move
@@ -88,13 +92,13 @@ impl GameState for ChessEngine {
 
     fn legal_moves(&self) -> Vec<Move> {
         let moves = chess::MoveGen::new_legal(&self.board);
-        moves.map(|m| {
-            Move {
+        moves
+            .map(|m| Move {
                 from: Self::from_chess_square(m.get_source()),
                 to: Self::from_chess_square(m.get_dest()),
                 promotion: m.get_promotion().map(Self::convert_piece_type),
-            }
-        }).collect()
+            })
+            .collect()
     }
 
     fn is_checkmate(&self) -> bool {
@@ -116,11 +120,9 @@ impl GameState for ChessEngine {
     fn piece_at(&self, square: Square) -> Option<Piece> {
         let chess_square = Self::to_chess_square(square);
         self.board.piece_on(chess_square).and_then(|piece_type| {
-            self.board.color_on(chess_square).map(|color| {
-                Piece {
-                    color: Self::convert_color(color),
-                    piece_type: Self::convert_piece_type(piece_type),
-                }
+            self.board.color_on(chess_square).map(|color| Piece {
+                color: Self::convert_color(color),
+                piece_type: Self::convert_piece_type(piece_type),
             })
         })
     }

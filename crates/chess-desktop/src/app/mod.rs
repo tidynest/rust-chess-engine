@@ -6,9 +6,7 @@ pub mod engine_comm;
 pub mod state;
 
 pub use engine_comm::EngineMode;
-pub use state::{ChessApp, CapturedPiecesStyle};
-
-use chess_core::GameState;
+pub use state::{CapturedPiecesStyle, ChessApp};
 
 impl eframe::App for ChessApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {

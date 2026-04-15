@@ -2,12 +2,12 @@
 //!
 //! Contains game status, engine controls, and move history.
 
-use eframe::egui::{self, Context, Color32};
 use chess::Color as ChessColor;
-use chess_core::{Color, GameHistory, notation};
+use chess_core::{GameHistory, notation};
+use eframe::egui::{self, Color32, Context};
 
-use crate::app::state::ChessApp;
 use crate::app::engine_comm::EngineMode;
+use crate::app::state::ChessApp;
 use crate::ui::components::game_status;
 
 /// Draw the right panel
@@ -91,8 +91,7 @@ fn draw_engine_settings(app: &mut ChessApp, ui: &mut egui::Ui) {
             EngineMode::Depth => {
                 ui.horizontal(|ui| {
                     ui.label("Depth:");
-                    ui.add(egui::Slider::new(&mut app.engine_depth, 5..=30)
-                        .suffix(" ply"));
+                    ui.add(egui::Slider::new(&mut app.engine_depth, 5..=30).suffix(" ply"));
                 });
                 ui.label(format!("Stronger = slower (current: {})", app.engine_depth));
             }
@@ -100,16 +99,18 @@ fn draw_engine_settings(app: &mut ChessApp, ui: &mut egui::Ui) {
                 let mut time_ms = app.engine_movetime.unwrap_or(1000);
                 ui.horizontal(|ui| {
                     ui.label("Time limit:");
-                    ui.add(egui::Slider::new(&mut time_ms, 100..=10000)
-                        .suffix(" ms")
-                        .logarithmic(true));
+                    ui.add(
+                        egui::Slider::new(&mut time_ms, 100..=10000)
+                            .suffix(" ms")
+                            .logarithmic(true),
+                    );
                 });
                 app.engine_movetime = Some(time_ms);
                 ui.label(format!("Per move: {:.1}s", time_ms as f32 / 1000.0));
             }
             EngineMode::FullStrength => {
                 ui.label("Maximum strength, no limits");
-            },
+            }
         }
 
         ui.separator();
@@ -185,10 +186,10 @@ fn draw_move_history(app: &mut ChessApp, ui: &mut egui::Ui, max_height: f32) {
     let full_move_count = app.game_history.total_moves();
 
     // Create scroll area with dynamic height
-    let scroll_output = egui::ScrollArea::vertical()
+    let _scroll_output = egui::ScrollArea::vertical()
         .max_height(max_height)
         .auto_shrink([false, false])
-        .stick_to_bottom(true)  // ✨ Smart auto-scroll: only follows if already at bottom
+        .stick_to_bottom(true) // ✨ Smart auto-scroll: only follows if already at bottom
         .show(ui, |ui| {
             if full_move_count == 0 {
                 ui.label("No moves yet");
@@ -199,8 +200,10 @@ fn draw_move_history(app: &mut ChessApp, ui: &mut egui::Ui, max_height: f32) {
                     if move_index % 2 == 0 {
                         ui.horizontal(|ui| {
                             // Move number
-                            ui.label(egui::RichText::new(format!("{}.", move_index / 2 + 1))
-                                .color(Color32::from_gray(160)));
+                            ui.label(
+                                egui::RichText::new(format!("{}.", move_index / 2 + 1))
+                                    .color(Color32::from_gray(160)),
+                            );
 
                             // White's move
                             if let Some(chess_move) = app.game_history.get_move(move_index) {
@@ -222,23 +225,23 @@ fn draw_move_history(app: &mut ChessApp, ui: &mut egui::Ui, max_height: f32) {
                             }
 
                             // Black's move
-                            if move_index + 1 < full_move_count {
-                                if let Some(chess_move) = app.game_history.get_move(move_index + 1) {
-                                    let is_current = move_index + 2 == current_move;
-                                    let is_future = move_index + 2 > current_move;
+                            if move_index + 1 < full_move_count
+                                && let Some(chess_move) = app.game_history.get_move(move_index + 1)
+                            {
+                                let is_current = move_index + 2 == current_move;
+                                let is_future = move_index + 2 > current_move;
 
-                                    let san = get_move_san(app, move_index + 1, chess_move);
+                                let san = get_move_san(app, move_index + 1, chess_move);
 
-                                    let mut text = egui::RichText::new(&san);
-                                    if is_current {
-                                        text = text.strong().color(Color32::from_rgb(100, 200, 255));
-                                    } else if is_future {
-                                        text = text.color(Color32::from_gray(120));
-                                    }
+                                let mut text = egui::RichText::new(&san);
+                                if is_current {
+                                    text = text.strong().color(Color32::from_rgb(100, 200, 255));
+                                } else if is_future {
+                                    text = text.color(Color32::from_gray(120));
+                                }
 
-                                    if ui.button(text).clicked() {
-                                        clicked_move = Some(move_index + 1);
-                                    }
+                                if ui.button(text).clicked() {
+                                    clicked_move = Some(move_index + 1);
                                 }
                             }
                         });

@@ -2,18 +2,17 @@
 //!
 //! Shows captured pieces in either Lichess or Chess.com style.
 
-use eframe::egui::{self, Ui, Color32};
-use std::collections::HashMap;
 use chess_core::{Color, GameState, PieceType};
+use eframe::egui::{Color32, Ui};
+use std::collections::HashMap;
 
-use crate::app::state::{ChessApp, CapturedPiecesStyle};
+use crate::app::state::{CapturedPiecesStyle, ChessApp};
 
 /// Draw material count and captured pieces
 pub fn draw_material_count(app: &ChessApp, ui: &mut Ui) {
     ui.label("Material:");
 
-    let (white_material, black_material, white_captured, black_captured) =
-        calculate_material(app);
+    let (white_material, black_material, white_captured, black_captured) = calculate_material(app);
 
     let material_diff = white_material - black_material;
 
@@ -28,7 +27,9 @@ pub fn draw_material_count(app: &ChessApp, ui: &mut Ui) {
 }
 
 /// Calculate material counts and captured pieces
-fn calculate_material(app: &ChessApp) -> (i32, i32, HashMap<PieceType, i32>, HashMap<PieceType, i32>) {
+fn calculate_material(
+    app: &ChessApp,
+) -> (i32, i32, HashMap<PieceType, i32>, HashMap<PieceType, i32>) {
     let mut white_material = 0;
     let mut black_material = 0;
     let mut white_pieces = create_starting_pieces();
@@ -36,26 +37,26 @@ fn calculate_material(app: &ChessApp) -> (i32, i32, HashMap<PieceType, i32>, Has
 
     for rank in 0..8 {
         for file in 0..8 {
-            if let Some(sq) = chess_core::Square::new(file, rank) {
-                if let Some(piece) = app.engine.piece_at(sq) {
-                    let value = piece_value(piece.piece_type);
+            if let Some(sq) = chess_core::Square::new(file, rank)
+                && let Some(piece) = app.engine.piece_at(sq)
+            {
+                let value = piece_value(piece.piece_type);
 
-                    if piece.color == Color::White {
-                        white_material += value;
-                    } else {
-                        black_material += value;
-                    }
+                if piece.color == Color::White {
+                    white_material += value;
+                } else {
+                    black_material += value;
+                }
 
-                    let pieces_map = if piece.color == Color::White {
-                        &mut white_pieces
-                    } else {
-                        &mut black_pieces
-                    };
-                    if let Some(count) = pieces_map.get_mut(&piece.piece_type) {
-                        if *count > 0 {
-                            *count -= 1;
-                        }
-                    }
+                let pieces_map = if piece.color == Color::White {
+                    &mut white_pieces
+                } else {
+                    &mut black_pieces
+                };
+                if let Some(count) = pieces_map.get_mut(&piece.piece_type)
+                    && *count > 0
+                {
+                    *count -= 1;
                 }
             }
         }
@@ -145,9 +146,15 @@ fn draw_chesscom_style(
 
     ui.separator();
     if material_diff > 0 {
-        ui.colored_label(Color32::from_rgb(200, 200, 200), format!("White +{}", material_diff));
+        ui.colored_label(
+            Color32::from_rgb(200, 200, 200),
+            format!("White +{}", material_diff),
+        );
     } else if material_diff < 0 {
-        ui.colored_label(Color32::from_rgb(100, 100, 100), format!("Black +{}", -material_diff));
+        ui.colored_label(
+            Color32::from_rgb(100, 100, 100),
+            format!("Black +{}", -material_diff),
+        );
     } else {
         ui.label("Equal material");
     }
@@ -166,12 +173,12 @@ fn format_captured_pieces(captured: &HashMap<PieceType, i32>, is_white: bool) ->
     ];
 
     for piece_type in piece_order.iter() {
-        if let Some(&count) = captured.get(piece_type) {
-            if count > 0 {
-                let piece_char = get_piece_unicode(*piece_type, is_white);
-                for _ in 0..count {
-                    pieces.push(piece_char);
-                }
+        if let Some(&count) = captured.get(piece_type)
+            && count > 0
+        {
+            let piece_char = get_piece_unicode(*piece_type, is_white);
+            for _ in 0..count {
+                pieces.push(piece_char);
             }
         }
     }

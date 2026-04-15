@@ -14,7 +14,7 @@ fn main() -> eframe::Result {
             .with_min_inner_size([800.0, 600.0])
             .with_icon(
                 eframe::icon_data::from_png_bytes(&include_bytes!("../assets/icon.png")[..])
-                    .unwrap_or_default()
+                    .unwrap_or_default(),
             ),
         centered: true,
         ..Default::default()

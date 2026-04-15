@@ -323,8 +323,16 @@ mod tests {
         history.make_move(e2e4);
         history.make_move(e7e5);
 
-        assert_eq!(history.get_move(0), Some(&e2e4), "First move should be e2e4");
-        assert_eq!(history.get_move(1), Some(&e7e5), "Second move should be e7e5");
+        assert_eq!(
+            history.get_move(0),
+            Some(&e2e4),
+            "First move should be e2e4"
+        );
+        assert_eq!(
+            history.get_move(1),
+            Some(&e7e5),
+            "Second move should be e7e5"
+        );
         assert_eq!(history.get_move(2), None, "Index 2 should be out of bounds");
     }
 
@@ -339,7 +347,11 @@ mod tests {
         history.undo();
 
         assert_eq!(history.move_count(), 1, "Should have 1 move");
-        assert_eq!(history.get_move(0), Some(&e2e4), "First move still accessible");
+        assert_eq!(
+            history.get_move(0),
+            Some(&e2e4),
+            "First move still accessible"
+        );
         assert_eq!(
             history.get_move(1),
             Some(&e7e5),
@@ -449,11 +461,7 @@ mod tests {
         let mut history = GameHistory::new();
         history.positions[0] = board;
 
-        let promotion = ChessMove::new(
-            Square::E7,
-            Square::E8,
-            Some(chess::Piece::Queen),
-        );
+        let promotion = ChessMove::new(Square::E7, Square::E8, Some(chess::Piece::Queen));
 
         history.make_move(promotion);
         assert_eq!(history.move_count(), 1);
@@ -523,7 +531,12 @@ mod tests {
 
         for i in 0..10 {
             assert!(history.redo(), "Redo {} should succeed", i);
-            assert_eq!(history.move_count(), i + 1, "Move count should be {}", i + 1);
+            assert_eq!(
+                history.move_count(),
+                i + 1,
+                "Move count should be {}",
+                i + 1
+            );
         }
 
         assert_eq!(history.move_count(), 10);
@@ -540,12 +553,20 @@ mod tests {
         assert_eq!(history.current_moves().len(), 3);
 
         history.undo();
-        assert_eq!(history.current_moves().len(), 2, "Should only show 2 moves after undo");
+        assert_eq!(
+            history.current_moves().len(),
+            2,
+            "Should only show 2 moves after undo"
+        );
 
         history.undo();
         assert_eq!(history.current_moves().len(), 1, "Should only show 1 move");
 
         history.redo();
-        assert_eq!(history.current_moves().len(), 2, "Should show 2 moves after redo");
+        assert_eq!(
+            history.current_moves().len(),
+            2,
+            "Should show 2 moves after redo"
+        );
     }
 }

@@ -6,7 +6,7 @@ use chess_core::{Color, GameState};
 use chess_engine::EngineCommand;
 use eframe::egui::{self, Context};
 
-use crate::app::state::{ChessApp, CapturedPiecesStyle};
+use crate::app::state::{CapturedPiecesStyle, ChessApp};
 
 /// Draw the top menu bar
 pub fn draw(app: &mut ChessApp, ctx: &Context) {
@@ -62,8 +62,16 @@ fn draw_view_menu(app: &mut ChessApp, ui: &mut egui::Ui) {
         ui.separator();
 
         ui.label("Captured Pieces Style:");
-        ui.radio_value(&mut app.captured_display_style, CapturedPiecesStyle::Lichess, "Lichess (advantage only)");
-        ui.radio_value(&mut app.captured_display_style, CapturedPiecesStyle::ChessCom, "Chess.com (all pieces)");
+        ui.radio_value(
+            &mut app.captured_display_style,
+            CapturedPiecesStyle::Lichess,
+            "Lichess (advantage only)",
+        );
+        ui.radio_value(
+            &mut app.captured_display_style,
+            CapturedPiecesStyle::ChessCom,
+            "Chess.com (all pieces)",
+        );
     });
 }
 

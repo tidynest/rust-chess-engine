@@ -21,9 +21,7 @@ fn show_legal_moves(engine: &ChessEngine) {
     let moves = engine.legal_moves();
     println!("\nLegal moves ({} total):", moves.len());
 
-    let mut move_strings: Vec<String> = moves.iter()
-        .map(|mv| notation::to_algebraic(mv))
-        .collect();
+    let mut move_strings: Vec<String> = moves.iter().map(notation::to_algebraic).collect();
     move_strings.sort();
 
     // Display in columns
@@ -92,18 +90,16 @@ fn main() -> Result<()> {
                 }
 
                 match notation::parse_algebraic(move_str) {
-                    Some(mv) => {
-                        match engine.make_move(mv) {
-                            Ok(_) => {
-                                move_history.push(move_str.to_string());
-                                println!("Move played: {}", move_str);
-                            }
-                            Err(e) => {
-                                println!("Invalid move: {}", e);
-                                println!("Type 'moves' to see legal moves");
-                            }
+                    Some(mv) => match engine.make_move(mv) {
+                        Ok(_) => {
+                            move_history.push(move_str.to_string());
+                            println!("Move played: {}", move_str);
                         }
-                    }
+                        Err(e) => {
+                            println!("Invalid move: {}", e);
+                            println!("Type 'moves' to see legal moves");
+                        }
+                    },
                     None => {
                         println!("Invalid move format. Use format like: e2e4");
                         println!("Type 'help' for more information");
