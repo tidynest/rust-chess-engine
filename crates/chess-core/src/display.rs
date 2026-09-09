@@ -3,6 +3,7 @@
 use crate::{Color, GameState, PieceType, Square};
 
 /// Display mode for the chess board
+#[derive(Clone, Copy)]
 pub enum DisplayMode {
     Unicode,
     Ascii,
@@ -35,7 +36,9 @@ fn display_board_grid(game: &dyn GameState, mode: DisplayMode) -> String {
         output.push_str(&format!("{} │", rank + 1));
 
         for file in 0..8 {
-            let square = Square::new(file, rank).unwrap();
+            let Some(square) = Square::new(file, rank) else {
+                continue;
+            };
             let piece_char = match game.piece_at(square) {
                 Some(piece) => {
                     let (white_pieces, black_pieces) = match mode {
@@ -101,7 +104,9 @@ fn display_board_compact(game: &dyn GameState) -> String {
         output.push_str(&format!("{} ", rank + 1));
 
         for file in 0..8 {
-            let square = Square::new(file, rank).unwrap();
+            let Some(square) = Square::new(file, rank) else {
+                continue;
+            };
             let piece_char = match game.piece_at(square) {
                 Some(piece) => {
                     let pieces = match piece.color {

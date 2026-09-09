@@ -175,16 +175,9 @@ impl ChessApp {
         if self
             .dragging_piece
             .is_none_or(|(drag_sq, _, _)| drag_sq != square)
+            && let Some(piece) = self.engine.piece_at(square.into())
         {
-            let our_square = chess_core::Square::new(
-                square.get_file().to_index() as u8,
-                square.get_rank().to_index() as u8,
-            )
-            .unwrap();
-
-            if let Some(piece) = self.engine.piece_at(our_square) {
-                draw_piece(painter, square_rect.center(), piece, square_size * 0.8);
-            }
+            draw_piece(painter, square_rect.center(), piece, square_size * 0.8);
         }
     }
 
@@ -225,26 +218,23 @@ impl ChessApp {
             return;
         }
 
+        let board_flip = self.board_flip;
+        let square_at = |pos| {
+            crate::utils::coords::get_square_from_pos(pos, board_rect, square_size, board_flip)
+        };
+
         // Handle click
         if response.clicked()
-            && let Some(square) = crate::utils::coords::get_square_from_pos(
-                response.interact_pointer_pos().unwrap(),
-                board_rect,
-                square_size,
-                self.board_flip,
-            )
+            && let Some(pos) = response.interact_pointer_pos()
+            && let Some(square) = square_at(pos)
         {
             self.handle_square_click(square);
         }
 
         // Handle drag start
         if response.drag_started()
-            && let Some(square) = crate::utils::coords::get_square_from_pos(
-                response.interact_pointer_pos().unwrap(),
-                board_rect,
-                square_size,
-                self.board_flip,
-            )
+            && let Some(pos) = response.interact_pointer_pos()
+            && let Some(square) = square_at(pos)
         {
             self.start_drag(square);
         }
@@ -254,15 +244,11 @@ impl ChessApp {
             self.drag_pos = response.interact_pointer_pos();
         }
 
-        // Handle drag end
+        // Handle drag end; a drop outside the board cancels the drag
         if response.drag_stopped() {
             if let Some((from_square, _, _)) = self.dragging_piece
-                && let Some(to_square) = crate::utils::coords::get_square_from_pos(
-                    response.interact_pointer_pos().unwrap_or(Pos2::ZERO),
-                    board_rect,
-                    square_size,
-                    self.board_flip,
-                )
+                && let Some(pos) = response.interact_pointer_pos()
+                && let Some(to_square) = square_at(pos)
             {
                 self.try_make_move(from_square, to_square);
             }
@@ -280,31 +266,17 @@ impl ChessApp {
             } else {
                 self.try_make_move(selected, square);
             }
-        } else {
-            let our_square = chess_core::Square::new(
-                square.get_file().to_index() as u8,
-                square.get_rank().to_index() as u8,
-            )
-            .unwrap();
-
-            if let Some(piece) = self.engine.piece_at(our_square)
-                && piece.color == self.engine.side_to_move()
-            {
-                self.selected_square = Some(square);
-                self.update_legal_moves();
-            }
+        } else if let Some(piece) = self.engine.piece_at(square.into())
+            && piece.color == self.engine.side_to_move()
+        {
+            self.selected_square = Some(square);
+            self.update_legal_moves();
         }
     }
 
     /// Start dragging a piece
     fn start_drag(&mut self, square: ChessSquare) {
-        let our_square = chess_core::Square::new(
-            square.get_file().to_index() as u8,
-            square.get_rank().to_index() as u8,
-        )
-        .unwrap();
-
-        if let Some(piece) = self.engine.piece_at(our_square)
+        if let Some(piece) = self.engine.piece_at(square.into())
             && piece.color == self.engine.side_to_move()
         {
             self.dragging_piece = Some((
@@ -352,13 +324,7 @@ impl ChessApp {
         }
 
         // If move failed, try to select the destination square
-        let our_square = chess_core::Square::new(
-            to.get_file().to_index() as u8,
-            to.get_rank().to_index() as u8,
-        )
-        .unwrap();
-
-        if let Some(piece) = self.engine.piece_at(our_square)
+        if let Some(piece) = self.engine.piece_at(to.into())
             && piece.color == self.engine.side_to_move()
         {
             self.selected_square = Some(to);
@@ -374,26 +340,20 @@ impl ChessApp {
     fn update_legal_moves(&mut self) {
         self.legal_moves_for_selected.clear();
         if let Some(square) = self.selected_square {
-            let all_moves = self.engine.legal_moves();
-            let our_square = chess_core::Square::new(
-                square.get_file().to_index() as u8,
-                square.get_rank().to_index() as u8,
-            )
-            .unwrap();
-
-            for mv in all_moves {
-                if mv.from == our_square {
-                    let chess_move = ChessMove::new(
-                        square,
-                        ChessSquare::make_square(
-                            Rank::from_index(mv.to.rank() as usize),
-                            File::from_index(mv.to.file() as usize),
-                        ),
-                        mv.promotion.map(convert_to_chess_piece),
-                    );
-                    self.legal_moves_for_selected.push(chess_move);
-                }
-            }
+            let our_square: chess_core::Square = square.into();
+            self.legal_moves_for_selected.extend(
+                self.engine
+                    .legal_moves()
+                    .into_iter()
+                    .filter(|mv| mv.from == our_square)
+                    .map(|mv| {
+                        ChessMove::new(
+                            square,
+                            mv.to.into(),
+                            mv.promotion.map(convert_to_chess_piece),
+                        )
+                    }),
+            );
         }
     }
 }

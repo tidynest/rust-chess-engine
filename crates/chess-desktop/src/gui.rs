@@ -4,7 +4,6 @@ use chess_desktop::ChessApp;
 use eframe::egui;
 
 fn main() -> eframe::Result {
-    #[cfg(not(target_arch = "wasm32"))]
     env_logger::init();
 
     let options = eframe::NativeOptions {

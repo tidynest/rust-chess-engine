@@ -2,37 +2,35 @@
 
 use crate::{Move, PieceType, Square};
 
-/// Parse algebraic notation (e.g., "e2e4", "e7e8q")
+/// Parse long algebraic notation (e.g., "e2e4", "e7e8q"). Files and promotion
+/// letters are accepted in either case.
 pub fn parse_algebraic(s: &str) -> Option<Move> {
-    let bytes = s.as_bytes();
-    if bytes.len() < 4 || bytes.len() > 5 {
-        return None;
-    }
+    let (from, to, promo) = match *s.as_bytes() {
+        [f1, r1, f2, r2] => ((f1, r1), (f2, r2), None),
+        [f1, r1, f2, r2, p] => ((f1, r1), (f2, r2), Some(p)),
+        _ => return None,
+    };
 
-    let from_file = (bytes[0] as char).to_digit(18)? as u8 - 10; // a=0, b=1, etc.
-    let from_rank = (bytes[1] as char).to_digit(10)? as u8 - 1; // 1=0, 2=1, etc.
+    // `Square::new` rejects anything past h8, so only the underflow needs guarding here.
+    let square = |(file, rank): (u8, u8)| {
+        Square::new(
+            file.to_ascii_lowercase().checked_sub(b'a')?,
+            rank.checked_sub(b'1')?,
+        )
+    };
 
-    let to_file = (bytes[2] as char).to_digit(18)? as u8 - 10;
-    let to_rank = (bytes[3] as char).to_digit(10)? as u8 - 1;
-
-    let from = Square::new(from_file, from_rank)?;
-    let to = Square::new(to_file, to_rank)?;
-
-    let promotion = if bytes.len() == 5 {
-        match bytes[4] {
-            b'q' | b'Q' => Some(PieceType::Queen),
-            b'r' | b'R' => Some(PieceType::Rook),
-            b'b' | b'B' => Some(PieceType::Bishop),
-            b'n' | b'N' => Some(PieceType::Knight),
-            _ => return None,
-        }
-    } else {
-        None
+    let promotion = match promo.map(|p| p.to_ascii_lowercase()) {
+        None => None,
+        Some(b'q') => Some(PieceType::Queen),
+        Some(b'r') => Some(PieceType::Rook),
+        Some(b'b') => Some(PieceType::Bishop),
+        Some(b'n') => Some(PieceType::Knight),
+        Some(_) => return None,
     };
 
     Some(Move {
-        from,
-        to,
+        from: square(from)?,
+        to: square(to)?,
         promotion,
     })
 }
@@ -108,7 +106,7 @@ pub fn format_move_san(mv: &chess::ChessMove, board: &chess::Board) -> String {
                 _ => unreachable!(),
             });
 
-            let disambiguate = needs_disambiguation(board, mv);
+            let disambiguate = needs_disambiguation(board, *mv);
             match disambiguate {
                 Disambiguation::File => {
                     notation.push((b'a' + from.get_file() as u8) as char);
@@ -151,7 +149,7 @@ enum Disambiguation {
     Both,
 }
 
-fn needs_disambiguation(board: &chess::Board, mv: &chess::ChessMove) -> Disambiguation {
+fn needs_disambiguation(board: &chess::Board, mv: chess::ChessMove) -> Disambiguation {
     use chess::{MoveGen, Piece};
 
     let piece = match board.piece_on(mv.get_source()) {
@@ -245,5 +243,28 @@ mod tests {
         assert_eq!(mv.from.to_algebraic(), "e2");
         assert_eq!(mv.to.to_algebraic(), "e4");
         assert_eq!(mv.promotion, None);
+    }
+
+    #[test]
+    fn test_parse_algebraic_promotion_and_case() {
+        let mv = parse_algebraic("E7E8N").unwrap();
+        assert_eq!(mv.from.to_algebraic(), "e7");
+        assert_eq!(mv.to.to_algebraic(), "e8");
+        assert_eq!(mv.promotion, Some(PieceType::Knight));
+    }
+
+    #[test]
+    fn test_parse_algebraic_rejects_garbage() {
+        for bad in [
+            "1234",
+            "e2e9",
+            "i2e4",
+            "e7e8k",
+            "e2e",
+            "e2e4e5",
+            "\u{e9}2e4",
+        ] {
+            assert_eq!(parse_algebraic(bad), None, "{bad:?} should not parse");
+        }
     }
 }

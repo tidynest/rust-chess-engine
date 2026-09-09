@@ -2,9 +2,7 @@
 
 use crate::traits::GameState;
 use crate::{Color, GameError, Move, Piece, PieceType, Square};
-use chess::{
-    Board, BoardStatus, ChessMove, Color as ChessColor, File, Rank, Square as ChessSquare,
-};
+use chess::{Board, BoardStatus, ChessMove, Color as ChessColor, Square as ChessSquare};
 use std::str::FromStr;
 
 /// Wrapper around the chess crate's Board
@@ -25,32 +23,15 @@ impl ChessEngine {
             .map_err(|_| GameError::InvalidPosition)
     }
 
-    /// Get the underlying board (for GUI access
+    /// Get the underlying board (for GUI access)
     pub fn board(&self) -> &Board {
         &self.board
     }
 
-    /// Convert our Square to chess crate Square
-    fn to_chess_square(square: Square) -> ChessSquare {
-        ChessSquare::make_square(
-            Rank::from_index(square.rank() as usize),
-            File::from_index(square.file() as usize),
-        )
-    }
-
-    /// Convert chess crate Square to out Square
-    fn from_chess_square(square: ChessSquare) -> Square {
-        Square::new(
-            square.get_file().to_index() as u8,
-            square.get_rank().to_index() as u8,
-        )
-        .unwrap()
-    }
-
     /// Convert our Move to chess crate ChessMove
     fn to_chess_move(&self, mv: Move) -> Option<ChessMove> {
-        let from = Self::to_chess_square(mv.from);
-        let to = Self::to_chess_square(mv.to);
+        let from: ChessSquare = mv.from.into();
+        let to: ChessSquare = mv.to.into();
 
         // Find the matching legal move
         let mut legal_moves = chess::MoveGen::new_legal(&self.board);
@@ -94,8 +75,8 @@ impl GameState for ChessEngine {
         let moves = chess::MoveGen::new_legal(&self.board);
         moves
             .map(|m| Move {
-                from: Self::from_chess_square(m.get_source()),
-                to: Self::from_chess_square(m.get_dest()),
+                from: m.get_source().into(),
+                to: m.get_dest().into(),
                 promotion: m.get_promotion().map(Self::convert_piece_type),
             })
             .collect()
@@ -118,7 +99,7 @@ impl GameState for ChessEngine {
     }
 
     fn piece_at(&self, square: Square) -> Option<Piece> {
-        let chess_square = Self::to_chess_square(square);
+        let chess_square: ChessSquare = square.into();
         self.board.piece_on(chess_square).and_then(|piece_type| {
             self.board.color_on(chess_square).map(|color| Piece {
                 color: Self::convert_color(color),
