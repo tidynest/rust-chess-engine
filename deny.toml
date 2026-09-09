@@ -1,0 +1,27 @@
+# cargo-deny configuration. Run with `cargo deny check`.
+
+[advisories]
+ignore = [
+    { id = "RUSTSEC-2019-0036", reason = "failure 0.1.8 via chess 3.2.0, unmaintained since 2021; only fix is replacing chess" },
+    { id = "RUSTSEC-2020-0036", reason = "failure is unmaintained; same root cause as RUSTSEC-2019-0036" },
+    { id = "RUSTSEC-2026-0097", reason = "rand 0.7.3 is a build-dependency of chess; no patched 0.7 exists" },
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser 0.25.1 is the latest release and ab_glyph, via egui, requires it" },
+    { id = "RUSTSEC-2024-0436", reason = "paste comes in only through metal, the macOS wgpu backend; drop after egui >= 0.36" },
+]
+
+[licenses]
+allow = [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "ISC",
+    "MIT",
+    "OFL-1.1",
+    "Ubuntu-font-1.0",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
