@@ -3,7 +3,7 @@
 
 use chess_engine::{EngineResponse, StockfishEngine};
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔍 Testing Stockfish integration...\n");
 

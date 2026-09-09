@@ -37,13 +37,7 @@ pub fn draw(app: &ChessApp, ctx: &Context) {
 
                 ui.label(format!("📍 {}", square));
 
-                let our_square = chess_core::Square::new(
-                    square.get_file().to_index() as u8,
-                    square.get_rank().to_index() as u8,
-                )
-                .unwrap();
-
-                if let Some(piece) = app.engine.piece_at(our_square) {
+                if let Some(piece) = app.engine.piece_at(square.into()) {
                     ui.add_space(8.0);
                     ui.label(format!("♟️  {:?} {:?}", piece.color, piece.piece_type));
                     ui.label(format!(

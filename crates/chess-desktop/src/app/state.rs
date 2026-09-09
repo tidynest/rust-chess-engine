@@ -80,7 +80,16 @@ impl ChessApp {
 
         // Spawn Stockfish engine thread
         std::thread::spawn(move || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = match tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+            {
+                Ok(rt) => rt,
+                Err(e) => {
+                    eprintln!("Failed to start engine runtime: {e}");
+                    return;
+                }
+            };
             rt.block_on(async {
                 let mut stockfish = match StockfishEngine::new("stockfish").await {
                     Ok(engine) => engine,

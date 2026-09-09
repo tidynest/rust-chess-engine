@@ -130,7 +130,7 @@ mod tests {
     #[test]
     fn test_undo_single_move() {
         let mut history = GameHistory::new();
-        let initial_board = history.current_board().clone();
+        let initial_board = *history.current_board();
         let e2e4 = create_move(Square::E2, Square::E4);
 
         history.make_move(e2e4);
@@ -153,7 +153,7 @@ mod tests {
         let e2e4 = create_move(Square::E2, Square::E4);
 
         history.make_move(e2e4);
-        let board_after_move = history.current_board().clone();
+        let board_after_move = *history.current_board();
         history.undo();
         let result = history.redo();
 
@@ -205,7 +205,7 @@ mod tests {
     #[test]
     fn test_multiple_undos() {
         let mut history = GameHistory::new();
-        let initial_board = history.current_board().clone();
+        let initial_board = *history.current_board();
 
         history.make_move(create_move(Square::E2, Square::E4));
         history.make_move(create_move(Square::E7, Square::E5));
@@ -237,7 +237,7 @@ mod tests {
         history.make_move(create_move(Square::E2, Square::E4));
         history.make_move(create_move(Square::E7, Square::E5));
         history.make_move(create_move(Square::G1, Square::F3));
-        let final_board = history.current_board().clone();
+        let final_board = *history.current_board();
 
         history.undo();
         history.undo();
@@ -285,7 +285,7 @@ mod tests {
         let mut history = GameHistory::new();
 
         history.make_move(create_move(Square::E2, Square::E4));
-        let board_after_e4 = history.current_board().clone();
+        let board_after_e4 = *history.current_board();
         history.make_move(create_move(Square::E7, Square::E5));
         history.make_move(create_move(Square::G1, Square::F3));
 
@@ -371,7 +371,7 @@ mod tests {
         let mut history = GameHistory::new();
 
         history.make_move(create_move(Square::E2, Square::E4));
-        let board_after_e4 = history.current_board().clone();
+        let board_after_e4 = *history.current_board();
 
         for _ in 0..5 {
             history.undo();
@@ -389,11 +389,11 @@ mod tests {
     fn test_move_count_consistency() {
         let mut history = GameHistory::new();
 
-        let moves = vec![
+        let moves = [
             (Square::E2, Square::E4),
             (Square::E7, Square::E5),
             (Square::G1, Square::F3),
-            (Square::B8, Square::C7),
+            (Square::B8, Square::C6),
             (Square::F1, Square::C4),
         ];
 

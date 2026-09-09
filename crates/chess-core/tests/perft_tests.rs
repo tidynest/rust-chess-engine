@@ -167,7 +167,7 @@ fn debug_perft_divide_initial_position() {
     let results = perft_divide(&board, 2);
 
     println!("\nPerft divide for initial position at depth 2:");
-    println!("{:<10} {}", "Move", "Nodes");
+    println!("{:<10} Nodes", "Move");
     println!("{}", "-".repeat(20));
 
     let mut total = 0;

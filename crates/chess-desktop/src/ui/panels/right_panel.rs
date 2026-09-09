@@ -210,7 +210,7 @@ fn draw_move_history(app: &mut ChessApp, ui: &mut egui::Ui, max_height: f32) {
                                 let is_current = move_index + 1 == current_move;
                                 let is_future = move_index + 1 > current_move;
 
-                                let san = get_move_san(app, move_index, chess_move);
+                                let san = get_move_san(app, move_index, *chess_move);
 
                                 let mut text = egui::RichText::new(&san);
                                 if is_current {
@@ -231,7 +231,7 @@ fn draw_move_history(app: &mut ChessApp, ui: &mut egui::Ui, max_height: f32) {
                                 let is_current = move_index + 2 == current_move;
                                 let is_future = move_index + 2 > current_move;
 
-                                let san = get_move_san(app, move_index + 1, chess_move);
+                                let san = get_move_san(app, move_index + 1, *chess_move);
 
                                 let mut text = egui::RichText::new(&san);
                                 if is_current {
@@ -257,18 +257,17 @@ fn draw_move_history(app: &mut ChessApp, ui: &mut egui::Ui, max_height: f32) {
 }
 
 /// Get SAN notation for a move at given index
-fn get_move_san(app: &ChessApp, move_index: usize, chess_move: &chess::ChessMove) -> String {
-    if move_index < app.move_history.len() {
-        app.move_history[move_index].clone()
-    } else {
-        let mut temp_history = GameHistory::new();
-        for j in 0..move_index {
-            if let Some(prev_move) = app.game_history.get_move(j) {
-                temp_history.make_move(*prev_move);
-            }
-        }
-        notation::format_move_san(chess_move, temp_history.current_board())
+fn get_move_san(app: &ChessApp, move_index: usize, chess_move: chess::ChessMove) -> String {
+    if let Some(san) = app.move_history.get(move_index) {
+        return san.clone();
     }
+    let mut temp_history = GameHistory::new();
+    for j in 0..move_index {
+        if let Some(prev_move) = app.game_history.get_move(j) {
+            temp_history.make_move(*prev_move);
+        }
+    }
+    notation::format_move_san(&chess_move, temp_history.current_board())
 }
 
 /// Draw controls legend

@@ -1,16 +1,14 @@
 [package]
 name = "chess-engine"
-version = "0.1.0"
+version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
-chess = { workspace = true }
-chess-core = { path = "../chess-core" }
 tokio = { workspace = true }
-stockfish = "0.2.11"
-vampirc-uci = { workspace = true }
 
-[[example]]
-name = "test_stockfish"
-path = "examples/test_stockfish.rs"
+[lints]
+workspace = true

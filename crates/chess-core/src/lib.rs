@@ -1,10 +1,9 @@
-//! Pure chess domain logic with zero external dependencies
+//! Chess domain types, move validation and history, built on the `chess` crate.
 
 use thiserror::Error;
 
 /// Represents a piece colour
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum Color {
     White,
     Black,
@@ -21,7 +20,6 @@ impl Color {
 
 /// Chess piece types
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum PieceType {
     Pawn,
     Knight,
@@ -33,7 +31,6 @@ pub enum PieceType {
 
 /// A chess piece with colour and type
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Piece {
     pub color: Color,
     pub piece_type: PieceType,
@@ -41,7 +38,6 @@ pub struct Piece {
 
 /// Board square representation (0-63 for a1-h8)
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Square(u8);
 
 impl Square {
@@ -78,9 +74,24 @@ impl Square {
     }
 }
 
+// Both types index squares as rank * 8 + file with a1 = 0, so the conversion is a plain copy.
+impl From<chess::Square> for Square {
+    fn from(square: chess::Square) -> Self {
+        Square(square.to_int())
+    }
+}
+
+impl From<Square> for chess::Square {
+    fn from(square: Square) -> Self {
+        chess::Square::make_square(
+            chess::Rank::from_index(square.rank() as usize),
+            chess::File::from_index(square.file() as usize),
+        )
+    }
+}
+
 /// Represents a chess move
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Move {
     pub from: Square,
     pub to: Square,
@@ -100,16 +111,6 @@ pub enum GameError {
     InvalidPosition,
 }
 
-/// Storage errors
-#[derive(Error, Debug)]
-pub enum StorageError {
-    #[error("Game not found: {0}")]
-    NotFound(String),
-
-    #[error("Storage error: {0}")]
-    StorageError(String),
-}
-
 pub mod display;
 pub mod engine;
 pub mod game;
@@ -118,4 +119,4 @@ pub mod traits;
 
 pub use engine::ChessEngine;
 pub use game::GameHistory;
-pub use traits::{ChessAnalyser, GameRenderer, GameState, GameStorage};
+pub use traits::GameState;
