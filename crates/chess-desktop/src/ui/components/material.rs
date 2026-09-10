@@ -3,10 +3,11 @@
 //! Shows captured pieces in either Lichess or Chess.com style.
 
 use chess::{Board, ChessMove, Color as ChessColor, Piece};
-use eframe::egui::{Color32, Ui};
+use eframe::egui::Ui;
 use std::collections::HashMap;
 
 use crate::app::state::{CapturedPiecesStyle, ChessApp};
+use crate::ui::theme::Theme;
 
 /// How many of each piece a side has taken.
 type Captured = HashMap<Piece, i32>;
@@ -24,7 +25,13 @@ pub fn draw_material_count(app: &ChessApp, ui: &mut Ui) {
             draw_lichess_style(ui, material_diff, &white_captured, &black_captured);
         }
         CapturedPiecesStyle::ChessCom => {
-            draw_chesscom_style(ui, material_diff, &white_captured, &black_captured);
+            draw_chesscom_style(
+                ui,
+                &app.theme,
+                material_diff,
+                &white_captured,
+                &black_captured,
+            );
         }
     }
 }
@@ -116,6 +123,7 @@ fn draw_lichess_style(
 /// Draw captured pieces in Chess.com style (show all pieces)
 fn draw_chesscom_style(
     ui: &mut Ui,
+    theme: &Theme,
     material_diff: i32,
     white_captured: &Captured,
     black_captured: &Captured,
@@ -144,15 +152,9 @@ fn draw_chesscom_style(
 
     ui.separator();
     if material_diff > 0 {
-        ui.colored_label(
-            Color32::from_rgb(200, 200, 200),
-            format!("White +{}", material_diff),
-        );
+        ui.colored_label(theme.text_primary, format!("White +{}", material_diff));
     } else if material_diff < 0 {
-        ui.colored_label(
-            Color32::from_rgb(100, 100, 100),
-            format!("Black +{}", -material_diff),
-        );
+        ui.colored_label(theme.text_secondary, format!("Black +{}", -material_diff));
     } else {
         ui.label("Equal material");
     }

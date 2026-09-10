@@ -70,11 +70,12 @@ impl ChessApp {
         square_size: f32,
         painter: &egui::Painter,
     ) {
+        let theme = &self.theme;
         let is_light = (rank + file).is_multiple_of(2);
         let square_color = if is_light {
-            self.light_square_color
+            theme.board_light
         } else {
-            self.dark_square_color
+            theme.board_dark
         };
         painter.rect_filled(square_rect, CornerRadius::ZERO, square_color);
 
@@ -82,12 +83,12 @@ impl ChessApp {
         if let Some((from, to)) = self.last_move
             && (square == from || square == to)
         {
-            painter.rect_filled(square_rect, CornerRadius::ZERO, self.last_move_color);
+            painter.rect_filled(square_rect, CornerRadius::ZERO, theme.last_move);
         }
 
         // Highlight selected square
         if Some(square) == self.selected_square {
-            painter.rect_filled(square_rect, CornerRadius::ZERO, self.selected_square_color);
+            painter.rect_filled(square_rect, CornerRadius::ZERO, theme.selected);
         }
 
         // Highlight legal moves
@@ -98,7 +99,7 @@ impl ChessApp {
         {
             let center = square_rect.center();
             let radius = square_size * 0.15;
-            painter.circle_filled(center, radius, self.legal_move_color);
+            painter.circle_filled(center, radius, theme.legal_move);
         }
     }
 
@@ -112,7 +113,14 @@ impl ChessApp {
         square_rect: Rect,
         painter: &egui::Painter,
     ) {
+        let theme = &self.theme;
         let is_light = (rank + file).is_multiple_of(2);
+        let label_color = if is_light {
+            theme.board_dark
+        } else {
+            theme.board_light
+        };
+        let font = egui::FontId::proportional(theme.font_size_xs);
 
         if file == 0 {
             let rank_char = ((display_rank + 1) as u8 + b'0') as char;
@@ -120,12 +128,8 @@ impl ChessApp {
                 square_rect.left_top() + Vec2::new(2.0, 2.0),
                 egui::Align2::LEFT_TOP,
                 rank_char,
-                egui::FontId::proportional(12.0),
-                if is_light {
-                    self.dark_square_color
-                } else {
-                    self.light_square_color
-                },
+                font.clone(),
+                label_color,
             );
         }
 
@@ -135,12 +139,8 @@ impl ChessApp {
                 square_rect.right_bottom() - Vec2::new(2.0, 2.0),
                 egui::Align2::RIGHT_BOTTOM,
                 file_char,
-                egui::FontId::proportional(12.0),
-                if is_light {
-                    self.dark_square_color
-                } else {
-                    self.light_square_color
-                },
+                font,
+                label_color,
             );
         }
     }

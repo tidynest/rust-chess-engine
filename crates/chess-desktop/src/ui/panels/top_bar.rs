@@ -8,13 +8,14 @@ use eframe::egui::{self, Context};
 
 use crate::app::engine_link::EngineCommand;
 use crate::app::state::{CapturedPiecesStyle, ChessApp};
+use crate::ui::theme::ThemeVariant;
 
 /// Draw the top menu bar
 pub fn draw(app: &mut ChessApp, ctx: &Context) {
     egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
         ui.horizontal(|ui| {
             draw_game_menu(app, ui, ctx);
-            draw_view_menu(app, ui);
+            draw_view_menu(app, ui, ctx);
             draw_turn_indicator(app, ui);
         });
     });
@@ -104,16 +105,18 @@ pub fn draw_setup_window(app: &mut ChessApp, ctx: &Context) {
 }
 
 /// Draw the View menu
-fn draw_view_menu(app: &mut ChessApp, ui: &mut egui::Ui) {
+fn draw_view_menu(app: &mut ChessApp, ui: &mut egui::Ui, ctx: &Context) {
     ui.menu_button("View", |ui| {
-        ui.label("Board Colors");
-        ui.horizontal(|ui| {
-            ui.label("Light:");
-            ui.color_edit_button_srgba(&mut app.light_square_color);
-        });
-        ui.horizontal(|ui| {
-            ui.label("Dark:");
-            ui.color_edit_button_srgba(&mut app.dark_square_color);
+        ui.menu_button("Theme", |ui| {
+            for variant in ThemeVariant::all() {
+                if ui
+                    .selectable_label(app.theme_variant == variant, variant.name())
+                    .clicked()
+                {
+                    app.set_theme(variant);
+                    app.theme.apply(ctx);
+                }
+            }
         });
 
         ui.separator();
@@ -139,5 +142,9 @@ fn draw_turn_indicator(app: &ChessApp, ui: &mut egui::Ui) {
     } else {
         "⚫ Black to move"
     };
-    ui.label(egui::RichText::new(turn_text).size(14.0).strong());
+    ui.label(
+        egui::RichText::new(turn_text)
+            .size(app.theme.font_size_sm)
+            .strong(),
+    );
 }

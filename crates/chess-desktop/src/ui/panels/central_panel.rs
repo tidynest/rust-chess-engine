@@ -12,7 +12,7 @@ pub fn draw(app: &mut ChessApp, ctx: &Context) {
     egui::CentralPanel::default().show(ctx, |ui| {
         ui.vertical_centered(|ui| {
             ui.heading("Chess Board");
-            ui.add_space(16.0); // 8pt grid: 16px spacing
+            ui.add_space(app.theme.space_sm);
 
             let (max_board_size, eval_bar_width, spacing) = calculate_board_dimensions(app, ui);
 
@@ -20,7 +20,7 @@ pub fn draw(app: &mut ChessApp, ctx: &Context) {
             let board_left_edge =
                 draw_board_and_eval_bar(app, ui, max_board_size, eval_bar_width, spacing);
 
-            ui.add_space(16.0); // 8pt grid: 16px spacing
+            ui.add_space(app.theme.space_sm);
 
             // Draw buttons aligned to the board's left edge
             draw_control_buttons(app, ui, board_left_edge);
@@ -32,7 +32,7 @@ pub fn draw(app: &mut ChessApp, ctx: &Context) {
 fn calculate_board_dimensions(app: &ChessApp, ui: &egui::Ui) -> (f32, f32, f32) {
     let available = ui.available_size();
     let eval_bar_width = 40.0; // Fixed width for eval bar
-    let spacing = 8.0; // 8pt grid spacing
+    let spacing = app.theme.space_xs;
 
     // Calculate max board size - MORE GENEROUS than before!
     let max_board_size = if app.play_vs_computer && app.show_eval_bar {
@@ -126,9 +126,9 @@ fn draw_control_buttons(app: &mut ChessApp, ui: &mut egui::Ui, board_left_edge: 
             app.board_flip = !app.board_flip;
         }
 
-        ui.add_space(8.0); // 8pt grid spacing
+        ui.add_space(app.theme.space_xs);
         ui.separator();
-        ui.add_space(8.0);
+        ui.add_space(app.theme.space_xs);
 
         if ui
             .add_enabled(app.game_history.can_undo(), egui::Button::new("⬅ Undo"))

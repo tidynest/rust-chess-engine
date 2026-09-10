@@ -22,24 +22,6 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "Chess Engine",
         options,
-        Box::new(|cc| {
-            configure_fonts(&cc.egui_ctx);
-            configure_visuals(&cc.egui_ctx);
-
-            Ok(Box::new(ChessApp::new(cc)))
-        }),
+        Box::new(|cc| Ok(Box::new(ChessApp::new(cc)))),
     )
-}
-
-fn configure_fonts(ctx: &egui::Context) {
-    let fonts = egui::FontDefinitions::default();
-    ctx.set_fonts(fonts);
-}
-
-fn configure_visuals(ctx: &egui::Context) {
-    let mut visuals = egui::Visuals::dark();
-    visuals.override_text_color = Some(egui::Color32::from_gray(200));
-    visuals.panel_fill = egui::Color32::from_rgb(30, 30, 35);
-    visuals.window_fill = egui::Color32::from_rgb(25, 25, 30);
-    ctx.set_visuals(visuals);
 }

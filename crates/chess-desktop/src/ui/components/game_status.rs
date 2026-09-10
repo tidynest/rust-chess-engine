@@ -3,27 +3,25 @@
 //! Shows current game state (check, checkmate, stalemate, in progress).
 
 use chess::{BoardStatus, Color as ChessColor};
-use eframe::egui::{Color32, Ui};
+use eframe::egui::Ui;
 
 use crate::app::state::ChessApp;
 
 /// Draw game status
 pub fn draw(app: &ChessApp, ui: &mut Ui) {
     let board = app.board();
+    let theme = &app.theme;
     if board.status() == BoardStatus::Checkmate {
         let winner = if board.side_to_move() == ChessColor::White {
             "Black wins by checkmate!"
         } else {
             "White wins by checkmate!"
         };
-        ui.colored_label(Color32::from_rgb(255, 100, 100), winner);
+        ui.colored_label(theme.error, winner);
     } else if let Some(reason) = app.game_history.draw_reason() {
-        ui.colored_label(
-            Color32::from_rgb(255, 200, 100),
-            format!("Draw by {}", reason.describe()),
-        );
+        ui.colored_label(theme.warning, format!("Draw by {}", reason.describe()));
     } else if board.checkers().popcnt() > 0 {
-        ui.colored_label(Color32::from_rgb(255, 150, 50), "Check!");
+        ui.colored_label(theme.check, "Check!");
     } else {
         ui.label("Game in progress");
     }

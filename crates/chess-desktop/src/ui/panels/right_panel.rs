@@ -3,7 +3,7 @@
 //! Contains game status, engine controls, and move history.
 
 use chess::Color as ChessColor;
-use eframe::egui::{self, Color32, Context};
+use eframe::egui::{self, Context};
 
 use crate::app::engine_comm::EngineMode;
 use crate::app::engine_link::EngineStatus;
@@ -49,10 +49,7 @@ fn draw_engine_controls(app: &mut ChessApp, ui: &mut egui::Ui) {
             ui.label("Starting Stockfish...");
         }
         EngineStatus::Failed(message) => {
-            ui.colored_label(
-                Color32::from_rgb(255, 100, 100),
-                format!("Stockfish unavailable: {message}"),
-            );
+            ui.colored_label(app.theme.error, format!("Stockfish unavailable: {message}"));
         }
         EngineStatus::Ready => {
             ui.horizontal(|ui| {
@@ -200,20 +197,21 @@ fn draw_move_history(app: &mut ChessApp, ui: &mut egui::Ui, max_height: f32) {
                 return;
             }
 
+            let theme = &app.theme;
             for white_index in (0..total).step_by(2) {
                 ui.horizontal(|ui| {
                     ui.label(
                         egui::RichText::new(format!("{}.", white_index / 2 + 1))
-                            .color(Color32::from_gray(160)),
+                            .color(theme.text_secondary),
                     );
 
                     for index in white_index..(white_index + 2).min(total) {
                         let san = app.game_history.san(index).unwrap_or("?");
                         let mut text = egui::RichText::new(san);
                         if index + 1 == current {
-                            text = text.strong().color(Color32::from_rgb(100, 200, 255));
+                            text = text.strong().color(theme.primary);
                         } else if index + 1 > current {
-                            text = text.color(Color32::from_gray(120));
+                            text = text.color(theme.text_disabled);
                         }
 
                         if ui.button(text).clicked() {
@@ -234,7 +232,7 @@ fn draw_controls_legend(ui: &mut egui::Ui) {
     ui.heading("Controls");
     ui.label("• Click or drag a piece to move it");
     ui.label("• Dots mark the legal targets");
-    ui.label("• ← → step through the moves");
+    ui.label("• Left and Right arrows step through the moves");
     ui.label("• Home and End jump to either end");
     ui.label("• F flips the board");
 }
