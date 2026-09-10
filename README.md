@@ -39,7 +39,12 @@ The last one only checks that Stockfish answers over UCI.
 - Click or drag to move. Legal targets are marked, the last move is highlighted.
   A pawn reaching the last rank asks which piece it becomes.
 - Undo, redo, and click any move in the history to jump to it. Against the
-  computer, undo takes back your move and its reply together.
+  computer, undo takes back your move and its reply together. Arrow keys,
+  Home, End and F work too.
+- Checkmate, stalemate, threefold repetition, the fifty-move rule and
+  insufficient material end the game.
+- Copy the FEN or the PGN, or set up a position from a FEN, under Game.
+- Three themes under View > Theme.
 - Play Stockfish as White or Black, with a depth or time limit and skill level 0 to 20.
   The engine gets the full move list, so it sees repetitions and the 50-move rule.
 - Evaluation bar, depth, node count and principal variation while the engine thinks.
@@ -48,7 +53,8 @@ The last one only checks that Stockfish answers over UCI.
 
 ## Known limitations
 
-- No draw detection beyond stalemate. No clocks. No PGN.
+- No clocks. PGN goes to the clipboard only; nothing is saved to disk.
+- Settings and the chosen theme are not remembered between runs.
 - The engine is `stockfish` on `PATH` unless `CHESS_STOCKFISH` names another
   binary; 4 threads and 128 MB hash are fixed.
 - Pieces are drawn from the system font, so they look different on every machine.
