@@ -37,26 +37,36 @@ The last one only checks that Stockfish answers over UCI.
 ## Features
 
 - Click or drag to move. Legal targets are marked, the last move is highlighted.
-- Undo, redo, and click any move in the history to jump to it.
+  A pawn reaching the last rank asks which piece it becomes.
+- Undo, redo, and click any move in the history to jump to it. Against the
+  computer, undo takes back your move and its reply together.
 - Play Stockfish as White or Black, with a depth or time limit and skill level 0 to 20.
+  The engine gets the full move list, so it sees repetitions and the 50-move rule.
 - Evaluation bar, depth, node count and principal variation while the engine thinks.
 - Captured pieces in Lichess or Chess.com style.
-- CLI: long algebraic input (`e2e4`, `e7e8q`) and a legal-move list.
+- CLI: long algebraic input (`e2e4`, `e7e8q`), a legal-move list and undo.
 
 ## Known limitations
 
-- Promotion from the GUI always gives a queen. The CLI accepts `e7e8n`.
 - No draw detection beyond stalemate. No clocks. No PGN.
-- The engine receives the position as a FEN string only, so it cannot see repetitions.
 - Engine path is `stockfish` on `PATH`; 4 threads and 128 MB hash are fixed.
+- Pieces are drawn from the system font, so they look different on every machine.
 
-The full list and the plan to fix them is in `docs/AUDIT_2026-09-09.md`.
+The full list and the plan to fix them is in `docs/AUDIT_2026-09-09.md`;
+what has been done since is in `CHANGELOG.md`.
 
 ## Layout
 
-- `crates/chess-core`: domain types, `GameHistory` with undo and redo, SAN and long-algebraic notation.
+- `crates/chess-core`: domain types, `GameHistory` with undo, redo and SAN, long-algebraic notation.
 - `crates/chess-engine`: async UCI client for the Stockfish process.
 - `crates/chess-desktop`: the egui GUI (`chess-gui`) and the CLI (`chess-cli`).
+  `app/engine_link.rs` is the engine thread; the UI talks to it with tagged requests.
+
+The test that drives a real Stockfish is ignored by default:
+
+```bash
+cargo test -p chess-desktop -- --ignored
+```
 
 ## Licence
 
