@@ -117,8 +117,10 @@ async fn run(mut commands: UnboundedReceiver<EngineCommand>, emit: &dyn Fn(Engin
     let _ = engine.quit().await;
 }
 
+/// Start the engine named by `CHESS_STOCKFISH`, or `stockfish` from PATH.
 async fn start() -> anyhow::Result<StockfishEngine> {
-    let mut engine = StockfishEngine::new("stockfish").await?;
+    let path = std::env::var("CHESS_STOCKFISH").unwrap_or_else(|_| "stockfish".to_owned());
+    let mut engine = StockfishEngine::new(&path).await?;
     engine.initialise().await?;
     Ok(engine)
 }
