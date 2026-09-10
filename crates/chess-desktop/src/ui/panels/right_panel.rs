@@ -6,6 +6,7 @@ use chess::Color as ChessColor;
 use eframe::egui::{self, Color32, Context};
 
 use crate::app::engine_comm::EngineMode;
+use crate::app::engine_link::EngineStatus;
 use crate::app::state::ChessApp;
 use crate::ui::components::{eval_bar, game_status};
 
@@ -43,10 +44,23 @@ pub fn draw(app: &mut ChessApp, ctx: &Context) {
 /// Draw engine controls section
 fn draw_engine_controls(app: &mut ChessApp, ui: &mut egui::Ui) {
     ui.heading("Computer Opponent");
-    ui.horizontal(|ui| {
-        ui.label("Play vs Computer");
-        ui.checkbox(&mut app.play_vs_computer, "");
-    });
+    match &app.engine_status {
+        EngineStatus::Starting => {
+            ui.label("Starting Stockfish...");
+        }
+        EngineStatus::Failed(message) => {
+            ui.colored_label(
+                Color32::from_rgb(255, 100, 100),
+                format!("Stockfish unavailable: {message}"),
+            );
+        }
+        EngineStatus::Ready => {
+            ui.horizontal(|ui| {
+                ui.label("Play vs Computer");
+                ui.checkbox(&mut app.play_vs_computer, "");
+            });
+        }
+    }
 
     if app.play_vs_computer {
         draw_color_selection(app, ui);
@@ -67,8 +81,7 @@ fn draw_color_selection(app: &mut ChessApp, ui: &mut egui::Ui) {
         ui.radio_value(&mut app.computer_color, ChessColor::Black, "Black");
 
         if old_color != app.computer_color {
-            eprintln!("Computer color changed - resetting engine state");
-            app.engine_thinking = false;
+            app.abort_search();
             app.disable_auto_request = false;
         }
     });
@@ -106,9 +119,6 @@ fn draw_engine_settings(app: &mut ChessApp, ui: &mut egui::Ui) {
                 });
                 app.engine_movetime = Some(time_ms);
                 ui.label(format!("Per move: {:.1}s", time_ms as f32 / 1000.0));
-            }
-            EngineMode::FullStrength => {
-                ui.label("Maximum strength, no limits");
             }
         }
 

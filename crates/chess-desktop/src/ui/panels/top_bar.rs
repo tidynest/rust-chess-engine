@@ -3,9 +3,9 @@
 //! Contains game menu, view options, and turn indicator.
 
 use chess_core::{Color, GameState};
-use chess_engine::EngineCommand;
 use eframe::egui::{self, Context};
 
+use crate::app::engine_link::EngineCommand;
 use crate::app::state::{CapturedPiecesStyle, ChessApp};
 
 /// Draw the top menu bar
@@ -38,9 +38,7 @@ fn draw_game_menu(app: &mut ChessApp, ui: &mut egui::Ui, ctx: &Context) {
         ui.separator();
 
         if ui.button("❌ Quit").clicked() {
-            if let Some(tx) = &app.stockfish_tx {
-                let _ = tx.send(EngineCommand::Quit);
-            }
+            app.send(EngineCommand::Quit);
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
     });
