@@ -4,10 +4,12 @@
 
 pub mod engine_comm;
 pub mod engine_link;
+pub mod settings;
 pub mod state;
 
 pub use engine_comm::{EngineMode, SearchKind};
 pub use engine_link::{EngineCommand, EngineEvent, EngineStatus, SearchRequest};
+pub use settings::Settings;
 pub use state::{CapturedPiecesStyle, ChessApp};
 
 impl eframe::App for ChessApp {
@@ -34,8 +36,9 @@ impl eframe::App for ChessApp {
         self.auto_request();
     }
 
-    /// Closing the window from the title bar ends the engine too.
+    /// Closing the window ends the engine and keeps the settings.
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        Settings::from_app(self).save();
         self.send(EngineCommand::Quit);
     }
 }
