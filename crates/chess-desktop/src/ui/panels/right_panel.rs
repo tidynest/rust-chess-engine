@@ -140,12 +140,10 @@ fn draw_engine_settings(app: &mut ChessApp, ui: &mut egui::Ui) {
             ui.add(egui::Slider::new(&mut app.engine_skill_level, 0..=20));
         });
 
-        let elo = if app.engine_skill_level == 20 {
-            "3200+".to_string()
-        } else {
-            format!("~{}", 1350 + app.engine_skill_level * 75)
-        };
-        ui.label(format!("Elo: {} (0=beginner, 20=master)", elo));
+        ui.label(match app.engine_skill_level {
+            20 => "Full strength".to_owned(),
+            level => format!("Stockfish skill level {level} of 20"),
+        });
 
         ui.separator();
 
