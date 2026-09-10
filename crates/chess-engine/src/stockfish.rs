@@ -9,20 +9,6 @@ use tokio::process::{Child, Command};
 use tokio::sync::mpsc;
 use tokio::time::{Duration, timeout};
 
-/// Commands that can be sent to the engine
-#[derive(Debug, Clone)]
-pub enum EngineCommand {
-    /// Request best move for a position with configurable settings
-    GetBestMove {
-        fen: String,
-        depth: Option<u32>,
-        movetime: Option<u64>,
-        skill_level: i32,
-    },
-    /// Quit the engine
-    Quit,
-}
-
 /// Search score from the point of view of the side to move.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Score {

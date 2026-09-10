@@ -30,6 +30,11 @@ impl GameHistory {
         &self.positions[self.current_index]
     }
 
+    /// The position the game began from.
+    pub fn start_board(&self) -> &Board {
+        &self.positions[0]
+    }
+
     pub fn make_move(&mut self, mv: ChessMove) {
         // Truncate future history when making a new move
         self.positions.truncate(self.current_index + 1);

@@ -3,9 +3,11 @@
 //! This module contains the main ChessApp struct and its state management.
 
 pub mod engine_comm;
+pub mod engine_link;
 pub mod state;
 
 pub use engine_comm::EngineMode;
+pub use engine_link::{EngineCommand, EngineEvent, EngineStatus, SearchRequest};
 pub use state::{CapturedPiecesStyle, ChessApp};
 
 impl eframe::App for ChessApp {

@@ -2,4 +2,4 @@
 
 pub mod stockfish;
 
-pub use stockfish::{EngineCommand, EngineResponse, Score, StockfishEngine};
+pub use stockfish::{EngineResponse, Score, StockfishEngine};

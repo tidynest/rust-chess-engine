@@ -4,13 +4,15 @@
 
 use chess::{ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare};
 use chess_core::{ChessEngine, GameHistory};
-use chess_engine::{EngineCommand, EngineResponse, Score, StockfishEngine};
+use chess_engine::Score;
 use eframe::egui::{Color32, Pos2};
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::mpsc::{Receiver, channel};
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::ui::theme::{Theme, ThemeVariant};
 
 use super::engine_comm::EngineMode;
+use super::engine_link::{self, EngineCommand, EngineEvent, EngineStatus};
 
 /// Style for displaying captured pieces
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,8 +49,11 @@ pub struct ChessApp {
     // Engine state
     pub play_vs_computer: bool,
     pub computer_color: ChessColor,
-    pub stockfish_tx: Option<Sender<EngineCommand>>,
-    pub stockfish_rx: Option<Receiver<EngineResponse>>,
+    pub engine_tx: Option<UnboundedSender<EngineCommand>>,
+    pub engine_rx: Option<Receiver<EngineEvent>>,
+    pub engine_status: EngineStatus,
+    /// Id of the latest search; replies to any other id are stale.
+    pub search_id: u64,
     pub engine_thinking: bool,
     pub engine_evaluation: Option<Score>,
     pub engine_depth_current: u32,
@@ -59,9 +64,8 @@ pub struct ChessApp {
     pub engine_mode: EngineMode,
     pub engine_skill_level: i32,
 
-    // Internal state
-    pub last_move_count_check: usize,
-    pub loop_protection_counter: u8,
+    /// Set while the user browses the history, so the engine does not reply
+    /// to a position that is not the live one.
     pub disable_auto_request: bool,
 
     // UI theme
@@ -71,89 +75,14 @@ pub struct ChessApp {
 
 impl ChessApp {
     /// Create the app and start the Stockfish thread.
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
-        let (engine_tx, engine_rx) = channel();
-        let (ui_tx, ui_rx) = channel();
-
-        // Spawn Stockfish engine thread
-        std::thread::spawn(move || {
-            let rt = match tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-            {
-                Ok(rt) => rt,
-                Err(e) => {
-                    eprintln!("Failed to start engine runtime: {e}");
-                    return;
-                }
-            };
-            rt.block_on(async {
-                let mut stockfish = match StockfishEngine::new("stockfish").await {
-                    Ok(engine) => engine,
-                    Err(e) => {
-                        eprintln!("Failed to start Stockfish: {}", e);
-                        return;
-                    }
-                };
-
-                if let Err(e) = stockfish.initialise().await {
-                    eprintln!("Failed to initialise Stockfish: {}", e);
-                    return;
-                }
-
-                while let Ok(cmd) = engine_rx.recv() {
-                    match cmd {
-                        EngineCommand::GetBestMove {
-                            fen,
-                            depth,
-                            movetime,
-                            skill_level,
-                        } => {
-                            if skill_level < 20 {
-                                let _ = stockfish
-                                    .send_command(&format!(
-                                        "setoption name Skill Level value {}",
-                                        skill_level
-                                    ))
-                                    .await;
-                                let _ = stockfish.wait_ready().await;
-                            } else {
-                                let _ = stockfish
-                                    .send_command("setoption name Skill Level value 20")
-                                    .await;
-                                let _ = stockfish.wait_ready().await;
-                            }
-
-                            let position_cmd = format!("fen {}", fen);
-                            if stockfish.set_position(&position_cmd).await.is_err() {
-                                continue;
-                            }
-
-                            if stockfish.go(depth, movetime).await.is_err() {
-                                continue;
-                            }
-
-                            while let Some(resp) = stockfish.recv_response().await {
-                                if ui_tx.send(resp.clone()).is_err() {
-                                    break;
-                                }
-
-                                if matches!(resp, EngineResponse::BestMove { .. }) {
-                                    break;
-                                }
-                            }
-                        }
-                        EngineCommand::Quit => break,
-                    }
-                }
-
-                let _ = stockfish.quit().await;
-            });
-        });
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        let (engine_tx, commands) = tokio::sync::mpsc::unbounded_channel();
+        let (events, engine_rx) = channel();
+        engine_link::spawn(commands, events, cc.egui_ctx.clone());
 
         Self {
-            stockfish_tx: Some(engine_tx),
-            stockfish_rx: Some(ui_rx),
+            engine_tx: Some(engine_tx),
+            engine_rx: Some(engine_rx),
             ..Self::headless()
         }
     }
@@ -168,8 +97,6 @@ impl ChessApp {
             board_flip: false,
             last_move: None,
             pending_promotion: None,
-            last_move_count_check: 0,
-            loop_protection_counter: 0,
             disable_auto_request: false,
             light_square_color: Color32::from_rgb(238, 238, 210),
             dark_square_color: Color32::from_rgb(118, 150, 86),
@@ -180,8 +107,10 @@ impl ChessApp {
             drag_pos: None,
             play_vs_computer: false,
             computer_color: ChessColor::Black,
-            stockfish_tx: None,
-            stockfish_rx: None,
+            engine_tx: None,
+            engine_rx: None,
+            engine_status: EngineStatus::Starting,
+            search_id: 0,
             engine_thinking: false,
             engine_evaluation: None,
             engine_depth_current: 0,
@@ -200,15 +129,14 @@ impl ChessApp {
 
     /// Reset the game to initial position
     pub fn new_game(&mut self) {
-        self.engine = ChessEngine::new();
         self.game_history = GameHistory::new();
-        self.selected_square = None;
-        self.legal_moves_for_selected.clear();
-        self.pending_promotion = None;
+        self.sync_engine();
+        self.send(EngineCommand::NewGame);
         self.last_move = None;
-        self.engine_thinking = false;
         self.engine_nodes = 0;
-        self.disable_auto_request = false;
+        self.engine_depth_current = 0;
+        self.engine_pv.clear();
         self.engine_evaluation = None;
+        self.disable_auto_request = false;
     }
 }
