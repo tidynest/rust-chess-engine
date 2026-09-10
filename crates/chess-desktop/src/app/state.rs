@@ -65,7 +65,6 @@ pub struct ChessApp {
     pub last_move_count_check: usize,
     pub loop_protection_counter: u8,
     pub disable_auto_request: bool,
-    pub _show_engine_settings: bool,
 
     // UI theme
     pub theme: Theme,
@@ -73,7 +72,7 @@ pub struct ChessApp {
 }
 
 impl ChessApp {
-    /// Create a new ChessApp instance
+    /// Create the app and start the Stockfish thread.
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         let (engine_tx, engine_rx) = channel();
         let (ui_tx, ui_rx) = channel();
@@ -155,6 +154,15 @@ impl ChessApp {
         });
 
         Self {
+            stockfish_tx: Some(engine_tx),
+            stockfish_rx: Some(ui_rx),
+            ..Self::headless()
+        }
+    }
+
+    /// The app with no engine thread, for tests and for `new` to build on.
+    pub fn headless() -> Self {
+        Self {
             engine: ChessEngine::new(),
             game_history: GameHistory::new(),
             selected_square: None,
@@ -174,8 +182,8 @@ impl ChessApp {
             drag_pos: None,
             play_vs_computer: false,
             computer_color: ChessColor::Black,
-            stockfish_tx: Some(engine_tx),
-            stockfish_rx: Some(ui_rx),
+            stockfish_tx: None,
+            stockfish_rx: None,
             engine_thinking: false,
             engine_evaluation: None,
             engine_depth_current: 0,
@@ -188,7 +196,6 @@ impl ChessApp {
             engine_movetime: Some(1000),
             engine_mode: EngineMode::Depth,
             engine_skill_level: 20,
-            _show_engine_settings: false,
             show_eval_bar: true,
             captured_display_style: CapturedPiecesStyle::Lichess,
             theme: Theme::default(),
