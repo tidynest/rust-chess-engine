@@ -28,6 +28,7 @@ impl eframe::App for ChessApp {
         crate::ui::panels::left_panel::draw(self, ctx);
         crate::ui::panels::central_panel::draw(self, ctx);
         self.draw_promotion_picker(ctx);
+        crate::ui::panels::top_bar::draw_setup_window(self, ctx);
 
         // Auto-request engine move if needed
         self.auto_request_engine_move();

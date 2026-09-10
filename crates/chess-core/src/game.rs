@@ -1,7 +1,8 @@
 //! Game state management with undo/redo support
 
 use crate::notation::format_move_san;
-use chess::{BitBoard, Board, BoardStatus, ChessMove, Piece};
+use chess::{BitBoard, Board, BoardStatus, ChessMove, Color, Piece};
+use std::fmt::Write;
 use std::str::FromStr;
 
 /// Why a game ended without a checkmate.
@@ -123,6 +124,53 @@ impl GameHistory {
     /// True once the game cannot continue.
     pub fn is_over(&self) -> bool {
         self.current_board().status() == BoardStatus::Checkmate || self.draw_reason().is_some()
+    }
+
+    /// The result in PGN form: `1-0`, `0-1`, `1/2-1/2` or `*` while unfinished.
+    pub fn result(&self) -> &'static str {
+        let board = self.current_board();
+        if board.status() == BoardStatus::Checkmate {
+            match board.side_to_move() {
+                Color::White => "0-1",
+                Color::Black => "1-0",
+            }
+        } else if self.draw_reason().is_some() {
+            "1/2-1/2"
+        } else {
+            "*"
+        }
+    }
+
+    /// The game as PGN: the seven-tag roster, a FEN tag when the game did not
+    /// start from the initial position, then the moves up to the current one.
+    pub fn pgn(&self, white: &str, black: &str) -> String {
+        let start = self.start_board();
+        let result = self.result();
+        let mut pgn = format!(
+            "[Event \"?\"]\n[Site \"?\"]\n[Date \"????.??.??\"]\n[Round \"?\"]\n\
+             [White \"{white}\"]\n[Black \"{black}\"]\n[Result \"{result}\"]\n"
+        );
+        if *start != Board::default() {
+            // ponytail: the chess crate drops the move counters, so a FEN start
+            // is numbered from move 1.
+            let _ = writeln!(pgn, "[SetUp \"1\"]\n[FEN \"{start}\"]");
+        }
+        pgn.push('\n');
+
+        let black_starts = start.side_to_move() == Color::Black;
+        for (index, san) in self.sans[..self.current_index].iter().enumerate() {
+            let ply = index + usize::from(black_starts);
+            let number = ply / 2 + 1;
+            if ply.is_multiple_of(2) {
+                let _ = write!(pgn, "{number}. ");
+            } else if index == 0 {
+                let _ = write!(pgn, "{number}... ");
+            }
+            pgn.push_str(san);
+            pgn.push(' ');
+        }
+        pgn.push_str(result);
+        pgn
     }
 
     pub fn make_move(&mut self, mv: ChessMove) {
@@ -509,6 +557,38 @@ mod tests {
             let history = GameHistory::from_fen(fen).unwrap();
             assert_eq!(history.draw_reason(), expected, "{fen}");
         }
+    }
+
+    #[test]
+    fn test_pgn_movetext_and_result() {
+        let mut history = GameHistory::new();
+        for (from, to) in [
+            (Square::F2, Square::F3),
+            (Square::E7, Square::E5),
+            (Square::G2, Square::G4),
+            (Square::D8, Square::H4),
+        ] {
+            history.make_move(create_move(from, to));
+        }
+        let pgn = history.pgn("Human", "Stockfish");
+        assert!(pgn.starts_with("[Event \"?\"]\n"), "{pgn}");
+        assert!(pgn.contains("[White \"Human\"]\n[Black \"Stockfish\"]\n[Result \"0-1\"]\n\n"));
+        assert!(pgn.ends_with("1. f3 e5 2. g4 Qh4# 0-1"), "{pgn}");
+        assert!(!pgn.contains("[FEN"));
+
+        history.undo();
+        assert!(history.pgn("?", "?").ends_with("1. f3 e5 2. g4 *"));
+    }
+
+    #[test]
+    fn test_pgn_from_a_black_to_move_fen() {
+        let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1";
+        let mut history = GameHistory::from_fen(fen).unwrap();
+        history.make_move(create_move(Square::E7, Square::E5));
+        history.make_move(create_move(Square::G1, Square::F3));
+        let pgn = history.pgn("?", "?");
+        assert!(pgn.contains("[SetUp \"1\"]\n[FEN \""), "{pgn}");
+        assert!(pgn.ends_with("1... e5 2. Nf3 *"), "{pgn}");
     }
 
     #[test]
