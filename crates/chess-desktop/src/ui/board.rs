@@ -5,9 +5,10 @@
 use chess::{
     ChessMove, Color as ChessColor, File, Piece as ChessPiece, Rank, Square as ChessSquare,
 };
-use eframe::egui::{self, Color32, Context, CornerRadius, Pos2, Rect, Response, Ui, Vec2};
+use eframe::egui::{self, Context, CornerRadius, Rect, Response, Ui, Vec2};
 
 use crate::app::state::ChessApp;
+use crate::ui::pieces;
 
 impl ChessApp {
     /// Draw the chess board with pieces and interactions
@@ -158,13 +159,7 @@ impl ChessApp {
             .is_none_or(|(drag_sq, _, _)| drag_sq != square)
             && let Some((piece, color)) = self.piece_at(square)
         {
-            draw_piece(
-                painter,
-                square_rect.center(),
-                piece,
-                color,
-                square_size * 0.8,
-            );
+            pieces::draw(painter, square_rect.center(), square_size, piece, color);
         }
     }
 
@@ -173,7 +168,7 @@ impl ChessApp {
         if let Some((_, piece, color)) = self.dragging_piece
             && let Some(pos) = self.drag_pos
         {
-            draw_piece(painter, pos, piece, color, square_size * 0.8);
+            pieces::draw(painter, pos, square_size, piece, color);
         }
     }
 
@@ -323,62 +318,4 @@ impl ChessApp {
             );
         }
     }
-}
-
-/// Draw a chess piece at given position
-fn draw_piece(painter: &egui::Painter, pos: Pos2, piece: ChessPiece, color: ChessColor, size: f32) {
-    let piece_char = match piece {
-        ChessPiece::King => '♚',
-        ChessPiece::Queen => '♛',
-        ChessPiece::Rook => '♜',
-        ChessPiece::Bishop => '♝',
-        ChessPiece::Knight => '♞',
-        ChessPiece::Pawn => '♟',
-    };
-
-    let text_color = if color == ChessColor::White {
-        Color32::from_rgb(255, 255, 255)
-    } else {
-        Color32::from_rgb(20, 20, 20)
-    };
-
-    let font_size = size * 0.9;
-    let font_id = egui::FontId::proportional(font_size);
-
-    // Draw shadow
-    painter.text(
-        pos + Vec2::new(1.0, 1.0),
-        egui::Align2::CENTER_CENTER,
-        piece_char,
-        font_id.clone(),
-        Color32::from_rgba_premultiplied(0, 0, 0, 100),
-    );
-
-    // Draw outline for contrast
-    for dx in [-1.0, 0.0, 1.0] {
-        for dy in [-1.0, 0.0, 1.0] {
-            if dx != 0.0 || dy != 0.0 {
-                painter.text(
-                    pos + Vec2::new(dx * 0.5, dy * 0.5),
-                    egui::Align2::CENTER_CENTER,
-                    piece_char,
-                    font_id.clone(),
-                    if color == ChessColor::White {
-                        Color32::from_rgb(30, 30, 30)
-                    } else {
-                        Color32::from_rgb(200, 200, 200)
-                    },
-                );
-            }
-        }
-    }
-
-    // Draw main piece
-    painter.text(
-        pos,
-        egui::Align2::CENTER_CENTER,
-        piece_char,
-        font_id,
-        text_color,
-    );
 }
