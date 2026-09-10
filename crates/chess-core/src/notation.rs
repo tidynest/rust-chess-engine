@@ -62,22 +62,22 @@ pub fn format_move_san(mv: &chess::ChessMove, board: &chess::Board) -> String {
     let is_capture = board.piece_on(to).is_some()
         || (piece == Some(Piece::Pawn) && from.get_file() != to.get_file()); // En passant
 
-    if let Some(Piece::King) = piece {
-        let from_file = from.get_file() as i8;
-        let to_file = to.get_file() as i8;
-
-        if (to_file - from_file).abs() == 2 {
-            return if to_file > from_file {
-                "O-O".to_string()
-            } else {
-                "O-O-O".to_string()
-            };
-        }
-    }
-
     let mut notation = String::new();
 
     match piece {
+        Some(Piece::King)
+            if from
+                .get_file()
+                .to_index()
+                .abs_diff(to.get_file().to_index())
+                == 2 =>
+        {
+            notation.push_str(if to.get_file() > from.get_file() {
+                "O-O"
+            } else {
+                "O-O-O"
+            });
+        }
         Some(Piece::Pawn) => {
             if is_capture {
                 notation.push((b'a' + from.get_file() as u8) as char);
@@ -226,6 +226,13 @@ mod tests {
         let board = Board::from_str("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1").unwrap();
         let mv = ChessMove::new(Square::E1, Square::G1, None);
         assert_eq!(format_move_san(&mv, &board), "O-O");
+    }
+
+    #[test]
+    fn test_format_move_san_castling_with_check() {
+        let board = Board::from_str("5k2/8/8/8/8/8/8/4K2R w K - 0 1").unwrap();
+        let mv = ChessMove::new(Square::E1, Square::G1, None);
+        assert_eq!(format_move_san(&mv, &board), "O-O+");
     }
 
     #[test]
