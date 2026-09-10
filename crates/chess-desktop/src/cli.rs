@@ -4,14 +4,16 @@ use std::io::{self, Write};
 
 fn print_help() {
     println!("\n=== Chess Engine Commands ===");
-    println!("  Move format: e2e4, e7e5, etc.");
-    println!("  Promotion: e7e8q (q=queen, r=rook, b=bishop, n=knight)");
+    println!("  Move format: e2e4 or SAN such as Nf3, exd5, O-O, e8=Q");
+    println!("  Promotion in long form: e7e8q (q=queen, r=rook, b=bishop, n=knight)");
     println!("  Commands:");
-    println!("    help  - Show this help");
-    println!("    quit  - Exit the game");
-    println!("    new   - Start a new game");
-    println!("    moves - Show all legal moves");
-    println!("    undo  - Take back the last move");
+    println!("    help      - Show this help");
+    println!("    quit      - Exit the game");
+    println!("    new       - Start a new game");
+    println!("    moves     - Show all legal moves");
+    println!("    undo      - Take back the last move");
+    println!("    fen       - Print the position as FEN");
+    println!("    fen <fen> - Set up a position");
     println!();
 }
 
@@ -62,9 +64,9 @@ fn main() -> Result<()> {
 
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
-        let input = input.trim().to_lowercase();
+        let input = input.trim();
 
-        match input.as_str() {
+        match input.to_lowercase().as_str() {
             "quit" | "exit" | "q" => {
                 println!("Thanks for playing!");
                 break;
@@ -84,28 +86,32 @@ fn main() -> Result<()> {
                 Some(previous) => engine = previous,
                 None => println!("Nothing to undo"),
             },
+            "fen" => println!("{}", engine.board()),
+            command if command.starts_with("fen ") => match ChessEngine::from_fen(&input[4..]) {
+                Ok(position) => {
+                    engine = position;
+                    history.clear();
+                }
+                Err(e) => println!("Invalid position: {e}"),
+            },
             move_str => {
                 if move_str.is_empty() {
                     continue;
                 }
 
-                match notation::parse_algebraic(move_str) {
-                    Some(mv) => {
-                        let before = engine.clone();
-                        match engine.make_move(mv) {
-                            Ok(()) => {
-                                history.push(before);
-                                println!("Move played: {}", move_str);
-                            }
-                            Err(e) => {
-                                println!("Invalid move: {}", e);
-                                println!("Type 'moves' to see legal moves");
-                            }
-                        }
+                let before = engine.clone();
+                let played = match notation::parse_algebraic(move_str) {
+                    Some(mv) => engine.make_move(mv),
+                    None => engine.make_san(move_str),
+                };
+                match played {
+                    Ok(()) => {
+                        history.push(before);
+                        println!("Move played: {}", move_str);
                     }
-                    None => {
-                        println!("Invalid move format. Use format like: e2e4");
-                        println!("Type 'help' for more information");
+                    Err(e) => {
+                        println!("Invalid move: {}", e);
+                        println!("Type 'moves' to see legal moves, 'help' for the formats");
                     }
                 }
             }

@@ -52,6 +52,24 @@ pub fn to_algebraic(mv: &Move) -> String {
     result
 }
 
+/// The legal move written as `san` on `board`. Check marks and annotation
+/// glyphs are ignored, castling may use zeros, and `e8Q` is read as `e8=Q`.
+/// Matching against the formatter keeps the two in step, and covers en
+/// passant, which the `chess` crate's own parser does not.
+pub fn parse_san(board: &chess::Board, san: &str) -> Option<chess::ChessMove> {
+    let mut wanted = san.trim_end_matches(['+', '#', '!', '?']).replace('0', "O");
+    // A promotion piece without its "=": "e8Q", "axb8N".
+    let bytes = wanted.as_bytes();
+    if bytes.len() > 2
+        && b"QRBN".contains(&bytes[bytes.len() - 1])
+        && bytes[bytes.len() - 2].is_ascii_digit()
+    {
+        wanted.insert(wanted.len() - 1, '=');
+    }
+    chess::MoveGen::new_legal(board)
+        .find(|mv| format_move_san(mv, board).trim_end_matches(['+', '#']) == wanted)
+}
+
 /// Convert a ChessMove to Standard Algebraic Notation with disambiguation
 pub fn format_move_san(mv: &chess::ChessMove, board: &chess::Board) -> String {
     use chess::{BoardStatus, Piece};
@@ -242,6 +260,41 @@ mod tests {
                 .unwrap();
         let mv = ChessMove::new(Square::C4, Square::F7, None);
         assert_eq!(format_move_san(&mv, &board), "Bxf7+");
+    }
+
+    #[test]
+    fn test_every_legal_move_has_its_own_san() {
+        for fen in [
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            "r3k2r/pppq1ppp/2n2n2/3pp3/1b1PP3/2N2N2/PPPQ1PPP/R3KB1R w KQkq - 0 1",
+            "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+            "1n2k3/1P6/8/8/3Pp3/8/8/4K3 b - d3 0 1",
+            "1n2k3/P7/8/8/8/8/8/4K3 w - - 0 1",
+            "3rk3/8/8/8/8/8/8/R3K2R w KQ - 0 1",
+            "8/8/8/8/8/2N1N3/8/2N1K1k1 w - - 0 1",
+            "3q4/8/8/8/8/8/8/Q2QK1kq w - - 0 1",
+        ] {
+            let board = Board::from_str(fen).unwrap();
+            for mv in chess::MoveGen::new_legal(&board) {
+                let san = format_move_san(&mv, &board);
+                assert_eq!(parse_san(&board, &san), Some(mv), "{fen} {san}");
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_san_accepts_common_spellings() {
+        let board = Board::from_str("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1").unwrap();
+        let castle = ChessMove::new(Square::E1, Square::G1, None);
+        assert_eq!(parse_san(&board, "O-O"), Some(castle));
+        assert_eq!(parse_san(&board, "0-0"), Some(castle));
+        assert_eq!(parse_san(&board, "O-O+"), Some(castle));
+
+        let board = Board::from_str("1n2k3/P7/8/8/8/8/8/4K3 w - - 0 1").unwrap();
+        let promote = ChessMove::new(Square::A7, Square::B8, Some(chess::Piece::Knight));
+        assert_eq!(parse_san(&board, "axb8=N"), Some(promote));
+        assert_eq!(parse_san(&board, "axb8N"), Some(promote));
+        assert_eq!(parse_san(&board, "Nf3"), None);
     }
 
     #[test]

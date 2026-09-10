@@ -34,6 +34,8 @@ pub struct ChessApp {
     pub pending_promotion: Option<(ChessSquare, ChessSquare)>,
     /// Text of the "Set up position" window while it is open.
     pub fen_input: Option<String>,
+    /// Text of the "Load PGN" window while it is open.
+    pub pgn_input: Option<String>,
 
     // UI state
     pub board_flip: bool,
@@ -107,6 +109,7 @@ impl ChessApp {
             last_move: None,
             pending_promotion: None,
             fen_input: None,
+            pgn_input: None,
             disable_auto_request: false,
             dragging_piece: None,
             drag_pos: None,
