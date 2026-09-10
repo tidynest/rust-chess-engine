@@ -43,20 +43,21 @@ The last one only checks that Stockfish answers over UCI.
   Home, End and F work too.
 - Checkmate, stalemate, threefold repetition, the fifty-move rule and
   insufficient material end the game.
-- Copy the FEN or the PGN, or set up a position from a FEN, under Game.
-- Three themes under View > Theme.
+- Copy the FEN or the PGN, set up a position from a FEN, or load a PGN, under Game.
+- "Analyse position" evaluates the position on screen and draws the engine's
+  move as an arrow, in a game or while browsing the history.
+- Three themes under View > Theme. Settings are remembered between runs.
+- CLI: `e2e4` or SAN (`Nf3`, `O-O`), `fen` to print or set a position, `undo`.
 - Play Stockfish as White or Black, with a depth or time limit and skill level 0 to 20.
   The engine gets the full move list, so it sees repetitions and the 50-move rule.
 - Evaluation bar, depth, node count and principal variation while the engine thinks.
 - Captured pieces in Lichess or Chess.com style.
-- CLI: long algebraic input (`e2e4`, `e7e8q`), a legal-move list and undo.
 
 ## Known limitations
 
-- No clocks. PGN goes to the clipboard only; nothing is saved to disk.
-- Settings and the chosen theme are not remembered between runs.
-- The engine is `stockfish` on `PATH` unless `CHESS_STOCKFISH` names another
-  binary; 4 threads and 128 MB hash are fixed.
+- No clocks. PGN goes through the clipboard; games are not saved to disk.
+- The engine is `CHESS_STOCKFISH` if set, else `stockfish` on `PATH` or in the
+  usual places; 4 threads and 128 MB hash are fixed.
 
 The full list and the plan to fix them is in `docs/AUDIT_2026-09-09.md`;
 what has been done since is in `CHANGELOG.md`.
@@ -67,6 +68,8 @@ what has been done since is in `CHANGELOG.md`.
 - `crates/chess-engine`: async UCI client for the Stockfish process.
 - `crates/chess-desktop`: the egui GUI (`chess-gui`) and the CLI (`chess-cli`).
   `app/engine_link.rs` is the engine thread; the UI talks to it with tagged requests.
+
+How the pieces fit together is in `docs/ARCHITECTURE.md`.
 
 The test that drives a real Stockfish is ignored by default:
 
