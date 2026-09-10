@@ -3,10 +3,11 @@
 //! Shows captured pieces in either Lichess or Chess.com style.
 
 use chess::{Board, ChessMove, Color as ChessColor, Piece};
-use eframe::egui::Ui;
+use eframe::egui::{Sense, Ui, Vec2};
 use std::collections::HashMap;
 
 use crate::app::state::{CapturedPiecesStyle, ChessApp};
+use crate::ui::pieces;
 use crate::ui::theme::Theme;
 
 /// How many of each piece a side has taken.
@@ -105,16 +106,14 @@ fn draw_lichess_style(
         ui.label("Equal material");
     } else if material_diff > 0 {
         ui.horizontal(|ui| {
-            ui.label("⚪ White is up:");
-            let captured_str = format_captured_pieces(white_captured, true);
-            ui.label(captured_str);
+            ui.label("White is up:");
+            draw_captured_row(ui, white_captured, ChessColor::Black);
             ui.label(format!("(+{})", material_diff));
         });
     } else {
         ui.horizontal(|ui| {
-            ui.label("⚫ Black is up:");
-            let captured_str = format_captured_pieces(black_captured, false);
-            ui.label(captured_str);
+            ui.label("Black is up:");
+            draw_captured_row(ui, black_captured, ChessColor::White);
             ui.label(format!("(+{})", -material_diff));
         });
     }
@@ -131,22 +130,15 @@ fn draw_chesscom_style(
     ui.heading("Captured Pieces");
 
     ui.horizontal(|ui| {
-        ui.label("⚪ White:");
-        let captured_str = format_captured_pieces(white_captured, true);
-        if captured_str.is_empty() {
+        ui.label("White:");
+        if !draw_captured_row(ui, white_captured, ChessColor::Black) {
             ui.label("none");
-        } else {
-            ui.label(captured_str);
         }
     });
-
     ui.horizontal(|ui| {
-        ui.label("⚫ Black:");
-        let captured_str = format_captured_pieces(black_captured, false);
-        if captured_str.is_empty() {
+        ui.label("Black:");
+        if !draw_captured_row(ui, black_captured, ChessColor::White) {
             ui.label("none");
-        } else {
-            ui.label(captured_str);
         }
     });
 
@@ -160,39 +152,30 @@ fn draw_chesscom_style(
     }
 }
 
-/// Format captured pieces as Unicode string
-fn format_captured_pieces(captured: &Captured, is_white: bool) -> String {
-    [
+/// The pieces one side has taken, drawn small in the victim's colour,
+/// heaviest first. Returns false when there are none.
+fn draw_captured_row(ui: &mut Ui, captured: &Captured, color: ChessColor) -> bool {
+    const SIZE: f32 = 22.0;
+    let order = [
         Piece::Queen,
         Piece::Rook,
         Piece::Bishop,
         Piece::Knight,
         Piece::Pawn,
-    ]
-    .into_iter()
-    .flat_map(|piece| {
-        let count = captured.get(&piece).copied().unwrap_or(0).max(0) as usize;
-        std::iter::repeat_n(get_piece_unicode(piece, is_white), count)
-    })
-    .collect()
-}
-
-/// Get Unicode character for piece
-fn get_piece_unicode(piece: Piece, is_white: bool) -> char {
-    match (piece, is_white) {
-        (Piece::Queen, true) => '♛',
-        (Piece::Rook, true) => '♜',
-        (Piece::Bishop, true) => '♝',
-        (Piece::Knight, true) => '♞',
-        (Piece::Pawn, true) => '♟',
-        (Piece::King, true) => '♚',
-        (Piece::Queen, false) => '♕',
-        (Piece::Rook, false) => '♖',
-        (Piece::Bishop, false) => '♗',
-        (Piece::Knight, false) => '♘',
-        (Piece::Pawn, false) => '♙',
-        (Piece::King, false) => '♔',
-    }
+    ];
+    let mut any = false;
+    ui.scope(|ui| {
+        ui.spacing_mut().item_spacing.x = 0.0;
+        for piece in order {
+            let count = captured.get(&piece).copied().unwrap_or(0).max(0);
+            for _ in 0..count {
+                let (rect, _) = ui.allocate_exact_size(Vec2::new(SIZE * 0.8, SIZE), Sense::hover());
+                pieces::draw(ui.painter(), rect.center(), SIZE, piece, color);
+                any = true;
+            }
+        }
+    });
+    any
 }
 
 #[cfg(test)]

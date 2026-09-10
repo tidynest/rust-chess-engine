@@ -346,6 +346,7 @@ impl ChessApp {
             return;
         };
 
+        let color = self.board().side_to_move();
         let mut open = true;
         let mut choice = None;
         egui::Window::new("Promote to")
@@ -355,13 +356,23 @@ impl ChessApp {
             .open(&mut open)
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    for (piece, name) in [
-                        (chess::Piece::Queen, "Queen"),
-                        (chess::Piece::Rook, "Rook"),
-                        (chess::Piece::Bishop, "Bishop"),
-                        (chess::Piece::Knight, "Knight"),
+                    for piece in [
+                        ChessPiece::Queen,
+                        ChessPiece::Rook,
+                        ChessPiece::Bishop,
+                        ChessPiece::Knight,
                     ] {
-                        if ui.button(name).clicked() {
+                        let (rect, response) =
+                            ui.allocate_exact_size(Vec2::splat(64.0), egui::Sense::click());
+                        if response.hovered() {
+                            ui.painter().rect_filled(
+                                rect,
+                                self.theme.border_radius,
+                                self.theme.hover,
+                            );
+                        }
+                        pieces::draw(ui.painter(), rect.center(), 64.0, piece, color);
+                        if response.clicked() {
                             choice = Some(piece);
                         }
                     }
