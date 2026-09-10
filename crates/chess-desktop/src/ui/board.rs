@@ -205,16 +205,9 @@ impl ChessApp {
         board_rect: Rect,
         square_size: f32,
     ) {
-        let is_human_turn = !self.play_vs_computer || {
-            let current_turn = if self.engine.side_to_move() == Color::White {
-                ChessColor::White
-            } else {
-                ChessColor::Black
-            };
-            current_turn != self.computer_color
-        };
-
-        if !is_human_turn || self.pending_promotion.is_some() {
+        // While the engine is not searching, the human may move either side:
+        // after browsing the history that is how play resumes.
+        if self.engine_thinking || self.pending_promotion.is_some() {
             return;
         }
 

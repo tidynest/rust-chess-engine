@@ -3,7 +3,7 @@
 //! Handles Stockfish engine communication, move parsing, and game history synchronization.
 
 use chess::{ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare};
-use chess_core::{ChessEngine, Color, notation};
+use chess_core::{ChessEngine, GameHistory, notation};
 use chess_engine::{EngineCommand, EngineResponse};
 use std::str::FromStr;
 use std::sync::mpsc::TryRecvError;
@@ -103,13 +103,7 @@ impl ChessApp {
             self.last_move_count_check = self.game_history.move_count();
         }
 
-        let current_turn = if self.engine.side_to_move() == Color::White {
-            ChessColor::White
-        } else {
-            ChessColor::Black
-        };
-
-        if current_turn != self.computer_color {
+        if !self.computer_to_move() {
             return;
         }
 
@@ -171,17 +165,38 @@ impl ChessApp {
             && !self.engine.is_checkmate()
             && !self.engine.is_stalemate()
             && !self.disable_auto_request
+            && self.computer_to_move()
         {
-            let current_turn = if self.engine.side_to_move() == Color::White {
-                ChessColor::White
-            } else {
-                ChessColor::Black
-            };
-
-            if current_turn == self.computer_color {
-                self.request_engine_move();
-            }
+            self.request_engine_move();
         }
+    }
+
+    /// True in a game against the computer when it is the computer's turn.
+    pub(crate) fn computer_to_move(&self) -> bool {
+        self.play_vs_computer
+            && self.game_history.current_board().side_to_move() == self.computer_color
+    }
+
+    /// Take back one ply, or two against the computer so the human is to move again.
+    pub(crate) fn undo(&mut self) {
+        self.step_history(GameHistory::undo);
+    }
+
+    /// Replay one ply, or two against the computer so the human is to move again.
+    pub(crate) fn redo(&mut self) {
+        self.step_history(GameHistory::redo);
+    }
+
+    fn step_history(&mut self, step: fn(&mut GameHistory) -> bool) {
+        if !step(&mut self.game_history) {
+            return;
+        }
+        if self.computer_to_move() {
+            step(&mut self.game_history);
+        }
+        self.sync_engine();
+        // Still the computer's turn means we hit an end of the history; let it play.
+        self.disable_auto_request = false;
     }
 
     /// Parse UCI move string to ChessMove
@@ -281,6 +296,32 @@ mod tests {
         assert!(app.parse_uci_move("e2e5", &board).is_none());
         assert!(app.parse_uci_move("e2", &board).is_none());
         assert!(app.parse_uci_move("xyz", &board).is_none());
+    }
+
+    #[test]
+    fn test_undo_against_computer_lands_on_human_turn() {
+        let mut app = ChessApp::headless();
+        app.play_vs_computer = true;
+        app.computer_color = ChessColor::Black;
+        for mv in ["e2e4", "e7e5", "g1f3"] {
+            let mv = app
+                .parse_uci_move(mv, app.game_history.current_board())
+                .unwrap();
+            app.play_move(mv);
+        }
+
+        // Nf3 has no reply yet, so only that ply comes back.
+        app.undo();
+        assert_eq!(app.game_history.move_count(), 2);
+
+        // Undoing e5 lands on the computer's turn, so e4 comes back too.
+        app.undo();
+        assert_eq!(app.game_history.move_count(), 0);
+
+        // Redo replays e4 and, since that is the computer's turn, e5 as well.
+        app.redo();
+        assert_eq!(app.game_history.move_count(), 2);
+        assert!(!app.disable_auto_request);
     }
 
     #[test]
