@@ -63,6 +63,11 @@ impl ChessApp {
                     ..
                 } => {
                     self.engine_thinking = false;
+                    // The line's first move is about to be played; keep the
+                    // continuation so it still formats from the new position.
+                    if mv.is_some() && self.engine_pv.first() == mv.as_ref() {
+                        self.engine_pv.remove(0);
+                    }
                     best_move = mv;
                 }
                 EngineEvent::Search { .. } => {}
