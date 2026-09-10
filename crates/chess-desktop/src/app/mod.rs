@@ -12,6 +12,8 @@ pub use state::{CapturedPiecesStyle, ChessApp};
 
 impl eframe::App for ChessApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.handle_shortcuts(ctx);
+
         // Poll engine responses
         let best_move = self.poll_engine_responses();
 
@@ -29,5 +31,33 @@ impl eframe::App for ChessApp {
 
         // Auto-request engine move if needed
         self.auto_request_engine_move();
+    }
+}
+
+impl ChessApp {
+    /// Arrow keys step through the history, Home and End jump to its ends,
+    /// F flips the board. Ignored while a text field has the keyboard.
+    fn handle_shortcuts(&mut self, ctx: &egui::Context) {
+        use egui::Key;
+
+        if ctx.wants_keyboard_input() {
+            return;
+        }
+        let pressed = |key| ctx.input(|input| input.key_pressed(key));
+        if pressed(Key::ArrowLeft) {
+            self.undo();
+        }
+        if pressed(Key::ArrowRight) {
+            self.redo();
+        }
+        if pressed(Key::Home) {
+            self.jump_to_ply(0);
+        }
+        if pressed(Key::End) {
+            self.jump_to_ply(self.game_history.total_moves());
+        }
+        if pressed(Key::F) {
+            self.board_flip = !self.board_flip;
+        }
     }
 }

@@ -249,18 +249,18 @@ impl ChessApp {
         formatted
     }
 
-    /// Show the position after move `target_index` without the engine replying.
-    pub(crate) fn jump_to_move(&mut self, target_index: usize) {
+    /// Show the position after `ply` moves. The engine stays quiet unless
+    /// that is the live end of the history.
+    pub(crate) fn jump_to_ply(&mut self, ply: usize) {
         let current = self.game_history.move_count();
-        let target = target_index + 1;
-        for _ in target..current {
+        for _ in ply..current {
             self.game_history.undo();
         }
-        for _ in current..target {
+        for _ in current..ply {
             self.game_history.redo();
         }
         self.position_changed();
-        self.disable_auto_request = true;
+        self.disable_auto_request = self.game_history.can_redo();
     }
 }
 
