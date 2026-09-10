@@ -2,11 +2,13 @@
 //!
 //! Shows captured pieces in either Lichess or Chess.com style.
 
+use chess::Color as ChessColor;
 use chess_core::{Color, GameState, PieceType};
 use eframe::egui::{Color32, Ui};
 use std::collections::HashMap;
 
 use crate::app::state::{CapturedPiecesStyle, ChessApp};
+use crate::utils::conversions::convert_piece_type;
 
 /// Draw material count and captured pieces
 pub fn draw_material_count(app: &ChessApp, ui: &mut Ui) {
@@ -26,54 +28,56 @@ pub fn draw_material_count(app: &ChessApp, ui: &mut Ui) {
     }
 }
 
-/// Calculate material counts and captured pieces
+/// Material on the board per side, and the pieces each side has captured.
+/// Captures are read from the moves played, so a promoted pawn is not
+/// mistaken for a captured one.
 fn calculate_material(
     app: &ChessApp,
 ) -> (i32, i32, HashMap<PieceType, i32>, HashMap<PieceType, i32>) {
     let mut white_material = 0;
     let mut black_material = 0;
-    let mut white_pieces = create_starting_pieces();
-    let mut black_pieces = create_starting_pieces();
 
     for rank in 0..8 {
         for file in 0..8 {
             if let Some(sq) = chess_core::Square::new(file, rank)
                 && let Some(piece) = app.engine.piece_at(sq)
             {
-                let value = piece_value(piece.piece_type);
-
-                if piece.color == Color::White {
-                    white_material += value;
-                } else {
-                    black_material += value;
-                }
-
-                let pieces_map = if piece.color == Color::White {
-                    &mut white_pieces
-                } else {
-                    &mut black_pieces
-                };
-                if let Some(count) = pieces_map.get_mut(&piece.piece_type)
-                    && *count > 0
-                {
-                    *count -= 1;
+                match piece.color {
+                    Color::White => white_material += piece_value(piece.piece_type),
+                    Color::Black => black_material += piece_value(piece.piece_type),
                 }
             }
         }
     }
 
-    (white_material, black_material, black_pieces, white_pieces)
+    let mut white_captured = HashMap::new();
+    let mut black_captured = HashMap::new();
+    for (board, mv) in app.game_history.played() {
+        let Some(taken) = captured_piece(board, mv) else {
+            continue;
+        };
+        let by = match board.side_to_move() {
+            ChessColor::White => &mut white_captured,
+            ChessColor::Black => &mut black_captured,
+        };
+        *by.entry(convert_piece_type(taken)).or_insert(0) += 1;
+    }
+
+    (
+        white_material,
+        black_material,
+        white_captured,
+        black_captured,
+    )
 }
 
-/// Create starting piece counts
-fn create_starting_pieces() -> HashMap<PieceType, i32> {
-    let mut pieces = HashMap::new();
-    pieces.insert(PieceType::Pawn, 8);
-    pieces.insert(PieceType::Knight, 2);
-    pieces.insert(PieceType::Bishop, 2);
-    pieces.insert(PieceType::Rook, 2);
-    pieces.insert(PieceType::Queen, 1);
-    pieces
+/// The piece `mv` takes on `board`, counting en passant.
+fn captured_piece(board: &chess::Board, mv: chess::ChessMove) -> Option<chess::Piece> {
+    let (from, to) = (mv.get_source(), mv.get_dest());
+    board.piece_on(to).or_else(|| {
+        let is_pawn = board.piece_on(from) == Some(chess::Piece::Pawn);
+        (is_pawn && from.get_file() != to.get_file()).then_some(chess::Piece::Pawn)
+    })
 }
 
 /// Get material value of piece type
@@ -206,5 +210,38 @@ fn get_piece_unicode(piece_type: PieceType, is_white: bool) -> char {
             PieceType::Pawn => '♙',
             PieceType::King => '♔',
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chess::{Board, ChessMove, Piece, Square};
+    use std::str::FromStr;
+
+    #[test]
+    fn test_captured_piece_sees_en_passant() {
+        let board =
+            Board::from_str("rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3")
+                .unwrap();
+        let en_passant = ChessMove::new(Square::E5, Square::F6, None);
+        assert_eq!(captured_piece(&board, en_passant), Some(Piece::Pawn));
+
+        let push = ChessMove::new(Square::E5, Square::E6, None);
+        assert_eq!(captured_piece(&board, push), None);
+    }
+
+    #[test]
+    fn test_promotion_is_not_a_capture() {
+        let mut app = ChessApp::headless();
+        let board = Board::from_str("4k3/P7/8/8/8/8/8/4K3 w - - 0 1").unwrap();
+        app.game_history = chess_core::GameHistory::from_board(board);
+        let mv = app.parse_uci_move("a7a8q", &board).unwrap();
+        app.play_move(mv);
+
+        let (white, black, white_captured, black_captured) = calculate_material(&app);
+        assert_eq!((white, black), (9, 0));
+        assert!(white_captured.is_empty());
+        assert!(black_captured.is_empty());
     }
 }

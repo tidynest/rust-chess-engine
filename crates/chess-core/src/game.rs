@@ -35,6 +35,13 @@ impl GameHistory {
         &self.positions[0]
     }
 
+    /// The moves played so far, each paired with the board it was played on.
+    pub fn played(&self) -> impl Iterator<Item = (&Board, ChessMove)> {
+        self.positions
+            .iter()
+            .zip(self.current_moves().iter().copied())
+    }
+
     pub fn make_move(&mut self, mv: ChessMove) {
         // Truncate future history when making a new move
         self.positions.truncate(self.current_index + 1);
