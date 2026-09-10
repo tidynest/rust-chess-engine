@@ -1,7 +1,28 @@
 //! Game state management with undo/redo support
 
 use crate::notation::format_move_san;
-use chess::{Board, ChessMove};
+use chess::{BitBoard, Board, BoardStatus, ChessMove, Piece};
+use std::str::FromStr;
+
+/// Why a game ended without a checkmate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DrawReason {
+    Stalemate,
+    ThreefoldRepetition,
+    FiftyMoveRule,
+    InsufficientMaterial,
+}
+
+impl DrawReason {
+    pub fn describe(self) -> &'static str {
+        match self {
+            Self::Stalemate => "stalemate",
+            Self::ThreefoldRepetition => "threefold repetition",
+            Self::FiftyMoveRule => "fifty-move rule",
+            Self::InsufficientMaterial => "insufficient material",
+        }
+    }
+}
 
 /// Game state with full move history for undo/redo. Each move's SAN is
 /// computed once, when it is played.
@@ -10,6 +31,8 @@ pub struct GameHistory {
     moves: Vec<ChessMove>,
     sans: Vec<String>,
     current_index: usize,
+    /// Halfmove clock of the start position; the `chess` crate drops it.
+    start_halfmove_clock: u32,
 }
 
 impl GameHistory {
@@ -23,7 +46,19 @@ impl GameHistory {
             moves: Vec::new(),
             sans: Vec::new(),
             current_index: 0,
+            start_halfmove_clock: 0,
         }
+    }
+
+    /// Start from a FEN, keeping its halfmove clock for the fifty-move rule.
+    pub fn from_fen(fen: &str) -> Result<Self, chess::Error> {
+        let mut history = Self::from_board(Board::from_str(fen)?);
+        history.start_halfmove_clock = fen
+            .split_whitespace()
+            .nth(4)
+            .and_then(|clock| clock.parse().ok())
+            .unwrap_or(0);
+        Ok(history)
     }
 
     pub fn current_board(&self) -> &Board {
@@ -36,10 +71,58 @@ impl GameHistory {
     }
 
     /// The moves played so far, each paired with the board it was played on.
-    pub fn played(&self) -> impl Iterator<Item = (&Board, ChessMove)> {
+    pub fn played(&self) -> impl DoubleEndedIterator<Item = (&Board, ChessMove)> {
         self.positions
             .iter()
             .zip(self.current_moves().iter().copied())
+    }
+
+    /// Plies since the last capture or pawn move.
+    pub fn halfmove_clock(&self) -> u32 {
+        let quiet = self
+            .played()
+            .rev()
+            .take_while(|(board, mv)| {
+                board.piece_on(mv.get_source()) != Some(Piece::Pawn)
+                    && board.piece_on(mv.get_dest()).is_none()
+            })
+            .count();
+        let clock = quiet as u32;
+        if quiet == self.current_index {
+            clock + self.start_halfmove_clock
+        } else {
+            clock
+        }
+    }
+
+    /// Why the current position is a draw, if it is one. Repetition and the
+    /// fifty-move rule are treated as automatic rather than claimable.
+    pub fn draw_reason(&self) -> Option<DrawReason> {
+        let board = self.current_board();
+        match board.status() {
+            BoardStatus::Checkmate => return None,
+            BoardStatus::Stalemate => return Some(DrawReason::Stalemate),
+            BoardStatus::Ongoing => {}
+        }
+        if insufficient_material(board) {
+            return Some(DrawReason::InsufficientMaterial);
+        }
+        let seen = self.positions[..=self.current_index]
+            .iter()
+            .filter(|position| *position == board)
+            .count();
+        if seen >= 3 {
+            return Some(DrawReason::ThreefoldRepetition);
+        }
+        if self.halfmove_clock() >= 100 {
+            return Some(DrawReason::FiftyMoveRule);
+        }
+        None
+    }
+
+    /// True once the game cannot continue.
+    pub fn is_over(&self) -> bool {
+        self.current_board().status() == BoardStatus::Checkmate || self.draw_reason().is_some()
     }
 
     pub fn make_move(&mut self, mv: ChessMove) {
@@ -107,6 +190,24 @@ impl GameHistory {
 impl Default for GameHistory {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Neither side can force mate: bare kings, one minor piece, or bishops
+/// that all stand on squares of one colour.
+fn insufficient_material(board: &Board) -> bool {
+    const LIGHT_SQUARES: BitBoard = BitBoard(0x55AA_55AA_55AA_55AA);
+
+    let heavy = board.pieces(Piece::Pawn) | board.pieces(Piece::Rook) | board.pieces(Piece::Queen);
+    if heavy.popcnt() > 0 {
+        return false;
+    }
+    let knights = board.pieces(Piece::Knight).popcnt();
+    let bishops = *board.pieces(Piece::Bishop);
+    match (knights, bishops.popcnt()) {
+        (0, 0) | (1, 0) | (0, 1) => true,
+        (0, _) => (bishops & LIGHT_SQUARES) == bishops || (bishops & LIGHT_SQUARES).popcnt() == 0,
+        _ => false,
     }
 }
 
@@ -331,6 +432,83 @@ mod tests {
 
         history.undo();
         assert_eq!(history.move_count(), 0, "Should be at start");
+    }
+
+    #[test]
+    fn test_threefold_repetition_needs_three_visits() {
+        let mut history = GameHistory::new();
+        let shuffle = [
+            (Square::G1, Square::F3),
+            (Square::G8, Square::F6),
+            (Square::F3, Square::G1),
+            (Square::F6, Square::G8),
+        ];
+        for (from, to) in shuffle {
+            history.make_move(create_move(from, to));
+        }
+        assert_eq!(history.draw_reason(), None, "second visit is not a draw");
+
+        for (from, to) in shuffle {
+            history.make_move(create_move(from, to));
+        }
+        assert_eq!(history.draw_reason(), Some(DrawReason::ThreefoldRepetition));
+        assert!(history.is_over());
+    }
+
+    #[test]
+    fn test_fifty_move_rule_counts_from_the_fen_clock() {
+        let mut history = GameHistory::from_fen("8/8/8/8/8/4k3/8/R3K3 w - - 99 60").unwrap();
+        assert_eq!(history.halfmove_clock(), 99);
+        assert_eq!(history.draw_reason(), None);
+
+        history.make_move(create_move(Square::A1, Square::A2));
+        assert_eq!(history.halfmove_clock(), 100);
+        assert_eq!(history.draw_reason(), Some(DrawReason::FiftyMoveRule));
+
+        // A capture resets the clock and the start value no longer counts.
+        history.undo();
+        history.make_move(create_move(Square::A1, Square::A3));
+        history.make_move(create_move(Square::E3, Square::E4));
+        history.make_move(create_move(Square::A3, Square::E3));
+        history.make_move(create_move(Square::E4, Square::E3));
+        assert_eq!(history.halfmove_clock(), 0);
+        assert_eq!(
+            history.draw_reason(),
+            Some(DrawReason::InsufficientMaterial)
+        );
+    }
+
+    #[test]
+    fn test_draw_reasons_from_fen() {
+        for (fen, expected) in [
+            (
+                "8/8/8/8/8/8/8/K1k5 w - - 0 1",
+                Some(DrawReason::InsufficientMaterial),
+            ),
+            (
+                "8/8/8/8/8/8/8/KB1k4 w - - 0 1",
+                Some(DrawReason::InsufficientMaterial),
+            ),
+            (
+                "8/8/8/8/8/8/8/KN1k4 w - - 0 1",
+                Some(DrawReason::InsufficientMaterial),
+            ),
+            (
+                "8/8/8/8/8/8/8/KB1B1k2 w - - 0 1",
+                Some(DrawReason::InsufficientMaterial),
+            ),
+            ("8/8/8/8/8/8/8/KB2B1k1 w - - 0 1", None),
+            ("8/8/8/8/8/8/8/KR1k4 b - - 0 1", None),
+            ("8/8/8/8/8/8/8/KN1kn3 w - - 0 1", None),
+            (
+                "k7/2Q5/1K6/8/8/8/8/8 b - - 0 1",
+                Some(DrawReason::Stalemate),
+            ),
+            ("k7/1Q6/1K6/8/8/8/8/8 b - - 0 1", None),
+        ] {
+            let history = GameHistory::from_fen(fen).unwrap();
+            assert_eq!(history.draw_reason(), expected, "{fen}");
+        }
     }
 
     #[test]

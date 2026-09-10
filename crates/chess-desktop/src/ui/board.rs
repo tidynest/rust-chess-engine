@@ -186,7 +186,7 @@ impl ChessApp {
     ) {
         // While the engine is not searching, the human may move either side:
         // after browsing the history that is how play resumes.
-        if self.engine_thinking || self.pending_promotion.is_some() {
+        if self.engine_thinking || self.pending_promotion.is_some() || self.game_history.is_over() {
             return;
         }
 

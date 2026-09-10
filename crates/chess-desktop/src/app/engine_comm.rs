@@ -1,9 +1,7 @@
 //! The UI side of the engine link, plus the move and history operations
 //! that have to keep it informed.
 
-use chess::{
-    Board, BoardStatus, ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare,
-};
+use chess::{Board, ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare};
 use chess_core::{GameHistory, notation};
 use chess_engine::EngineResponse;
 use std::str::FromStr;
@@ -78,7 +76,7 @@ impl ChessApp {
         if self.engine_thinking
             || self.engine_status != EngineStatus::Ready
             || !self.computer_to_move()
-            || self.board().status() != BoardStatus::Ongoing
+            || self.game_history.is_over()
         {
             return;
         }
