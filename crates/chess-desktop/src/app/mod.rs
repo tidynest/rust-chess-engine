@@ -33,6 +33,11 @@ impl eframe::App for ChessApp {
         // Auto-request engine move if needed
         self.auto_request_engine_move();
     }
+
+    /// Closing the window from the title bar ends the engine too.
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        self.send(EngineCommand::Quit);
+    }
 }
 
 impl ChessApp {

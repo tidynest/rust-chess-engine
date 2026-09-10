@@ -49,7 +49,8 @@ The last one only checks that Stockfish answers over UCI.
 ## Known limitations
 
 - No draw detection beyond stalemate. No clocks. No PGN.
-- Engine path is `stockfish` on `PATH`; 4 threads and 128 MB hash are fixed.
+- The engine is `stockfish` on `PATH` unless `CHESS_STOCKFISH` names another
+  binary; 4 threads and 128 MB hash are fixed.
 - Pieces are drawn from the system font, so they look different on every machine.
 
 The full list and the plan to fix them is in `docs/AUDIT_2026-09-09.md`;
