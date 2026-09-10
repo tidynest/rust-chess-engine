@@ -66,6 +66,16 @@ impl ChessEngine {
     }
 }
 
+impl ChessEngine {
+    /// Play a move given in standard algebraic notation, such as `Nf3` or `O-O`.
+    pub fn make_san(&mut self, san: &str) -> Result<(), GameError> {
+        let mv = crate::notation::parse_san(&self.board, san)
+            .ok_or_else(|| GameError::InvalidMove(format!("no legal move written {san:?}")))?;
+        self.board = self.board.make_move_new(mv);
+        Ok(())
+    }
+}
+
 impl GameState for ChessEngine {
     fn make_move(&mut self, chess_move: Move) -> Result<(), GameError> {
         // Convert to chess crate move and validate

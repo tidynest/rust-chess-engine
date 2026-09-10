@@ -46,6 +46,9 @@ fn draw_game_menu(app: &mut ChessApp, ui: &mut egui::Ui, ctx: &Context) {
         if ui.button("Set up position...").clicked() {
             app.fen_input = Some(app.board().to_string());
         }
+        if ui.button("Load PGN...").clicked() {
+            app.pgn_input = Some(String::new());
+        }
 
         ui.separator();
 
@@ -67,37 +70,89 @@ fn player_names(app: &ChessApp) -> (&'static str, &'static str) {
     }
 }
 
-/// The "Set up position" window: a FEN field and a Load button that stays
-/// disabled until the FEN parses.
+/// The "Set up position" window: a FEN field and a Load button.
 pub fn draw_setup_window(app: &mut ChessApp, ctx: &Context) {
-    let Some(mut fen) = app.fen_input.take() else {
+    let Some(text) = app.fen_input.take() else {
         return;
     };
+    match draw_loader(ctx, "Set up position", "FEN:", false, text, |fen| {
+        GameHistory::from_fen(fen).map_err(|_| "Not a valid FEN".to_owned())
+    }) {
+        Loader::Loaded(history) => app.start_game(history),
+        Loader::Open(text) => app.fen_input = Some(text),
+        Loader::Closed => {}
+    }
+}
 
+/// The "Load PGN" window: paste a game, Load plays it through.
+pub fn draw_pgn_window(app: &mut ChessApp, ctx: &Context) {
+    let Some(text) = app.pgn_input.take() else {
+        return;
+    };
+    match draw_loader(
+        ctx,
+        "Load PGN",
+        "PGN (paste with Ctrl+V):",
+        true,
+        text,
+        |pgn| GameHistory::from_pgn(pgn).map_err(|e| e.to_string()),
+    ) {
+        Loader::Loaded(history) => app.start_game(history),
+        Loader::Open(text) => app.pgn_input = Some(text),
+        Loader::Closed => {}
+    }
+}
+
+enum Loader {
+    Loaded(GameHistory),
+    Open(String),
+    Closed,
+}
+
+/// A window with a text field and a Load button that stays disabled, with
+/// the reason shown, until `parse` accepts the text.
+fn draw_loader(
+    ctx: &Context,
+    title: &str,
+    label: &str,
+    multiline: bool,
+    mut text: String,
+    parse: impl Fn(&str) -> Result<GameHistory, String>,
+) -> Loader {
     let mut open = true;
     let mut load = false;
-    egui::Window::new("Set up position")
+    egui::Window::new(title)
         .collapsible(false)
         .resizable(false)
         .open(&mut open)
         .show(ctx, |ui| {
-            ui.label("FEN:");
-            ui.add(egui::TextEdit::singleline(&mut fen).desired_width(420.0));
-            let parsed = GameHistory::from_fen(fen.trim());
+            ui.label(label);
+            if multiline {
+                ui.add(
+                    egui::TextEdit::multiline(&mut text)
+                        .desired_width(480.0)
+                        .desired_rows(8),
+                );
+            } else {
+                ui.add(egui::TextEdit::singleline(&mut text).desired_width(480.0));
+            }
+            let parsed = parse(text.trim());
             ui.horizontal(|ui| {
                 load = ui
                     .add_enabled(parsed.is_ok(), egui::Button::new("Load"))
                     .clicked();
-                if parsed.is_err() {
-                    ui.label("Not a valid FEN");
+                if let Err(reason) = &parsed
+                    && !text.trim().is_empty()
+                {
+                    ui.label(reason);
                 }
             });
         });
 
-    if load && let Ok(history) = GameHistory::from_fen(fen.trim()) {
-        app.start_game(history);
-    } else if open {
-        app.fen_input = Some(fen);
+    match (load, open) {
+        (true, _) => parse(text.trim()).map_or(Loader::Closed, Loader::Loaded),
+        (false, true) => Loader::Open(text),
+        (false, false) => Loader::Closed,
     }
 }
 

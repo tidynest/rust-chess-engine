@@ -1,9 +1,19 @@
 //! Game state management with undo/redo support
 
-use crate::notation::format_move_san;
+use crate::notation::{format_move_san, parse_san};
 use chess::{BitBoard, Board, BoardStatus, ChessMove, Color, Piece};
 use std::fmt::Write;
 use std::str::FromStr;
+use thiserror::Error;
+
+/// Why a PGN could not be read.
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum PgnError {
+    #[error("the FEN tag is not a valid position")]
+    InvalidFen,
+    #[error("move {ply}: cannot play {san:?} here")]
+    BadMove { ply: usize, san: String },
+}
 
 /// Why a game ended without a checkmate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,6 +59,38 @@ impl GameHistory {
             current_index: 0,
             start_halfmove_clock: 0,
         }
+    }
+
+    /// Read a PGN: a FEN tag sets the start, other tags are ignored, and the
+    /// movetext is played with comments, variations, glyphs and the result
+    /// stripped. Stops at the first move that cannot be played.
+    pub fn from_pgn(text: &str) -> Result<Self, PgnError> {
+        let mut fen = None;
+        let mut movetext = String::new();
+        for line in text.lines() {
+            let trimmed = line.trim();
+            if let Some(tag) = trimmed.strip_prefix('[').and_then(|t| t.strip_suffix(']')) {
+                if let Some(value) = tag.strip_prefix("FEN ") {
+                    fen = Some(value.trim().trim_matches('"').to_owned());
+                }
+            } else {
+                movetext.push_str(line);
+                movetext.push('\n');
+            }
+        }
+
+        let mut history = match fen {
+            Some(fen) => Self::from_fen(&fen).map_err(|_| PgnError::InvalidFen)?,
+            None => Self::new(),
+        };
+        for (index, san) in movetext_moves(&movetext).into_iter().enumerate() {
+            let mv = parse_san(history.current_board(), &san).ok_or_else(|| PgnError::BadMove {
+                ply: index + 1,
+                san: san.clone(),
+            })?;
+            history.make_move(mv);
+        }
+        Ok(history)
     }
 
     /// Start from a FEN, keeping its halfmove clock for the fifty-move rule.
@@ -239,6 +281,63 @@ impl Default for GameHistory {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// The SAN tokens of a movetext, in order. Comments in braces or after a
+/// semicolon, parenthesised variations, `$n` glyphs, move numbers and the
+/// result are dropped; `+`, `#`, `!` and `?` suffixes are trimmed.
+fn movetext_moves(text: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    let mut depth = 0usize;
+    let mut chars = text.chars();
+    let flush = |current: &mut String, tokens: &mut Vec<String>| {
+        if !current.is_empty() {
+            tokens.push(std::mem::take(current));
+        }
+    };
+    while let Some(c) = chars.next() {
+        match c {
+            '{' => {
+                flush(&mut current, &mut tokens);
+                chars.by_ref().find(|&c| c == '}');
+            }
+            ';' => {
+                flush(&mut current, &mut tokens);
+                chars.by_ref().find(|&c| c == '\n');
+            }
+            '(' => {
+                flush(&mut current, &mut tokens);
+                depth += 1;
+            }
+            ')' => {
+                flush(&mut current, &mut tokens);
+                depth = depth.saturating_sub(1);
+            }
+            c if c.is_whitespace() => flush(&mut current, &mut tokens),
+            c if depth == 0 => current.push(c),
+            _ => {}
+        }
+    }
+    flush(&mut current, &mut tokens);
+
+    tokens
+        .into_iter()
+        .filter_map(|token| {
+            // "12." and "12..." stand alone or glue onto the move: "12.e4".
+            let san = match token.rfind('.') {
+                Some(dot) if token[..dot].chars().all(|c| c.is_ascii_digit() || c == '.') => {
+                    &token[dot + 1..]
+                }
+                _ => &token,
+            };
+            let san = san.trim_end_matches(['+', '#', '!', '?']);
+            let skip = san.is_empty()
+                || san.starts_with('$')
+                || matches!(san, "1-0" | "0-1" | "1/2-1/2" | "*");
+            (!skip).then(|| san.to_owned())
+        })
+        .collect()
 }
 
 /// Neither side can force mate: bare kings, one minor piece, or bishops
@@ -578,6 +677,30 @@ mod tests {
 
         history.undo();
         assert!(history.pgn("?", "?").ends_with("1. f3 e5 2. g4 *"));
+    }
+
+    #[test]
+    fn test_pgn_round_trip_and_import_noise() {
+        let text = "[Event \"?\"]\n[Result \"*\"]\n\n1. e4 {best by test} e5 2. Nf3 $1 (2. f4 exf4) \
+                    2... Nc6 3.Bb5 a6!? ; a comment to the end of the line\n4. Ba4 *";
+        let history = GameHistory::from_pgn(text).unwrap();
+        assert_eq!(history.move_count(), 7);
+        assert_eq!(history.san(6), Some("Ba4"));
+
+        let again = GameHistory::from_pgn(&history.pgn("?", "?")).unwrap();
+        assert_eq!(again.current_board(), history.current_board());
+
+        assert_eq!(
+            GameHistory::from_pgn("1. e4 e5 2. Ke2 Nf6 3. Kd3 Qh4").err(),
+            Some(PgnError::BadMove {
+                ply: 6,
+                san: "Qh4".into(),
+            })
+        );
+        assert_eq!(
+            GameHistory::from_pgn("[FEN \"junk\"]\n\n1. e4").err(),
+            Some(PgnError::InvalidFen)
+        );
     }
 
     #[test]
