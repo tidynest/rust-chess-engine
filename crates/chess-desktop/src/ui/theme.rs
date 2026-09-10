@@ -87,10 +87,10 @@ impl Theme {
             eval_text: Color32::from_rgb(26, 26, 26),     // Near-black
 
             // Interactive States
-            hover: Color32::from_rgba_premultiplied(44, 95, 61, 40), // 15% primary
-            selected: Color32::from_rgba_premultiplied(44, 95, 61, 60), // 25% primary
-            legal_move: Color32::from_rgba_premultiplied(44, 95, 61, 80), // 30% primary
-            last_move: Color32::from_rgba_premultiplied(44, 95, 61, 40),
+            hover: Color32::from_rgba_unmultiplied(44, 95, 61, 40), // 15% primary
+            selected: Color32::from_rgba_unmultiplied(44, 95, 61, 60), // 25% primary
+            legal_move: Color32::from_rgba_unmultiplied(44, 95, 61, 80), // 30% primary
+            last_move: Color32::from_rgba_unmultiplied(44, 95, 61, 40),
             check: Color32::from_rgb(200, 50, 50), // Red for check
 
             // Status Colors
@@ -147,10 +147,10 @@ impl Theme {
             eval_text: Color32::from_rgb(61, 40, 23),     // Dark brown
 
             // Interactive States
-            hover: Color32::from_rgba_premultiplied(201, 147, 131, 40),
-            selected: Color32::from_rgba_premultiplied(201, 147, 131, 60),
-            legal_move: Color32::from_rgba_premultiplied(159, 181, 159, 100),
-            last_move: Color32::from_rgba_premultiplied(201, 147, 131, 50),
+            hover: Color32::from_rgba_unmultiplied(201, 147, 131, 40),
+            selected: Color32::from_rgba_unmultiplied(201, 147, 131, 60),
+            legal_move: Color32::from_rgba_unmultiplied(159, 181, 159, 100),
+            last_move: Color32::from_rgba_unmultiplied(201, 147, 131, 50),
             check: Color32::from_rgb(180, 70, 70), // Muted red
 
             // Status Colors
@@ -207,10 +207,10 @@ impl Theme {
             eval_text: Color32::from_rgb(232, 232, 232),  // Off-white
 
             // Interactive States
-            hover: Color32::from_rgba_premultiplied(212, 175, 55, 40),
-            selected: Color32::from_rgba_premultiplied(212, 175, 55, 60),
-            legal_move: Color32::from_rgba_premultiplied(74, 155, 155, 80),
-            last_move: Color32::from_rgba_premultiplied(212, 175, 55, 40),
+            hover: Color32::from_rgba_unmultiplied(212, 175, 55, 40),
+            selected: Color32::from_rgba_unmultiplied(212, 175, 55, 60),
+            legal_move: Color32::from_rgba_unmultiplied(74, 155, 155, 80),
+            last_move: Color32::from_rgba_unmultiplied(212, 175, 55, 40),
             check: Color32::from_rgb(220, 80, 80), // Bright red
 
             // Status Colors
