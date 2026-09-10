@@ -38,16 +38,7 @@ impl ChessApp {
                     Vec2::splat(square_size),
                 );
 
-                self.draw_square(
-                    square,
-                    square_rect,
-                    rank,
-                    file,
-                    display_rank,
-                    display_file,
-                    square_size,
-                    &painter,
-                );
+                self.draw_square(square, square_rect, rank, file, square_size, &painter);
                 self.draw_square_labels(
                     rank,
                     file,
@@ -69,40 +60,30 @@ impl ChessApp {
         response
     }
 
-    /// Draw a single square with highlighting
-    #[allow(clippy::too_many_arguments)]
+    /// Draw a single square, then its highlights on top.
     fn draw_square(
         &self,
         square: ChessSquare,
         square_rect: Rect,
         rank: usize,
         file: usize,
-        _display_rank: usize,
-        _display_file: usize,
         square_size: f32,
         painter: &egui::Painter,
     ) {
         let is_light = (rank + file).is_multiple_of(2);
-        let mut square_color = if is_light {
+        let square_color = if is_light {
             self.light_square_color
         } else {
             self.dark_square_color
         };
+        painter.rect_filled(square_rect, CornerRadius::ZERO, square_color);
 
         // Highlight last move
         if let Some((from, to)) = self.last_move
             && (square == from || square == to)
         {
-            square_color = Color32::from_rgba_premultiplied(
-                square_color.r(),
-                square_color.g(),
-                square_color.b(),
-                200,
-            );
             painter.rect_filled(square_rect, CornerRadius::ZERO, self.last_move_color);
         }
-
-        painter.rect_filled(square_rect, CornerRadius::ZERO, square_color);
 
         // Highlight selected square
         if Some(square) == self.selected_square {
