@@ -5,4 +5,5 @@
 pub mod board;
 pub mod components;
 pub mod panels;
+pub mod pieces;
 pub mod theme;
