@@ -1,4 +1,4 @@
-use egui::Color32;
+use egui::{Color32, Context, Visuals};
 
 /// Design token system for the chess application
 /// All visual styling goes through this theme to ensure consistency
@@ -30,6 +30,7 @@ pub struct Theme {
     pub hover: Color32,
     pub selected: Color32,
     pub legal_move: Color32,
+    pub last_move: Color32,
     pub check: Color32,
 
     // Status Colors
@@ -89,7 +90,8 @@ impl Theme {
             hover: Color32::from_rgba_premultiplied(44, 95, 61, 40), // 15% primary
             selected: Color32::from_rgba_premultiplied(44, 95, 61, 60), // 25% primary
             legal_move: Color32::from_rgba_premultiplied(44, 95, 61, 80), // 30% primary
-            check: Color32::from_rgb(200, 50, 50),                   // Red for check
+            last_move: Color32::from_rgba_premultiplied(44, 95, 61, 40),
+            check: Color32::from_rgb(200, 50, 50), // Red for check
 
             // Status Colors
             success: Color32::from_rgb(76, 175, 80), // Green
@@ -148,6 +150,7 @@ impl Theme {
             hover: Color32::from_rgba_premultiplied(201, 147, 131, 40),
             selected: Color32::from_rgba_premultiplied(201, 147, 131, 60),
             legal_move: Color32::from_rgba_premultiplied(159, 181, 159, 100),
+            last_move: Color32::from_rgba_premultiplied(201, 147, 131, 50),
             check: Color32::from_rgb(180, 70, 70), // Muted red
 
             // Status Colors
@@ -207,6 +210,7 @@ impl Theme {
             hover: Color32::from_rgba_premultiplied(212, 175, 55, 40),
             selected: Color32::from_rgba_premultiplied(212, 175, 55, 60),
             legal_move: Color32::from_rgba_premultiplied(74, 155, 155, 80),
+            last_move: Color32::from_rgba_premultiplied(212, 175, 55, 40),
             check: Color32::from_rgb(220, 80, 80), // Bright red
 
             // Status Colors
@@ -235,6 +239,41 @@ impl Theme {
             panel_padding: 16.0,
             border_radius: 4.0,
         }
+    }
+}
+
+impl Theme {
+    /// Dark themes get egui's dark widget set, light ones the light set.
+    pub fn is_dark(&self) -> bool {
+        let [r, g, b, _] = self.background.to_array();
+        (u16::from(r) + u16::from(g) + u16::from(b)) / 3 < 128
+    }
+
+    /// Push the theme into egui's own widgets: panels, windows, text, selection.
+    pub fn apply(&self, ctx: &Context) {
+        let mut visuals = if self.is_dark() {
+            Visuals::dark()
+        } else {
+            Visuals::light()
+        };
+        visuals.override_text_color = Some(self.text_primary);
+        visuals.panel_fill = self.background;
+        visuals.window_fill = self.surface;
+        visuals.extreme_bg_color = self.surface;
+        visuals.faint_bg_color = self.surface;
+        visuals.selection.bg_fill = self.primary;
+        visuals.hyperlink_color = self.accent;
+        visuals.window_corner_radius = self.border_radius.into();
+        for widget in [
+            &mut visuals.widgets.noninteractive,
+            &mut visuals.widgets.inactive,
+            &mut visuals.widgets.hovered,
+            &mut visuals.widgets.active,
+            &mut visuals.widgets.open,
+        ] {
+            widget.corner_radius = self.border_radius.into();
+        }
+        ctx.set_visuals(visuals);
     }
 }
 

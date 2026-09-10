@@ -5,7 +5,7 @@
 use chess::{Board, ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare};
 use chess_core::GameHistory;
 use chess_engine::Score;
-use eframe::egui::{Color32, Pos2};
+use eframe::egui::Pos2;
 use std::sync::mpsc::{Receiver, channel};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -37,11 +37,6 @@ pub struct ChessApp {
 
     // UI state
     pub board_flip: bool,
-    pub light_square_color: Color32,
-    pub dark_square_color: Color32,
-    pub selected_square_color: Color32,
-    pub legal_move_color: Color32,
-    pub last_move_color: Color32,
     pub dragging_piece: Option<(ChessSquare, ChessPiece, ChessColor)>,
     pub drag_pos: Option<Pos2>,
     pub show_eval_bar: bool,
@@ -81,11 +76,19 @@ impl ChessApp {
         let (events, engine_rx) = channel();
         engine_link::spawn(commands, events, cc.egui_ctx.clone());
 
-        Self {
+        let app = Self {
             engine_tx: Some(engine_tx),
             engine_rx: Some(engine_rx),
             ..Self::headless()
-        }
+        };
+        app.theme.apply(&cc.egui_ctx);
+        app
+    }
+
+    /// Switch theme; the caller applies it to the egui context.
+    pub fn set_theme(&mut self, variant: ThemeVariant) {
+        self.theme_variant = variant;
+        self.theme = variant.to_theme();
     }
 
     /// The app with no engine thread, for tests and for `new` to build on.
@@ -99,11 +102,6 @@ impl ChessApp {
             pending_promotion: None,
             fen_input: None,
             disable_auto_request: false,
-            light_square_color: Color32::from_rgb(238, 238, 210),
-            dark_square_color: Color32::from_rgb(118, 150, 86),
-            selected_square_color: Color32::from_rgba_premultiplied(255, 255, 0, 100),
-            legal_move_color: Color32::from_rgba_premultiplied(0, 255, 0, 50),
-            last_move_color: Color32::from_rgba_premultiplied(255, 200, 0, 60),
             dragging_piece: None,
             drag_pos: None,
             play_vs_computer: false,

@@ -14,50 +14,53 @@ pub fn draw(app: &ChessApp, ctx: &Context) {
         .width_range(150.0..=300.0)
         .resizable(true)
         .show(ctx, |ui| {
-            // 8pt spacing system
-            ui.add_space(8.0);
+            let theme = &app.theme;
+            ui.add_space(theme.space_xs);
 
             ui.heading("Position Info");
-            ui.add_space(8.0);
+            ui.add_space(theme.space_xs);
 
             ui.separator();
-            ui.add_space(16.0);
+            ui.add_space(theme.space_sm);
 
             material::draw_material_count(app, ui);
 
-            ui.add_space(16.0);
+            ui.add_space(theme.space_sm);
             ui.separator();
-            ui.add_space(16.0);
+            ui.add_space(theme.space_sm);
 
             if let Some(square) = app.selected_square {
-                // Selected square section with better hierarchy
-                ui.label(egui::RichText::new("Selected Square").strong().size(16.0));
-                ui.add_space(8.0);
+                ui.label(
+                    egui::RichText::new("Selected Square")
+                        .strong()
+                        .size(theme.font_size_md),
+                );
+                ui.add_space(theme.space_xs);
 
                 ui.label(format!("📍 {}", square));
 
                 if let Some((piece, color)) = app.piece_at(square) {
-                    ui.add_space(8.0);
+                    ui.add_space(theme.space_xs);
                     ui.label(format!("♟️  {color:?} {piece:?}"));
                     ui.label(format!(
                         "⚡ {} legal moves",
                         app.legal_moves_for_selected.len()
                     ));
                 } else {
-                    ui.add_space(8.0);
+                    ui.add_space(theme.space_xs);
                     ui.label(egui::RichText::new("Empty square").italics().weak());
                 }
             } else {
                 // No selection state
                 ui.label(egui::RichText::new("No Square Selected").weak().italics());
-                ui.add_space(8.0);
+                ui.add_space(theme.space_xs);
                 ui.label(
                     egui::RichText::new("Click a piece to see details")
-                        .size(12.0)
+                        .size(theme.font_size_xs)
                         .weak(),
                 );
             }
 
-            ui.add_space(8.0);
+            ui.add_space(theme.space_xs);
         });
 }
