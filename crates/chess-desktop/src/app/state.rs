@@ -32,6 +32,8 @@ pub struct ChessApp {
     pub last_move: Option<(ChessSquare, ChessSquare)>,
     /// A pawn move waiting for the player to choose the promotion piece.
     pub pending_promotion: Option<(ChessSquare, ChessSquare)>,
+    /// Text of the "Set up position" window while it is open.
+    pub fen_input: Option<String>,
 
     // UI state
     pub board_flip: bool,
@@ -95,6 +97,7 @@ impl ChessApp {
             board_flip: false,
             last_move: None,
             pending_promotion: None,
+            fen_input: None,
             disable_auto_request: false,
             light_square_color: Color32::from_rgb(238, 238, 210),
             dark_square_color: Color32::from_rgb(118, 150, 86),
@@ -138,7 +141,12 @@ impl ChessApp {
 
     /// Reset the game to initial position
     pub fn new_game(&mut self) {
-        self.game_history = GameHistory::new();
+        self.start_game(GameHistory::new());
+    }
+
+    /// Replace the game with `history` and tell the engine to forget the old one.
+    pub fn start_game(&mut self, history: GameHistory) {
+        self.game_history = history;
         self.position_changed();
         self.send(EngineCommand::NewGame);
         self.last_move = None;
