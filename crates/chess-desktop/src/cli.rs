@@ -11,7 +11,7 @@ fn print_help() {
     println!("    quit  - Exit the game");
     println!("    new   - Start a new game");
     println!("    moves - Show all legal moves");
-    println!("    undo  - Undo last move (not implemented yet)");
+    println!("    undo  - Take back the last move");
     println!();
 }
 
@@ -33,7 +33,8 @@ fn main() -> Result<()> {
     println!("Type 'help' for commands\n");
 
     let mut engine = ChessEngine::new();
-    let mut move_history = Vec::new();
+    // Positions before each move, newest last; popping one is an undo.
+    let mut history: Vec<ChessEngine> = Vec::new();
 
     loop {
         println!("\n{}", display::display_board(&engine));
@@ -49,7 +50,7 @@ fn main() -> Result<()> {
 
             if input.trim().to_lowercase() == "y" {
                 engine = ChessEngine::new();
-                move_history.clear();
+                history.clear();
                 continue;
             } else {
                 break;
@@ -73,31 +74,35 @@ fn main() -> Result<()> {
             }
             "new" => {
                 engine = ChessEngine::new();
-                move_history.clear();
+                history.clear();
                 println!("New game has started!");
             }
             "moves" | "m" => {
                 show_legal_moves(&engine);
             }
-            "undo" | "u" => {
-                println!("Undo not implemented yet");
-            }
+            "undo" | "u" => match history.pop() {
+                Some(previous) => engine = previous,
+                None => println!("Nothing to undo"),
+            },
             move_str => {
                 if move_str.is_empty() {
                     continue;
                 }
 
                 match notation::parse_algebraic(move_str) {
-                    Some(mv) => match engine.make_move(mv) {
-                        Ok(_) => {
-                            move_history.push(move_str.to_string());
-                            println!("Move played: {}", move_str);
+                    Some(mv) => {
+                        let before = engine.clone();
+                        match engine.make_move(mv) {
+                            Ok(()) => {
+                                history.push(before);
+                                println!("Move played: {}", move_str);
+                            }
+                            Err(e) => {
+                                println!("Invalid move: {}", e);
+                                println!("Type 'moves' to see legal moves");
+                            }
                         }
-                        Err(e) => {
-                            println!("Invalid move: {}", e);
-                            println!("Type 'moves' to see legal moves");
-                        }
-                    },
+                    }
                     None => {
                         println!("Invalid move format. Use format like: e2e4");
                         println!("Type 'help' for more information");

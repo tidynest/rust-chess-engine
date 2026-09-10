@@ -6,6 +6,7 @@ use chess::{Board, BoardStatus, ChessMove, Color as ChessColor, Square as ChessS
 use std::str::FromStr;
 
 /// Wrapper around the chess crate's Board
+#[derive(Clone)]
 pub struct ChessEngine {
     board: Board,
 }
