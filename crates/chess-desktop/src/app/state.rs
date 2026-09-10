@@ -13,6 +13,7 @@ use crate::ui::theme::{Theme, ThemeVariant};
 
 use super::engine_comm::{EngineMode, SearchKind};
 use super::engine_link::{self, EngineCommand, EngineEvent, EngineStatus};
+use super::settings::Settings;
 
 /// Style for displaying captured pieces
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -84,11 +85,13 @@ impl ChessApp {
         let (events, engine_rx) = channel();
         engine_link::spawn(commands, events, cc.egui_ctx.clone());
 
-        let app = Self {
+        let mut app = Self {
             engine_tx: Some(engine_tx),
             engine_rx: Some(engine_rx),
             ..Self::headless()
         };
+        Settings::load().apply(&mut app);
+        app.face_computer();
         app.theme.apply(&cc.egui_ctx);
         app
     }
