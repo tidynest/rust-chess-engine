@@ -56,6 +56,11 @@ expect_used = "warn"
 # Code quality
 unnecessary_wraps = "warn"
 
+# egui and its stack are slow unoptimised; the project's own crates stay
+# debuggable at the default level.
+[profile.dev.package."*"]
+opt-level = 2
+
 [profile.release]
 opt-level = 3
 lto = "fat"

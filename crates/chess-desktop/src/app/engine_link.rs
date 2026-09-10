@@ -117,12 +117,32 @@ async fn run(mut commands: UnboundedReceiver<EngineCommand>, emit: &dyn Fn(Engin
     let _ = engine.quit().await;
 }
 
-/// Start the engine named by `CHESS_STOCKFISH`, or `stockfish` from PATH.
+/// Start the engine named by `CHESS_STOCKFISH`, else the first of the
+/// usual names and places that spawns.
 async fn start() -> anyhow::Result<StockfishEngine> {
-    let path = std::env::var("CHESS_STOCKFISH").unwrap_or_else(|_| "stockfish".to_owned());
-    let mut engine = StockfishEngine::new(&path).await?;
-    engine.initialise().await?;
-    Ok(engine)
+    let candidates = match std::env::var("CHESS_STOCKFISH") {
+        Ok(path) => vec![path],
+        Err(_) => [
+            "stockfish",
+            "/usr/games/stockfish",
+            "/opt/homebrew/bin/stockfish",
+            "/usr/local/bin/stockfish",
+            "stockfish.exe",
+        ]
+        .map(str::to_owned)
+        .to_vec(),
+    };
+    let mut last_error = None;
+    for path in &candidates {
+        match StockfishEngine::new(path).await {
+            Ok(mut engine) => {
+                engine.initialise().await?;
+                return Ok(engine);
+            }
+            Err(e) => last_error = Some(e),
+        }
+    }
+    Err(last_error.unwrap_or_else(|| anyhow::anyhow!("no engine path to try")))
 }
 
 async fn start_search(engine: &mut StockfishEngine, request: &SearchRequest) -> anyhow::Result<()> {
