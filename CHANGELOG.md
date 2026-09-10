@@ -4,6 +4,26 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+### Added since phase 1
+
+- Draw detection: stalemate, threefold repetition, the fifty-move rule and
+  insufficient material end the game and are named in the status line (CORE-2).
+- Three themes from `theme.rs` wired through every panel, switchable under
+  View > Theme; egui's own widgets follow the theme (GUI-2, GUI-3, GUI-4,
+  GUI-10, GUI-18, phase 3).
+- Keyboard: Left and Right arrows undo and redo, Home and End jump, F flips.
+- Game menu: Copy FEN, Copy PGN (seven-tag roster, SetUp/FEN for custom
+  starts, result), and Set up position from a FEN.
+- `CHESS_STOCKFISH` names the engine binary (ENG-10). Closing the window
+  quits the engine.
+- The eval bar is a split bar on the Lichess curve, oriented by the board flip.
+
+### Changed since phase 1
+
+- The GUI reads the position from `GameHistory` only; the duplicate
+  `ChessEngine` on `ChessApp` and the conversions module are gone (phase 2).
+- Jumping to the live end of the history lets the engine reply again.
+
 ### Fixed
 
 - Mate scores keep their sign; the eval bar shows `M3` or `-M3` (3.1, ENG-1).
