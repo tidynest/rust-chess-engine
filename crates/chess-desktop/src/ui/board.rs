@@ -2,12 +2,12 @@
 //!
 //! Handles board drawing, piece rendering, drag-and-drop, and square selection.
 
-use chess::{ChessMove, Color as ChessColor, File, Rank, Square as ChessSquare};
-use chess_core::{Color, GameState};
+use chess::{
+    ChessMove, Color as ChessColor, File, Piece as ChessPiece, Rank, Square as ChessSquare,
+};
 use eframe::egui::{self, Color32, Context, CornerRadius, Pos2, Rect, Response, Ui, Vec2};
 
 use crate::app::state::ChessApp;
-use crate::utils::conversions::{convert_piece_type, convert_to_chess_piece};
 
 impl ChessApp {
     /// Draw the chess board with pieces and interactions
@@ -156,9 +156,15 @@ impl ChessApp {
         if self
             .dragging_piece
             .is_none_or(|(drag_sq, _, _)| drag_sq != square)
-            && let Some(piece) = self.engine.piece_at(square.into())
+            && let Some((piece, color)) = self.piece_at(square)
         {
-            draw_piece(painter, square_rect.center(), piece, square_size * 0.8);
+            draw_piece(
+                painter,
+                square_rect.center(),
+                piece,
+                color,
+                square_size * 0.8,
+            );
         }
     }
 
@@ -167,15 +173,7 @@ impl ChessApp {
         if let Some((_, piece, color)) = self.dragging_piece
             && let Some(pos) = self.drag_pos
         {
-            let our_piece = chess_core::Piece {
-                color: if color == ChessColor::White {
-                    Color::White
-                } else {
-                    Color::Black
-                },
-                piece_type: convert_piece_type(piece),
-            };
-            draw_piece(painter, pos, our_piece, square_size * 0.8);
+            draw_piece(painter, pos, piece, color, square_size * 0.8);
         }
     }
 
@@ -240,9 +238,7 @@ impl ChessApp {
             } else {
                 self.try_make_move(selected, square);
             }
-        } else if let Some(piece) = self.engine.piece_at(square.into())
-            && piece.color == self.engine.side_to_move()
-        {
+        } else if self.own_piece_at(square).is_some() {
             self.selected_square = Some(square);
             self.update_legal_moves();
         }
@@ -250,21 +246,17 @@ impl ChessApp {
 
     /// Start dragging a piece
     fn start_drag(&mut self, square: ChessSquare) {
-        if let Some(piece) = self.engine.piece_at(square.into())
-            && piece.color == self.engine.side_to_move()
-        {
-            self.dragging_piece = Some((
-                square,
-                convert_to_chess_piece(piece.piece_type),
-                if piece.color == Color::White {
-                    ChessColor::White
-                } else {
-                    ChessColor::Black
-                },
-            ));
+        if let Some((piece, color)) = self.own_piece_at(square) {
+            self.dragging_piece = Some((square, piece, color));
             self.selected_square = Some(square);
             self.update_legal_moves();
         }
+    }
+
+    /// The piece on `square` if it belongs to the side to move.
+    fn own_piece_at(&self, square: ChessSquare) -> Option<(ChessPiece, ChessColor)> {
+        self.piece_at(square)
+            .filter(|&(_, color)| color == self.board().side_to_move())
     }
 
     /// Play the legal move between two squares, ask for the piece if it is a
@@ -283,16 +275,8 @@ impl ChessApp {
         }
 
         // If move failed, try to select the destination square
-        if let Some(piece) = self.engine.piece_at(to.into())
-            && piece.color == self.engine.side_to_move()
-        {
-            self.selected_square = Some(to);
-            self.update_legal_moves();
-            return;
-        }
-
-        self.selected_square = None;
-        self.legal_moves_for_selected.clear();
+        self.selected_square = self.own_piece_at(to).map(|_| to);
+        self.update_legal_moves();
     }
 
     /// Modal choice of the promotion piece for the pending pawn move.
@@ -326,7 +310,7 @@ impl ChessApp {
         if let Some(piece) = choice {
             self.play_move(ChessMove::new(from, to, Some(piece)));
         } else if !open {
-            self.sync_engine();
+            self.position_changed();
         }
     }
 
@@ -334,36 +318,25 @@ impl ChessApp {
     fn update_legal_moves(&mut self) {
         self.legal_moves_for_selected.clear();
         if let Some(square) = self.selected_square {
-            let our_square: chess_core::Square = square.into();
             self.legal_moves_for_selected.extend(
-                self.engine
-                    .legal_moves()
-                    .into_iter()
-                    .filter(|mv| mv.from == our_square)
-                    .map(|mv| {
-                        ChessMove::new(
-                            square,
-                            mv.to.into(),
-                            mv.promotion.map(convert_to_chess_piece),
-                        )
-                    }),
+                chess::MoveGen::new_legal(self.board()).filter(|mv| mv.get_source() == square),
             );
         }
     }
 }
 
 /// Draw a chess piece at given position
-fn draw_piece(painter: &egui::Painter, pos: Pos2, piece: chess_core::Piece, size: f32) {
-    let piece_char = match piece.piece_type {
-        chess_core::PieceType::King => '♚',
-        chess_core::PieceType::Queen => '♛',
-        chess_core::PieceType::Rook => '♜',
-        chess_core::PieceType::Bishop => '♝',
-        chess_core::PieceType::Knight => '♞',
-        chess_core::PieceType::Pawn => '♟',
+fn draw_piece(painter: &egui::Painter, pos: Pos2, piece: ChessPiece, color: ChessColor, size: f32) {
+    let piece_char = match piece {
+        ChessPiece::King => '♚',
+        ChessPiece::Queen => '♛',
+        ChessPiece::Rook => '♜',
+        ChessPiece::Bishop => '♝',
+        ChessPiece::Knight => '♞',
+        ChessPiece::Pawn => '♟',
     };
 
-    let text_color = if piece.color == chess_core::Color::White {
+    let text_color = if color == ChessColor::White {
         Color32::from_rgb(255, 255, 255)
     } else {
         Color32::from_rgb(20, 20, 20)
@@ -390,7 +363,7 @@ fn draw_piece(painter: &egui::Painter, pos: Pos2, piece: chess_core::Piece, size
                     egui::Align2::CENTER_CENTER,
                     piece_char,
                     font_id.clone(),
-                    if piece.color == chess_core::Color::White {
+                    if color == ChessColor::White {
                         Color32::from_rgb(30, 30, 30)
                     } else {
                         Color32::from_rgb(200, 200, 200)

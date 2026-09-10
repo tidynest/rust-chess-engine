@@ -2,8 +2,8 @@
 //!
 //! Contains the ChessApp struct and all game state.
 
-use chess::{ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare};
-use chess_core::{ChessEngine, GameHistory};
+use chess::{Board, ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare};
+use chess_core::GameHistory;
 use chess_engine::Score;
 use eframe::egui::{Color32, Pos2};
 use std::sync::mpsc::{Receiver, channel};
@@ -26,7 +26,6 @@ pub enum CapturedPiecesStyle {
 /// Main application state
 pub struct ChessApp {
     // Game state
-    pub engine: ChessEngine,
     pub game_history: GameHistory,
     pub selected_square: Option<ChessSquare>,
     pub legal_moves_for_selected: Vec<ChessMove>,
@@ -90,7 +89,6 @@ impl ChessApp {
     /// The app with no engine thread, for tests and for `new` to build on.
     pub fn headless() -> Self {
         Self {
-            engine: ChessEngine::new(),
             game_history: GameHistory::new(),
             selected_square: None,
             legal_moves_for_selected: Vec::new(),
@@ -127,10 +125,21 @@ impl ChessApp {
         }
     }
 
+    /// The position on the board right now.
+    pub fn board(&self) -> &Board {
+        self.game_history.current_board()
+    }
+
+    /// The piece on `square`, with its colour.
+    pub fn piece_at(&self, square: ChessSquare) -> Option<(ChessPiece, ChessColor)> {
+        let board = self.board();
+        Some((board.piece_on(square)?, board.color_on(square)?))
+    }
+
     /// Reset the game to initial position
     pub fn new_game(&mut self) {
         self.game_history = GameHistory::new();
-        self.sync_engine();
+        self.position_changed();
         self.send(EngineCommand::NewGame);
         self.last_move = None;
         self.engine_nodes = 0;

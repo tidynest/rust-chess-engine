@@ -1,6 +1,5 @@
 //! Utility functions.
 //!
-//! Contains helper functions for coordinate transformations and type conversions.
+//! Contains helper functions for coordinate transformations.
 
-pub mod conversions;
 pub mod coords;

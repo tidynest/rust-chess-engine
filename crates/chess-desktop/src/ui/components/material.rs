@@ -2,13 +2,14 @@
 //!
 //! Shows captured pieces in either Lichess or Chess.com style.
 
-use chess::Color as ChessColor;
-use chess_core::{Color, GameState, PieceType};
+use chess::{Board, ChessMove, Color as ChessColor, Piece};
 use eframe::egui::{Color32, Ui};
 use std::collections::HashMap;
 
 use crate::app::state::{CapturedPiecesStyle, ChessApp};
-use crate::utils::conversions::convert_piece_type;
+
+/// How many of each piece a side has taken.
+type Captured = HashMap<Piece, i32>;
 
 /// Draw material count and captured pieces
 pub fn draw_material_count(app: &ChessApp, ui: &mut Ui) {
@@ -31,63 +32,56 @@ pub fn draw_material_count(app: &ChessApp, ui: &mut Ui) {
 /// Material on the board per side, and the pieces each side has captured.
 /// Captures are read from the moves played, so a promoted pawn is not
 /// mistaken for a captured one.
-fn calculate_material(
-    app: &ChessApp,
-) -> (i32, i32, HashMap<PieceType, i32>, HashMap<PieceType, i32>) {
-    let mut white_material = 0;
-    let mut black_material = 0;
-
-    for rank in 0..8 {
-        for file in 0..8 {
-            if let Some(sq) = chess_core::Square::new(file, rank)
-                && let Some(piece) = app.engine.piece_at(sq)
-            {
-                match piece.color {
-                    Color::White => white_material += piece_value(piece.piece_type),
-                    Color::Black => black_material += piece_value(piece.piece_type),
-                }
-            }
-        }
-    }
+fn calculate_material(app: &ChessApp) -> (i32, i32, Captured, Captured) {
+    let board = app.board();
+    let material = |color| {
+        chess::ALL_PIECES
+            .iter()
+            .map(|&piece| {
+                let count = (board.pieces(piece) & board.color_combined(color)).popcnt();
+                piece_value(piece) * count as i32
+            })
+            .sum::<i32>()
+    };
 
     let mut white_captured = HashMap::new();
     let mut black_captured = HashMap::new();
-    for (board, mv) in app.game_history.played() {
-        let Some(taken) = captured_piece(board, mv) else {
+    for (before, mv) in app.game_history.played() {
+        let Some(taken) = captured_piece(before, mv) else {
             continue;
         };
-        let by = match board.side_to_move() {
+        let by = match before.side_to_move() {
             ChessColor::White => &mut white_captured,
             ChessColor::Black => &mut black_captured,
         };
-        *by.entry(convert_piece_type(taken)).or_insert(0) += 1;
+        *by.entry(taken).or_insert(0) += 1;
     }
 
     (
-        white_material,
-        black_material,
+        material(ChessColor::White),
+        material(ChessColor::Black),
         white_captured,
         black_captured,
     )
 }
 
 /// The piece `mv` takes on `board`, counting en passant.
-fn captured_piece(board: &chess::Board, mv: chess::ChessMove) -> Option<chess::Piece> {
+fn captured_piece(board: &Board, mv: ChessMove) -> Option<Piece> {
     let (from, to) = (mv.get_source(), mv.get_dest());
     board.piece_on(to).or_else(|| {
-        let is_pawn = board.piece_on(from) == Some(chess::Piece::Pawn);
-        (is_pawn && from.get_file() != to.get_file()).then_some(chess::Piece::Pawn)
+        let is_pawn = board.piece_on(from) == Some(Piece::Pawn);
+        (is_pawn && from.get_file() != to.get_file()).then_some(Piece::Pawn)
     })
 }
 
 /// Get material value of piece type
-fn piece_value(piece_type: PieceType) -> i32 {
-    match piece_type {
-        PieceType::Pawn => 1,
-        PieceType::Knight | PieceType::Bishop => 3,
-        PieceType::Rook => 5,
-        PieceType::Queen => 9,
-        PieceType::King => 0,
+fn piece_value(piece: Piece) -> i32 {
+    match piece {
+        Piece::Pawn => 1,
+        Piece::Knight | Piece::Bishop => 3,
+        Piece::Rook => 5,
+        Piece::Queen => 9,
+        Piece::King => 0,
     }
 }
 
@@ -95,8 +89,8 @@ fn piece_value(piece_type: PieceType) -> i32 {
 fn draw_lichess_style(
     ui: &mut Ui,
     material_diff: i32,
-    white_captured: &HashMap<PieceType, i32>,
-    black_captured: &HashMap<PieceType, i32>,
+    white_captured: &Captured,
+    black_captured: &Captured,
 ) {
     ui.heading("Captured Pieces");
 
@@ -123,8 +117,8 @@ fn draw_lichess_style(
 fn draw_chesscom_style(
     ui: &mut Ui,
     material_diff: i32,
-    white_captured: &HashMap<PieceType, i32>,
-    black_captured: &HashMap<PieceType, i32>,
+    white_captured: &Captured,
+    black_captured: &Captured,
 ) {
     ui.heading("Captured Pieces");
 
@@ -165,58 +159,44 @@ fn draw_chesscom_style(
 }
 
 /// Format captured pieces as Unicode string
-fn format_captured_pieces(captured: &HashMap<PieceType, i32>, is_white: bool) -> String {
-    let mut pieces = Vec::new();
-
-    let piece_order = [
-        PieceType::Queen,
-        PieceType::Rook,
-        PieceType::Bishop,
-        PieceType::Knight,
-        PieceType::Pawn,
-    ];
-
-    for piece_type in piece_order.iter() {
-        if let Some(&count) = captured.get(piece_type)
-            && count > 0
-        {
-            let piece_char = get_piece_unicode(*piece_type, is_white);
-            for _ in 0..count {
-                pieces.push(piece_char);
-            }
-        }
-    }
-
-    pieces.iter().collect()
+fn format_captured_pieces(captured: &Captured, is_white: bool) -> String {
+    [
+        Piece::Queen,
+        Piece::Rook,
+        Piece::Bishop,
+        Piece::Knight,
+        Piece::Pawn,
+    ]
+    .into_iter()
+    .flat_map(|piece| {
+        let count = captured.get(&piece).copied().unwrap_or(0).max(0) as usize;
+        std::iter::repeat_n(get_piece_unicode(piece, is_white), count)
+    })
+    .collect()
 }
 
 /// Get Unicode character for piece
-fn get_piece_unicode(piece_type: PieceType, is_white: bool) -> char {
-    if is_white {
-        match piece_type {
-            PieceType::Queen => '♛',
-            PieceType::Rook => '♜',
-            PieceType::Bishop => '♝',
-            PieceType::Knight => '♞',
-            PieceType::Pawn => '♟',
-            PieceType::King => '♚',
-        }
-    } else {
-        match piece_type {
-            PieceType::Queen => '♕',
-            PieceType::Rook => '♖',
-            PieceType::Bishop => '♗',
-            PieceType::Knight => '♘',
-            PieceType::Pawn => '♙',
-            PieceType::King => '♔',
-        }
+fn get_piece_unicode(piece: Piece, is_white: bool) -> char {
+    match (piece, is_white) {
+        (Piece::Queen, true) => '♛',
+        (Piece::Rook, true) => '♜',
+        (Piece::Bishop, true) => '♝',
+        (Piece::Knight, true) => '♞',
+        (Piece::Pawn, true) => '♟',
+        (Piece::King, true) => '♚',
+        (Piece::Queen, false) => '♕',
+        (Piece::Rook, false) => '♖',
+        (Piece::Bishop, false) => '♗',
+        (Piece::Knight, false) => '♘',
+        (Piece::Pawn, false) => '♙',
+        (Piece::King, false) => '♔',
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chess::{Board, ChessMove, Piece, Square};
+    use chess::Square;
     use std::str::FromStr;
 
     #[test]

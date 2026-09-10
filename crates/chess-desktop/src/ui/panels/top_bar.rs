@@ -2,7 +2,7 @@
 //!
 //! Contains game menu, view options, and turn indicator.
 
-use chess_core::{Color, GameState};
+use chess::Color as ChessColor;
 use eframe::egui::{self, Context};
 
 use crate::app::engine_link::EngineCommand;
@@ -75,8 +75,7 @@ fn draw_view_menu(app: &mut ChessApp, ui: &mut egui::Ui) {
 
 /// Draw the turn indicator
 fn draw_turn_indicator(app: &ChessApp, ui: &mut egui::Ui) {
-    let side_to_move = app.engine.side_to_move();
-    let turn_text = if side_to_move == Color::White {
+    let turn_text = if app.board().side_to_move() == ChessColor::White {
         "⚪ White to move"
     } else {
         "⚫ Black to move"
