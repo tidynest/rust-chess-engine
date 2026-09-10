@@ -15,7 +15,6 @@ impl eframe::App for ChessApp {
 
         // Apply engine move if received
         if let Some(mv) = best_move {
-            self.engine_best_move = Some(mv.clone());
             self.apply_engine_move(&mv);
         }
 
@@ -24,6 +23,7 @@ impl eframe::App for ChessApp {
         crate::ui::panels::right_panel::draw(self, ctx);
         crate::ui::panels::left_panel::draw(self, ctx);
         crate::ui::panels::central_panel::draw(self, ctx);
+        self.draw_promotion_picker(ctx);
 
         // Auto-request engine move if needed
         self.auto_request_engine_move();

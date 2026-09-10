@@ -4,7 +4,7 @@
 
 use chess::{ChessMove, Color as ChessColor, File, Rank, Square as ChessSquare};
 use chess_core::{Color, GameState};
-use eframe::egui::{self, Color32, CornerRadius, Pos2, Rect, Response, Ui, Vec2};
+use eframe::egui::{self, Color32, Context, CornerRadius, Pos2, Rect, Response, Ui, Vec2};
 
 use crate::app::state::ChessApp;
 use crate::utils::conversions::{convert_piece_type, convert_to_chess_piece};
@@ -214,7 +214,7 @@ impl ChessApp {
             current_turn != self.computer_color
         };
 
-        if !is_human_turn {
+        if !is_human_turn || self.pending_promotion.is_some() {
             return;
         }
 
@@ -293,34 +293,19 @@ impl ChessApp {
         }
     }
 
-    /// Attempt to make a move from one square to another
+    /// Play the legal move between two squares, ask for the piece if it is a
+    /// promotion, or move the selection when there is no such move.
     fn try_make_move(&mut self, from: ChessSquare, to: ChessSquare) {
-        let from_str = format!("{}", from);
-        let to_str = format!("{}", to);
-        let move_str = format!("{}{}", from_str, to_str);
+        let legal = chess::MoveGen::new_legal(self.game_history.current_board())
+            .find(|m| m.get_source() == from && m.get_dest() == to);
 
-        if let Some(mv) = chess_core::notation::parse_algebraic(&move_str)
-            && self.engine.make_move(mv).is_ok()
-        {
-            let mut legal_moves = chess::MoveGen::new_legal(self.game_history.current_board());
-            let chess_move = legal_moves
-                .find(|m| m.get_source() == from && m.get_dest() == to)
-                .unwrap_or(ChessMove::new(from, to, None));
-
-            let san = chess_core::notation::format_move_san(
-                &chess_move,
-                self.game_history.current_board(),
-            );
-
-            self.game_history.make_move(chess_move);
-            self.move_history.push(san);
-            self.last_move = Some((from, to));
-            self.viewing_move_index = None;
-            self.selected_square = None;
-            self.legal_moves_for_selected.clear();
-            self.disable_auto_request = false;
-
-            return;
+        match legal {
+            Some(mv) if mv.get_promotion().is_none() => return self.play_move(mv),
+            Some(_) => {
+                self.pending_promotion = Some((from, to));
+                return;
+            }
+            None => {}
         }
 
         // If move failed, try to select the destination square
@@ -334,6 +319,41 @@ impl ChessApp {
 
         self.selected_square = None;
         self.legal_moves_for_selected.clear();
+    }
+
+    /// Modal choice of the promotion piece for the pending pawn move.
+    pub fn draw_promotion_picker(&mut self, ctx: &Context) {
+        let Some((from, to)) = self.pending_promotion else {
+            return;
+        };
+
+        let mut open = true;
+        let mut choice = None;
+        egui::Window::new("Promote to")
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, Vec2::ZERO)
+            .open(&mut open)
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    for (piece, name) in [
+                        (chess::Piece::Queen, "Queen"),
+                        (chess::Piece::Rook, "Rook"),
+                        (chess::Piece::Bishop, "Bishop"),
+                        (chess::Piece::Knight, "Knight"),
+                    ] {
+                        if ui.button(name).clicked() {
+                            choice = Some(piece);
+                        }
+                    }
+                });
+            });
+
+        if let Some(piece) = choice {
+            self.play_move(ChessMove::new(from, to, Some(piece)));
+        } else if !open {
+            self.sync_engine();
+        }
     }
 
     /// Update list of legal moves for selected square

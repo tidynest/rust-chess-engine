@@ -135,9 +135,7 @@ fn draw_control_buttons(app: &mut ChessApp, ui: &mut egui::Ui, board_left_edge: 
             .clicked()
             && app.game_history.undo()
         {
-            app.sync_engine_from_history();
-            app.selected_square = None;
-            app.legal_moves_for_selected.clear();
+            app.sync_engine();
             app.disable_auto_request = true;
         }
 
@@ -146,9 +144,7 @@ fn draw_control_buttons(app: &mut ChessApp, ui: &mut egui::Ui, board_left_edge: 
             .clicked()
             && app.game_history.redo()
         {
-            app.sync_engine_from_history();
-            app.selected_square = None;
-            app.legal_moves_for_selected.clear();
+            app.sync_engine();
             app.disable_auto_request = true;
         }
     });
