@@ -4,6 +4,28 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+### Third round
+
+- Analysis mode: "Analyse position" evaluates whatever is on screen, also
+  while browsing the history, and draws the engine's move as an arrow. It
+  never blocks the board and never plays its result.
+- Settings persist: theme, engine limits, skill level, eval bar, captured
+  layout and the computer's colour, as `key = value` lines under
+  `$XDG_CONFIG_HOME/rust-chess-engine/settings`.
+- Load PGN from the Game menu; comments, variations, glyphs and results are
+  stripped. `notation::parse_san` reads SAN by matching the formatter over the
+  legal moves, which also covers en passant, and a test proves every legal
+  move has a SAN of its own.
+- CLI accepts SAN (`Nf3`, `O-O`, `exd5`) and a `fen` command.
+- King in check and the drag target square are tinted; ticking "Play vs
+  Computer" or changing its colour puts the human at the bottom.
+- Promotion picker and captured pieces use the vector piece set.
+- Engine path: `CHESS_STOCKFISH`, then PATH, `/usr/games`, `/opt/homebrew/bin`,
+  `/usr/local/bin`, `stockfish.exe`. The skill label no longer invents an Elo.
+- The GUI reads the position only from `GameHistory` (the duplicate
+  `ChessEngine` is gone), dependencies build optimised in dev, CI runs
+  cargo-deny, the board's minimum size is 240 px.
+
 ### Added since phase 1
 
 - Draw detection: stalemate, threefold repetition, the fifty-move rule and
