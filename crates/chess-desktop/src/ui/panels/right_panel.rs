@@ -225,15 +225,16 @@ fn draw_move_history(app: &mut ChessApp, ui: &mut egui::Ui, max_height: f32) {
         });
 
     if let Some(move_index) = clicked_move {
-        app.jump_to_move(move_index);
+        app.jump_to_ply(move_index + 1);
     }
 }
 
 /// Draw controls legend
 fn draw_controls_legend(ui: &mut egui::Ui) {
     ui.heading("Controls");
-    ui.label("• Click to select a piece");
-    ui.label("• Click again to move");
-    ui.label("• Drag and drop pieces");
-    ui.label("• Green dots show legal moves");
+    ui.label("• Click or drag a piece to move it");
+    ui.label("• Dots mark the legal targets");
+    ui.label("• ← → step through the moves");
+    ui.label("• Home and End jump to either end");
+    ui.label("• F flips the board");
 }
