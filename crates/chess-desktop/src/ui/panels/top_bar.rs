@@ -26,9 +26,6 @@ fn draw_game_menu(app: &mut ChessApp, ui: &mut egui::Ui, ctx: &Context) {
     ui.menu_button("Game", |ui| {
         if ui.button("🆕 New Game").clicked() {
             app.new_game();
-            if app.play_vs_computer {
-                app.request_engine_move();
-            }
         }
 
         ui.separator();

@@ -6,7 +6,7 @@ pub mod engine_comm;
 pub mod engine_link;
 pub mod state;
 
-pub use engine_comm::EngineMode;
+pub use engine_comm::{EngineMode, SearchKind};
 pub use engine_link::{EngineCommand, EngineEvent, EngineStatus, SearchRequest};
 pub use state::{CapturedPiecesStyle, ChessApp};
 
@@ -30,8 +30,7 @@ impl eframe::App for ChessApp {
         self.draw_promotion_picker(ctx);
         crate::ui::panels::top_bar::draw_setup_window(self, ctx);
 
-        // Auto-request engine move if needed
-        self.auto_request_engine_move();
+        self.auto_request();
     }
 
     /// Closing the window from the title bar ends the engine too.

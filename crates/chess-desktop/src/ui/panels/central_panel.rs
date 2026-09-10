@@ -35,7 +35,7 @@ fn calculate_board_dimensions(app: &ChessApp, ui: &egui::Ui) -> (f32, f32, f32) 
     let spacing = app.theme.space_xs;
 
     // Calculate max board size - MORE GENEROUS than before!
-    let max_board_size = if app.play_vs_computer && app.show_eval_bar {
+    let max_board_size = if app.engine_in_use() && app.show_eval_bar {
         // Reserve space for eval bar + spacing, but be more generous
         let available_width = available.x - eval_bar_width - spacing - 20.0; // Reduced margin
         available_width
@@ -64,7 +64,7 @@ fn draw_board_and_eval_bar(
 
     ui.horizontal(|ui| {
         // Calculate total width needed
-        let total_width = if app.play_vs_computer && app.show_eval_bar {
+        let total_width = if app.engine_in_use() && app.show_eval_bar {
             max_board_size + eval_bar_width + spacing
         } else {
             max_board_size
@@ -89,7 +89,7 @@ fn draw_board_and_eval_bar(
         });
 
         // Draw eval bar if enabled
-        if app.play_vs_computer && app.show_eval_bar {
+        if app.engine_in_use() && app.show_eval_bar {
             ui.add_space(spacing);
             ui.allocate_ui_with_layout(
                 Vec2::new(eval_bar_width, max_board_size),
@@ -118,9 +118,6 @@ fn draw_control_buttons(app: &mut ChessApp, ui: &mut egui::Ui, board_left_edge: 
         // Buttons now aligned to board's left edge
         if ui.button("🆕 New Game").clicked() {
             app.new_game();
-            if app.play_vs_computer {
-                app.request_engine_move();
-            }
         }
         if ui.button("🔃 Flip Board").clicked() {
             app.board_flip = !app.board_flip;
