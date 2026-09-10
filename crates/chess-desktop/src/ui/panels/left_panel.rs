@@ -2,7 +2,6 @@
 //!
 //! Displays captured pieces and selected square details.
 
-use chess_core::GameState;
 use eframe::egui::{self, Context};
 
 use crate::app::state::ChessApp;
@@ -37,9 +36,9 @@ pub fn draw(app: &ChessApp, ctx: &Context) {
 
                 ui.label(format!("📍 {}", square));
 
-                if let Some(piece) = app.engine.piece_at(square.into()) {
+                if let Some((piece, color)) = app.piece_at(square) {
                     ui.add_space(8.0);
-                    ui.label(format!("♟️  {:?} {:?}", piece.color, piece.piece_type));
+                    ui.label(format!("♟️  {color:?} {piece:?}"));
                     ui.label(format!(
                         "⚡ {} legal moves",
                         app.legal_moves_for_selected.len()

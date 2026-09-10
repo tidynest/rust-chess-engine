@@ -1,8 +1,10 @@
 //! The UI side of the engine link, plus the move and history operations
 //! that have to keep it informed.
 
-use chess::{Board, ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare};
-use chess_core::{ChessEngine, GameHistory, GameState, notation};
+use chess::{
+    Board, BoardStatus, ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare,
+};
+use chess_core::{GameHistory, notation};
 use chess_engine::EngineResponse;
 use std::str::FromStr;
 
@@ -76,8 +78,7 @@ impl ChessApp {
         if self.engine_thinking
             || self.engine_status != EngineStatus::Ready
             || !self.computer_to_move()
-            || self.engine.is_checkmate()
-            || self.engine.is_stalemate()
+            || self.board().status() != BoardStatus::Ongoing
         {
             return;
         }
@@ -157,13 +158,12 @@ impl ChessApp {
         self.game_history.make_move(mv);
         self.last_move = Some((mv.get_source(), mv.get_dest()));
         self.disable_auto_request = false;
-        self.sync_engine();
+        self.position_changed();
     }
 
-    /// Point the move validator at the history's current position, drop any
-    /// selection made on the old one and any search still running on it.
-    pub(crate) fn sync_engine(&mut self) {
-        self.engine = ChessEngine::from_board(*self.game_history.current_board());
+    /// Drop any selection made on the old position and any search still
+    /// running on it.
+    pub(crate) fn position_changed(&mut self) {
         self.selected_square = None;
         self.legal_moves_for_selected.clear();
         self.pending_promotion = None;
@@ -193,7 +193,7 @@ impl ChessApp {
         if self.computer_to_move() {
             step(&mut self.game_history);
         }
-        self.sync_engine();
+        self.position_changed();
         // Still the computer's turn means we hit an end of the history; let it play.
         self.disable_auto_request = false;
     }
@@ -261,7 +261,7 @@ impl ChessApp {
         for _ in current..target {
             self.game_history.redo();
         }
-        self.sync_engine();
+        self.position_changed();
         self.disable_auto_request = true;
     }
 }
