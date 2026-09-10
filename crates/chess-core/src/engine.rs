@@ -28,14 +28,16 @@ impl ChessEngine {
         &self.board
     }
 
-    /// Convert our Move to chess crate ChessMove
+    /// The legal move matching `mv`, if any. A promotion must name its piece.
     fn to_chess_move(&self, mv: Move) -> Option<ChessMove> {
         let from: ChessSquare = mv.from.into();
         let to: ChessSquare = mv.to.into();
 
-        // Find the matching legal move
-        let mut legal_moves = chess::MoveGen::new_legal(&self.board);
-        legal_moves.find(|m| m.get_source() == from && m.get_dest() == to)
+        chess::MoveGen::new_legal(&self.board).find(|m| {
+            m.get_source() == from
+                && m.get_dest() == to
+                && m.get_promotion().map(Self::convert_piece_type) == mv.promotion
+        })
     }
 
     /// Convert chess Color to our Color
@@ -112,5 +114,22 @@ impl GameState for ChessEngine {
 impl Default for ChessEngine {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::notation::parse_algebraic;
+
+    #[test]
+    fn test_promotion_requires_a_piece_and_keeps_it() {
+        let mut engine = ChessEngine::from_fen("4k3/P7/8/8/8/8/8/4K3 w - - 0 1").unwrap();
+
+        assert!(engine.make_move(parse_algebraic("a7a8").unwrap()).is_err());
+        assert!(engine.make_move(parse_algebraic("a7a8n").unwrap()).is_ok());
+
+        let promoted = engine.piece_at(Square::new(0, 7).unwrap()).unwrap();
+        assert_eq!(promoted.piece_type, PieceType::Knight);
     }
 }
