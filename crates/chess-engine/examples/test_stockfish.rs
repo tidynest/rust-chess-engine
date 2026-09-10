@@ -46,10 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             } => {
                 // Only print every few depths to avoid spam
                 if depth % 3 == 0 {
-                    println!(
-                        "   Depth {}: score {} cp, {} nodes, {} nps",
-                        depth, score, nodes, nps
-                    );
+                    println!("   Depth {depth}: {score:?}, {nodes} nodes, {nps} nps");
                     if !pv.is_empty() {
                         println!("   PV: {}", pv.join(" "));
                     }
@@ -57,7 +54,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 last_info = Some((depth, score, nodes, pv));
             }
             EngineResponse::BestMove { mv, ponder } => {
-                println!("\n   ✓ Best move found: {}", mv);
+                println!(
+                    "\n   ✓ Best move found: {}",
+                    mv.as_deref().unwrap_or("(none)")
+                );
                 if let Some(p) = ponder {
                     println!("   Suggested ponder move: {}", p);
                 }
@@ -75,11 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n📊 Summary:");
     if let Some((depth, score, nodes, pv)) = last_info {
         println!("   Final depth: {}", depth);
-        println!(
-            "   Evaluation: {} centipawns ({:.2} pawns)",
-            score,
-            score as f32 / 100.0
-        );
+        println!("   Evaluation: {score:?}");
         println!("   Nodes searched: {}", nodes);
         if !pv.is_empty() {
             println!(
@@ -88,8 +84,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
         }
     }
-    if let Some(mv) = best_move {
-        println!("   Best move: {}", mv);
+    if let Some(mv) = best_move.flatten() {
+        println!("   Best move: {mv}");
     }
 
     // Quit

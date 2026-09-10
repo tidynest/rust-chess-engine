@@ -1,10 +1,30 @@
 //! Evaluation bar component.
 //!
-//! Displays engine evaluation as a vertical bar.
+//! Displays engine evaluation as a vertical bar. The leading side's fill grows
+//! from the centre line toward the opponent's edge of the board.
 
+use chess_engine::Score;
 use eframe::egui::{self, Color32, Pos2, Rect, Ui, Vec2};
 
 use crate::app::state::ChessApp;
+
+/// Text for a score seen from White's side.
+pub fn label(score: Score) -> String {
+    match score {
+        Score::Cp(cp) => format!("{:+.1}", cp as f32 / 100.0),
+        Score::Mate(moves) if moves < 0 => format!("-M{}", -moves),
+        Score::Mate(moves) => format!("M{moves}"),
+    }
+}
+
+/// White's lead as a share of half the bar, from -1 to 1. Ten pawns fill it.
+fn fraction(score: Score) -> f32 {
+    match score {
+        Score::Cp(cp) => (cp as f32 / 1000.0).clamp(-1.0, 1.0),
+        Score::Mate(moves) if moves < 0 => -1.0,
+        Score::Mate(_) => 1.0,
+    }
+}
 
 /// Draw the evaluation bar
 pub fn draw(app: &ChessApp, ui: &mut Ui) {
@@ -23,11 +43,15 @@ pub fn draw(app: &ChessApp, ui: &mut Ui) {
 
     draw_center_line(&painter, inner_rect, center_y);
 
-    if let Some(eval) = app.engine_evaluation {
-        draw_evaluation_fill(&painter, inner_rect, center_y, eval);
-        draw_evaluation_text(&painter, rect, center_y, eval);
-    } else {
-        draw_no_evaluation(&painter, rect);
+    match app.engine_evaluation {
+        Some(score) => {
+            let fraction = fraction(score);
+            // White's fill points at Black's edge, which moves when the board flips.
+            let fill_up = (fraction >= 0.0) != app.board_flip;
+            draw_evaluation_fill(&painter, inner_rect, center_y, fraction, fill_up);
+            draw_evaluation_text(&painter, rect, &label(score), fill_up);
+        }
+        None => draw_no_evaluation(&painter, rect, app.board_flip),
     }
 }
 
@@ -50,11 +74,16 @@ fn draw_center_line(painter: &egui::Painter, inner_rect: Rect, center_y: f32) {
 }
 
 /// Draw evaluation fill bar
-fn draw_evaluation_fill(painter: &egui::Painter, inner_rect: Rect, center_y: f32, eval: f32) {
-    let clamped_eval = eval.clamp(-10.0, 10.0);
-    let bar_fill_height = (clamped_eval.abs() / 10.0) * (inner_rect.height() / 2.0);
+fn draw_evaluation_fill(
+    painter: &egui::Painter,
+    inner_rect: Rect,
+    center_y: f32,
+    fraction: f32,
+    fill_up: bool,
+) {
+    let bar_fill_height = fraction.abs() * (inner_rect.height() / 2.0);
 
-    let fill_rect = if clamped_eval >= 0.0 {
+    let fill_rect = if fill_up {
         Rect::from_min_max(
             Pos2::new(inner_rect.left(), center_y - bar_fill_height),
             Pos2::new(inner_rect.right(), center_y),
@@ -66,65 +95,38 @@ fn draw_evaluation_fill(painter: &egui::Painter, inner_rect: Rect, center_y: f32
         )
     };
 
-    let fill_colour = calculate_fill_color(clamped_eval);
-    painter.rect_filled(fill_rect, 2.0, fill_colour);
+    painter.rect_filled(fill_rect, 2.0, calculate_fill_color(fraction));
 }
 
-/// Calculate fill color based on evaluation
-fn calculate_fill_color(eval: f32) -> Color32 {
-    if eval >= 0.0 {
-        let intensity = (eval / 10.0).min(1.0);
-        Color32::from_rgb(
-            (180.0 + 75.0 * intensity) as u8,
-            (180.0 + 75.0 * intensity) as u8,
-            (180.0 + 75.0 * intensity) as u8,
-        )
+/// Fill colour: light for White, dark for Black, stronger as the lead grows.
+fn calculate_fill_color(fraction: f32) -> Color32 {
+    let intensity = fraction.abs();
+    let level = if fraction >= 0.0 {
+        180.0 + 75.0 * intensity
     } else {
-        let intensity = (eval.abs() / 10.0).min(1.0);
-        Color32::from_rgb(
-            (80.0 - 60.0 * intensity) as u8,
-            (80.0 - 60.0 * intensity) as u8,
-            (80.0 - 60.0 * intensity) as u8,
-        )
-    }
+        80.0 - 60.0 * intensity
+    };
+    Color32::from_gray(level as u8)
 }
 
-/// Draw evaluation text
-fn draw_evaluation_text(painter: &egui::Painter, rect: Rect, center_y: f32, eval: f32) {
-    let eval_text = if eval.abs() >= 100.0 {
-        if eval > 0.0 { "M+" } else { "M-" }.to_string()
-    } else if eval > 0.0 {
-        format!("+{:.1}", eval)
+/// Draw the score in the empty half, so it never sits on the fill.
+fn draw_evaluation_text(painter: &egui::Painter, rect: Rect, text: &str, fill_up: bool) {
+    let y = if fill_up {
+        rect.bottom() - 10.0
     } else {
-        format!("{:.1}", eval)
+        rect.top() + 10.0
     };
-
-    let clamped_eval = eval.clamp(-10.0, 10.0);
-    let bar_fill_height = (clamped_eval.abs() / 10.0) * (rect.height() / 2.0);
-
-    let text_pos = if eval >= 0.0 {
-        Pos2::new(
-            rect.center().x,
-            (center_y - bar_fill_height - 15.0).max(rect.top() + 10.0),
-        )
-    } else {
-        Pos2::new(
-            rect.center().x,
-            (center_y + bar_fill_height + 15.0).min(rect.bottom() - 10.0),
-        )
-    };
-
     painter.text(
-        text_pos,
+        Pos2::new(rect.center().x, y),
         egui::Align2::CENTER_CENTER,
-        eval_text,
+        text,
         egui::FontId::proportional(12.0),
         Color32::WHITE,
     );
 }
 
 /// Draw placeholder when no evaluation available
-fn draw_no_evaluation(painter: &egui::Painter, rect: Rect) {
+fn draw_no_evaluation(painter: &egui::Painter, rect: Rect, board_flip: bool) {
     painter.text(
         rect.center(),
         egui::Align2::CENTER_CENTER,
@@ -133,19 +135,14 @@ fn draw_no_evaluation(painter: &egui::Painter, rect: Rect) {
         Color32::GRAY,
     );
 
-    painter.text(
-        Pos2::new(rect.center().x, rect.top() + 8.0),
-        egui::Align2::CENTER_CENTER,
-        "W",
-        egui::FontId::proportional(10.0),
-        Color32::LIGHT_GRAY,
-    );
-
-    painter.text(
-        Pos2::new(rect.center().x, rect.bottom() - 8.0),
-        egui::Align2::CENTER_CENTER,
-        "B",
-        egui::FontId::proportional(10.0),
-        Color32::LIGHT_GRAY,
-    );
+    let (top, bottom) = if board_flip { ("W", "B") } else { ("B", "W") };
+    for (text, y) in [(top, rect.top() + 8.0), (bottom, rect.bottom() - 8.0)] {
+        painter.text(
+            Pos2::new(rect.center().x, y),
+            egui::Align2::CENTER_CENTER,
+            text,
+            egui::FontId::proportional(10.0),
+            Color32::LIGHT_GRAY,
+        );
+    }
 }

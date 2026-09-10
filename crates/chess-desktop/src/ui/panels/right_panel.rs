@@ -8,7 +8,7 @@ use eframe::egui::{self, Color32, Context};
 
 use crate::app::engine_comm::EngineMode;
 use crate::app::state::ChessApp;
-use crate::ui::components::game_status;
+use crate::ui::components::{eval_bar, game_status};
 
 /// Draw the right panel
 pub fn draw(app: &mut ChessApp, ctx: &Context) {
@@ -155,12 +155,7 @@ fn draw_engine_analysis(app: &ChessApp, ui: &mut egui::Ui) {
         ui.heading("Engine Analysis");
         ui.horizontal(|ui| {
             ui.label("Evaluation:");
-            let eval_text = if eval > 0.0 {
-                format!("+{:.2}", eval)
-            } else {
-                format!("{:.2}", eval)
-            };
-            ui.label(egui::RichText::new(eval_text).strong());
+            ui.label(egui::RichText::new(eval_bar::label(eval)).strong());
         });
         ui.horizontal(|ui| {
             ui.label("Depth:");

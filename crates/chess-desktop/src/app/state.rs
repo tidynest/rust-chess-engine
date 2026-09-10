@@ -4,7 +4,7 @@
 
 use chess::{ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare};
 use chess_core::{ChessEngine, GameHistory};
-use chess_engine::{EngineCommand, EngineResponse, StockfishEngine};
+use chess_engine::{EngineCommand, EngineResponse, Score, StockfishEngine};
 use eframe::egui::{Color32, Pos2};
 use std::sync::mpsc::{Receiver, Sender, channel};
 
@@ -51,7 +51,7 @@ pub struct ChessApp {
     pub stockfish_tx: Option<Sender<EngineCommand>>,
     pub stockfish_rx: Option<Receiver<EngineResponse>>,
     pub engine_thinking: bool,
-    pub engine_evaluation: Option<f32>,
+    pub engine_evaluation: Option<Score>,
     pub engine_depth_current: u32,
     pub engine_nodes: u64,
     pub engine_best_move: Option<String>,
