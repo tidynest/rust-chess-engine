@@ -34,18 +34,15 @@ fn calculate_board_dimensions(app: &ChessApp, ui: &egui::Ui) -> (f32, f32, f32) 
     let eval_bar_width = 40.0; // Fixed width for eval bar
     let spacing = app.theme.space_xs;
 
-    // Calculate max board size - MORE GENEROUS than before!
+    // Board size: as large as the panel allows, within limits
     let max_board_size = if app.engine_in_use() && app.show_eval_bar {
-        // Reserve space for eval bar + spacing, but be more generous
-        let available_width = available.x - eval_bar_width - spacing - 20.0; // Reduced margin
-        available_width
-            .min(available.y - 100.0) // Less vertical reserve
-            .clamp(400.0, 900.0) // Increased max to 900px!
+        // Reserve space for the eval bar and its spacing
+        let available_width = available.x - eval_bar_width - spacing - 20.0;
+        available_width.min(available.y - 100.0).clamp(240.0, 900.0)
     } else {
-        // Even more space when no eval bar
         (available.x - 20.0)
             .min(available.y - 100.0)
-            .clamp(400.0, 900.0)
+            .clamp(240.0, 900.0)
     };
 
     (max_board_size, eval_bar_width, spacing)

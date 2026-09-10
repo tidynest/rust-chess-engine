@@ -22,6 +22,17 @@ impl ChessApp {
 
         let board_rect = response.rect;
 
+        let board_flip = self.board_flip;
+        let square_at = |pos| {
+            crate::utils::coords::get_square_from_pos(pos, board_rect, square_size, board_flip)
+        };
+        // The square a dragged piece would land on.
+        let hover = self.dragging_piece.and(self.drag_pos).and_then(square_at);
+        let checked_king = {
+            let board = self.board();
+            (board.checkers().popcnt() > 0).then(|| board.king_square(board.side_to_move()))
+        };
+
         // Draw all squares and pieces
         for rank in 0..8 {
             for file in 0..8 {
@@ -39,7 +50,16 @@ impl ChessApp {
                     Vec2::splat(square_size),
                 );
 
-                self.draw_square(square, square_rect, rank, file, square_size, &painter);
+                self.draw_square(
+                    square,
+                    square_rect,
+                    rank,
+                    file,
+                    square_size,
+                    &painter,
+                    hover,
+                    checked_king,
+                );
                 self.draw_square_labels(
                     rank,
                     file,
@@ -64,6 +84,7 @@ impl ChessApp {
     }
 
     /// Draw a single square, then its highlights on top.
+    #[allow(clippy::too_many_arguments)]
     fn draw_square(
         &self,
         square: ChessSquare,
@@ -72,6 +93,8 @@ impl ChessApp {
         file: usize,
         square_size: f32,
         painter: &egui::Painter,
+        hover: Option<ChessSquare>,
+        checked_king: Option<ChessSquare>,
     ) {
         let theme = &self.theme;
         let is_light = (rank + file).is_multiple_of(2);
@@ -92,6 +115,18 @@ impl ChessApp {
         // Highlight selected square
         if Some(square) == self.selected_square {
             painter.rect_filled(square_rect, CornerRadius::ZERO, theme.selected);
+        }
+
+        // A king in check, and the square a dragged piece hovers over
+        if Some(square) == checked_king {
+            painter.rect_filled(
+                square_rect,
+                CornerRadius::ZERO,
+                theme.check.gamma_multiply(0.5),
+            );
+        }
+        if Some(square) == hover {
+            painter.rect_filled(square_rect, CornerRadius::ZERO, theme.hover);
         }
 
         // Highlight legal moves

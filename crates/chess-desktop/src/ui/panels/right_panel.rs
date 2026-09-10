@@ -64,6 +64,9 @@ fn draw_engine_controls(app: &mut ChessApp, ui: &mut egui::Ui) {
             {
                 app.abort_search();
             }
+            if !was_playing && app.play_vs_computer {
+                app.face_computer();
+            }
         }
     }
 
@@ -90,6 +93,7 @@ fn draw_color_selection(app: &mut ChessApp, ui: &mut egui::Ui) {
         if old_color != app.computer_color {
             app.abort_search();
             app.disable_auto_request = false;
+            app.face_computer();
         }
     });
 }

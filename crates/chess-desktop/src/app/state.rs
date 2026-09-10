@@ -146,6 +146,11 @@ impl ChessApp {
         Some((board.piece_on(square)?, board.color_on(square)?))
     }
 
+    /// Put the human's pieces at the bottom of the board.
+    pub fn face_computer(&mut self) {
+        self.board_flip = self.computer_color == ChessColor::White;
+    }
+
     /// Reset the game to initial position
     pub fn new_game(&mut self) {
         self.start_game(GameHistory::new());
