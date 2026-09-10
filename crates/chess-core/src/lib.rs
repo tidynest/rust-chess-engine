@@ -118,5 +118,5 @@ pub mod notation;
 pub mod traits;
 
 pub use engine::ChessEngine;
-pub use game::GameHistory;
+pub use game::{DrawReason, GameHistory};
 pub use traits::GameState;
