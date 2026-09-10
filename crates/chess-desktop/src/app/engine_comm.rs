@@ -286,3 +286,52 @@ impl ChessApp {
         self.viewing_move_index = Some(target_index);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chess::Board;
+    use chess::Piece as ChessPiece;
+
+    #[test]
+    fn test_parse_uci_move_basic() {
+        let app = ChessApp::headless();
+        let mv = app.parse_uci_move("e2e4", &Board::default()).unwrap();
+        assert_eq!(mv.get_source().to_string(), "e2");
+        assert_eq!(mv.get_dest().to_string(), "e4");
+    }
+
+    #[test]
+    fn test_parse_uci_move_promotion() {
+        let board = Board::from_str("4k3/P7/8/8/8/8/8/4K3 w - - 0 1").unwrap();
+        let app = ChessApp::headless();
+        let mv = app.parse_uci_move("a7a8q", &board).unwrap();
+        assert_eq!(mv.get_promotion(), Some(ChessPiece::Queen));
+    }
+
+    #[test]
+    fn test_parse_uci_move_invalid() {
+        let board = Board::default();
+        let app = ChessApp::headless();
+        assert!(app.parse_uci_move("e2e5", &board).is_none());
+        assert!(app.parse_uci_move("e2", &board).is_none());
+        assert!(app.parse_uci_move("xyz", &board).is_none());
+    }
+
+    #[test]
+    fn test_format_pv_san_basic() {
+        let app = ChessApp::headless();
+        let pv = ["e2e4".to_string(), "e7e5".to_string(), "g1f3".to_string()];
+        assert_eq!(app.format_pv_san(&pv), vec!["e4", "e5", "Nf3"]);
+    }
+
+    #[test]
+    fn test_format_pv_san_with_capture() {
+        let mut app = ChessApp::headless();
+        let board =
+            Board::from_str("r1bqkbnr/ppp2ppp/2n5/3pp3/3PP3/5N2/PPP2PPP/RNBQKB1R w KQkq d6 0 4")
+                .unwrap();
+        app.game_history = GameHistory::from_board(board);
+        assert_eq!(app.format_pv_san(&["e4d5".to_string()]), vec!["exd5"]);
+    }
+}

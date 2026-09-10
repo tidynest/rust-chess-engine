@@ -1,5 +1,3 @@
-mod gui_app;
-
 use anyhow::Result;
 use chess_core::{ChessEngine, GameState, display, notation};
 use std::io::{self, Write};
