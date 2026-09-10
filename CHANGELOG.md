@@ -17,6 +17,8 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 - `CHESS_STOCKFISH` names the engine binary (ENG-10). Closing the window
   quits the engine.
 - The eval bar is a split bar on the Lichess curve, oriented by the board flip.
+- Pieces are drawn from shapes in `ui/pieces.rs`, one triangulated silhouette
+  per piece, instead of font glyphs, so they look the same everywhere.
 
 ### Changed since phase 1
 
