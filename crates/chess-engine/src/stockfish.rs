@@ -1,8 +1,9 @@
-// Stockfish UCI engine wrapper using tokio for async I/O
-// This module handles all communication with the Stockfish chess engine
+//! Stockfish UCI client. Spawns the process, forwards commands over stdin and
+//! parses the lines it prints on stdout.
 
 use anyhow::{Context, Result};
 use std::process::Stdio;
+use std::str::SplitWhitespace;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::mpsc;
@@ -22,22 +23,47 @@ pub enum EngineCommand {
     Quit,
 }
 
-/// Response received from the engine
-#[derive(Debug, Clone)]
+/// Search score from the point of view of the side to move.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Score {
+    /// Centipawns; 100 is one pawn.
+    Cp(i32),
+    /// Moves until mate. Positive means the side to move delivers it, zero
+    /// means the side to move is already mated.
+    Mate(i32),
+}
+
+impl Score {
+    /// The same score seen from the other side.
+    pub fn flipped(self) -> Self {
+        match self {
+            Self::Cp(cp) => Self::Cp(-cp),
+            // ponytail: Mate(0) cannot flip; it only occurs for positions no
+            // caller searches.
+            Self::Mate(moves) => Self::Mate(-moves),
+        }
+    }
+}
+
+/// A line from the engine that the caller cares about.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EngineResponse {
-    /// Engine is ready
+    /// `readyok`.
     Ready,
-    /// Search information update
+    /// A search update carrying an exact score.
     Info {
         depth: u32,
-        score: i32, // Centipawns (100 = 1 pawn advantage)
+        score: Score,
         nodes: u64,
-        nps: u64,        // Node per second
-        pv: Vec<String>, // Principal variation (best line)
+        nps: u64,
+        pv: Vec<String>,
     },
-    /// Engine found the best move
-    BestMove { mv: String, ponder: Option<String> },
-    /// Error or unrecognised message
+    /// Search finished. `mv` is `None` when the position has no legal move.
+    BestMove {
+        mv: Option<String>,
+        ponder: Option<String>,
+    },
+    /// Anything else, verbatim.
     Error(String),
 }
 
@@ -178,17 +204,15 @@ impl StockfishEngine {
         self.send_command("stop").await
     }
 
-    /// Receive and parse the next response from the engine
+    /// Next response the caller cares about; lines with nothing in them
+    /// (`info string`, bound-only scores, `currmove` progress) are skipped.
+    /// `None` once the engine has closed its stdout.
     pub async fn recv_response(&mut self) -> Option<EngineResponse> {
-        let line = self.stdout_rx.recv().await?;
-        Some(parse_engine_line(&line))
-    }
-
-    /// Try to receive a response without blocking
-    pub fn try_recv_response(&mut self) -> Option<EngineResponse> {
-        match self.stdout_rx.try_recv() {
-            Ok(line) => Some(parse_engine_line(&line)),
-            Err(_) => None,
+        loop {
+            let line = self.stdout_rx.recv().await?;
+            if let Some(response) = parse_engine_line(&line) {
+                return Some(response);
+            }
         }
     }
 
@@ -202,145 +226,143 @@ impl StockfishEngine {
     }
 }
 
-/// Parse a line from the engine into a response
-fn parse_engine_line(line: &str) -> EngineResponse {
-    if line.starts_with("bestmove") {
-        parse_bestmove(line)
-    } else if line == "readyok" {
-        EngineResponse::Ready
-    } else if line.starts_with("info") {
-        parse_info(line)
-    } else {
-        EngineResponse::Error(line.to_string())
+/// Parse one stdout line. `None` means the line carries nothing to report.
+fn parse_engine_line(line: &str) -> Option<EngineResponse> {
+    let mut words = line.split_whitespace();
+    match words.next()? {
+        "bestmove" => Some(parse_bestmove(words)),
+        "readyok" => Some(EngineResponse::Ready),
+        "info" => parse_info(words),
+        _ => Some(EngineResponse::Error(line.to_string())),
     }
 }
 
-/// Parse a bestmove line
-fn parse_bestmove(line: &str) -> EngineResponse {
-    let parts: Vec<&str> = line.split_whitespace().collect();
-    let mv = parts.get(1).unwrap_or(&"").to_string();
-    let ponder = if parts.get(2) == Some(&"ponder") {
-        parts.get(3).map(|s| s.to_string())
-    } else {
-        None
-    };
+/// Words after `bestmove`: a move or `(none)`, optionally `ponder <move>`.
+fn parse_bestmove(mut words: SplitWhitespace<'_>) -> EngineResponse {
+    let mv = words.next().filter(|mv| *mv != "(none)").map(str::to_owned);
+    let ponder = (words.next() == Some("ponder"))
+        .then(|| words.next())
+        .flatten()
+        .map(str::to_owned);
     EngineResponse::BestMove { mv, ponder }
 }
 
-/// Parse an info line from the engine
-fn parse_info(line: &str) -> EngineResponse {
+/// Words after `info`. Only lines with an exact score for the first PV are
+/// reported; everything else would flash meaningless numbers in a UI.
+fn parse_info(mut words: SplitWhitespace<'_>) -> Option<EngineResponse> {
     let mut depth = 0;
-    let mut score = 0;
+    let mut score = None;
     let mut nodes = 0;
     let mut nps = 0;
     let mut pv = Vec::new();
 
-    let parts: Vec<&str> = line.split_whitespace().collect();
-    let mut i = 0;
-
-    while i < parts.len() {
-        match parts[i] {
-            "depth" => {
-                if let Some(val) = parts.get(i + 1) {
-                    depth = val.parse().unwrap_or(0);
-                    i += 2;
-                } else {
-                    i += 1;
-                }
-            }
+    while let Some(key) = words.next() {
+        match key {
+            "string" | "lowerbound" | "upperbound" => return None,
+            "multipv" if words.next()? != "1" => return None,
+            "depth" => depth = words.next()?.parse().ok()?,
+            "nodes" => nodes = words.next()?.parse().ok()?,
+            "nps" => nps = words.next()?.parse().ok()?,
             "score" => {
-                if let Some(score_type) = parts.get(i + 1) {
-                    if score_type == &"cp" {
-                        if let Some(val) = parts.get(i + 2) {
-                            score = val.parse().unwrap_or(0);
-                            i += 3;
-                        } else {
-                            i += 2;
-                        }
-                    } else if score_type == &"mate" {
-                        if let Some(val) = parts.get(i + 2) {
-                            let mate_in: i32 = val.parse().unwrap_or(0);
-                            // Convert mate score to centipawns for display
-                            score = if mate_in == 0 { 10000 } else { -10000 };
-                            i += 3;
-                        } else {
-                            i += 2;
-                        }
-                    } else {
-                        i += 1;
-                    }
-                } else {
-                    i += 1;
-                }
-            }
-            "nodes" => {
-                if let Some(val) = parts.get(i + 1) {
-                    nodes = val.parse().unwrap_or(0);
-                    i += 2;
-                } else {
-                    i += 1;
-                }
-            }
-            "nps" => {
-                if let Some(val) = parts.get(i + 1) {
-                    nps = val.parse().unwrap_or(0);
-                    i += 2;
-                } else {
-                    i += 1;
-                }
+                let kind = words.next()?;
+                let value = words.next()?.parse().ok()?;
+                score = Some(match kind {
+                    "cp" => Score::Cp(value),
+                    "mate" => Score::Mate(value),
+                    _ => return None,
+                });
             }
             "pv" => {
-                // Collect all remaining moves as the principal variation
-                pv = parts[i + 1..].iter().map(|s| s.to_string()).collect();
+                pv = words.map(str::to_owned).collect();
                 break;
             }
-            _ => i += 1,
+            _ => {}
         }
     }
 
-    EngineResponse::Info {
+    Some(EngineResponse::Info {
         depth,
-        score,
+        score: score?,
         nodes,
         nps,
         pv,
-    }
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_parse_bestmove() {
-        let line = "bestmove e2e4 ponder e7e5";
-        match parse_bestmove(line) {
-            EngineResponse::BestMove { mv, ponder } => {
-                assert_eq!(mv, "e2e4");
-                assert_eq!(ponder, Some("e7e5".to_string()));
-            }
-            _ => panic!("Wrong response type"),
+    fn info(line: &str) -> (u32, Score, Vec<String>) {
+        match parse_engine_line(line) {
+            Some(EngineResponse::Info {
+                depth, score, pv, ..
+            }) => (depth, score, pv),
+            other => panic!("{line:?} parsed to {other:?}"),
         }
     }
 
     #[test]
+    fn test_parse_bestmove() {
+        assert_eq!(
+            parse_engine_line("bestmove e2e4 ponder e7e5"),
+            Some(EngineResponse::BestMove {
+                mv: Some("e2e4".into()),
+                ponder: Some("e7e5".into()),
+            })
+        );
+        assert_eq!(
+            parse_engine_line("bestmove (none)"),
+            Some(EngineResponse::BestMove {
+                mv: None,
+                ponder: None,
+            })
+        );
+    }
+
+    #[test]
     fn test_parse_info() {
-        let line = "info depth 15 score cp 34 nodes 1234567 nps 500000 pv e2e4 e7e5 g1f3";
-        match parse_info(line) {
-            EngineResponse::Info {
-                depth,
-                score,
-                nodes,
-                nps,
-                pv,
-            } => {
-                assert_eq!(depth, 15);
-                assert_eq!(score, 34);
-                assert_eq!(nodes, 1234567);
-                assert_eq!(nps, 500000);
-                assert_eq!(pv, vec!["e2e4", "e7e5", "g1f3"]);
-            }
-            _ => panic!("Wrong response type"),
+        let line = "info depth 15 seldepth 22 multipv 1 score cp 34 nodes 1234567 nps 500000 pv e2e4 e7e5 g1f3";
+        assert_eq!(
+            parse_engine_line(line),
+            Some(EngineResponse::Info {
+                depth: 15,
+                score: Score::Cp(34),
+                nodes: 1234567,
+                nps: 500000,
+                pv: vec!["e2e4".into(), "e7e5".into(), "g1f3".into()],
+            })
+        );
+    }
+
+    #[test]
+    fn test_parse_info_keeps_mate_sign() {
+        assert_eq!(info("info depth 20 score mate 3").1, Score::Mate(3));
+        assert_eq!(info("info depth 20 score mate -3").1, Score::Mate(-3));
+        assert_eq!(Score::Mate(3).flipped(), Score::Mate(-3));
+        assert_eq!(Score::Cp(-50).flipped(), Score::Cp(50));
+    }
+
+    #[test]
+    fn test_parse_info_skips_lines_without_an_exact_score() {
+        for line in [
+            "info string NNUE evaluation using nn-1c0000000000.nnue",
+            "info depth 12 currmove e2e4 currmovenumber 1",
+            "info depth 18 score cp 40 lowerbound nodes 100 pv e2e4",
+            "info depth 18 multipv 2 score cp 12 pv d2d4",
+            "info depth 18 score cp notanumber pv e2e4",
+        ] {
+            assert_eq!(parse_engine_line(line), None, "{line:?}");
         }
+    }
+
+    #[test]
+    fn test_parse_other_lines() {
+        assert_eq!(parse_engine_line("readyok"), Some(EngineResponse::Ready));
+        assert_eq!(
+            parse_engine_line("id name Stockfish 18"),
+            Some(EngineResponse::Error("id name Stockfish 18".into()))
+        );
+        assert_eq!(parse_engine_line(""), None);
     }
 }

@@ -36,28 +36,26 @@ impl ChessApp {
                         depth,
                         score,
                         nodes,
-                        nps: _,
                         pv,
+                        ..
                     }) => {
-                        eprintln!("Engine info: depth={}, score={}", depth, score);
-
                         self.engine_depth_current = depth;
 
-                        let board = self.game_history.current_board();
-                        let adjusted_score = if board.side_to_move() == ChessColor::Black {
-                            -score
+                        // Stockfish scores from the side to move; the UI shows White's view.
+                        let black_to_move =
+                            self.game_history.current_board().side_to_move() == ChessColor::Black;
+                        self.engine_evaluation = Some(if black_to_move {
+                            score.flipped()
                         } else {
                             score
-                        };
-
-                        self.engine_evaluation = Some(adjusted_score as f32 / 100.0);
+                        });
                         self.engine_nodes = nodes;
                         self.engine_pv = pv;
 
                         response_count += 1;
                     }
                     Ok(EngineResponse::BestMove { mv, .. }) => {
-                        best_move_to_apply = Some(mv);
+                        best_move_to_apply = mv;
                         self.engine_thinking = false;
                         break;
                     }
