@@ -18,6 +18,13 @@ pub enum EngineMode {
     TimeLimit,
 }
 
+/// Why a search was started: to play its result, or only to show it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SearchKind {
+    Play,
+    Analyse,
+}
+
 impl ChessApp {
     /// Take in everything the engine thread sent since the last frame.
     /// Returns the best move of the current search once it has arrived.
@@ -63,6 +70,10 @@ impl ChessApp {
                     ..
                 } => {
                     self.engine_thinking = false;
+                    if self.search_kind == SearchKind::Analyse {
+                        self.analysis_complete = true;
+                        continue;
+                    }
                     // The line's first move is about to be played; keep the
                     // continuation so it still formats from the new position.
                     if mv.is_some() && self.engine_pv.first() == mv.as_ref() {
@@ -76,16 +87,24 @@ impl ChessApp {
         best_move
     }
 
-    /// Ask the engine for a move in the current position.
-    pub(crate) fn request_engine_move(&mut self) {
+    /// Start whichever search the position calls for: the computer's move
+    /// when it is its turn on the live line, otherwise an analysis of the
+    /// position on screen if that is switched on and not done yet.
+    pub(crate) fn auto_request(&mut self) {
         if self.engine_thinking
             || self.engine_status != EngineStatus::Ready
-            || !self.computer_to_move()
             || self.game_history.is_over()
         {
             return;
         }
+        if self.computer_to_move() && !self.disable_auto_request {
+            self.start_search(SearchKind::Play);
+        } else if self.analysis && !self.analysis_complete {
+            self.start_search(SearchKind::Analyse);
+        }
+    }
 
+    fn start_search(&mut self, kind: SearchKind) {
         self.search_id += 1;
         let request = SearchRequest {
             id: self.search_id,
@@ -94,16 +113,25 @@ impl ChessApp {
             movetime: (self.engine_mode == EngineMode::TimeLimit)
                 .then_some(self.engine_movetime)
                 .flatten(),
-            skill_level: self.engine_skill_level,
+            // Analysis is always at full strength; the skill level shapes play only.
+            skill_level: match kind {
+                SearchKind::Play => self.engine_skill_level,
+                SearchKind::Analyse => 20,
+            },
         };
+        self.search_kind = kind;
         self.engine_thinking = self.send(EngineCommand::Search(request));
     }
 
-    /// Auto-request engine move if conditions are met
-    pub(crate) fn auto_request_engine_move(&mut self) {
-        if !self.disable_auto_request {
-            self.request_engine_move();
-        }
+    /// True while a search whose result will be played is running; board
+    /// input waits for it. Analysis never blocks the board.
+    pub(crate) fn waiting_for_engine_move(&self) -> bool {
+        self.engine_thinking && self.search_kind == SearchKind::Play
+    }
+
+    /// True when the engine panel and the eval bar have something to show.
+    pub(crate) fn engine_in_use(&self) -> bool {
+        self.play_vs_computer || self.analysis
     }
 
     /// Forget the running search. Its replies carry the old id and are dropped.
@@ -170,6 +198,7 @@ impl ChessApp {
         self.selected_square = None;
         self.legal_moves_for_selected.clear();
         self.pending_promotion = None;
+        self.analysis_complete = false;
         self.abort_search();
     }
 

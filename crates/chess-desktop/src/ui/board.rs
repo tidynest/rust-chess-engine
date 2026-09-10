@@ -52,6 +52,8 @@ impl ChessApp {
             }
         }
 
+        self.draw_best_move_arrow(board_rect, square_size, &painter);
+
         // Draw dragging piece on top
         self.draw_dragging_piece(square_size, &painter);
 
@@ -163,6 +165,32 @@ impl ChessApp {
         }
     }
 
+    /// Screen centre of `square`, honouring the board flip.
+    fn square_center(&self, square: ChessSquare, board_rect: Rect, square_size: f32) -> egui::Pos2 {
+        let (rank, file) = (square.get_rank().to_index(), square.get_file().to_index());
+        let row = if self.board_flip { rank } else { 7 - rank };
+        let col = if self.board_flip { 7 - file } else { file };
+        board_rect.min + Vec2::new(col as f32 + 0.5, row as f32 + 0.5) * square_size
+    }
+
+    /// In analysis mode, an arrow for the first move of the engine's line.
+    fn draw_best_move_arrow(&self, board_rect: Rect, square_size: f32, painter: &egui::Painter) {
+        if !self.analysis {
+            return;
+        }
+        let Some(mv) = self
+            .engine_pv
+            .first()
+            .and_then(|uci| self.parse_uci_move(uci, self.board()))
+        else {
+            return;
+        };
+        let from = self.square_center(mv.get_source(), board_rect, square_size);
+        let to = self.square_center(mv.get_dest(), board_rect, square_size);
+        let stroke = egui::Stroke::new(square_size * 0.12, self.theme.accent.gamma_multiply(0.7));
+        painter.arrow(from, to - from, stroke);
+    }
+
     /// Draw piece being dragged by user
     fn draw_dragging_piece(&self, square_size: f32, painter: &egui::Painter) {
         if let Some((_, piece, color)) = self.dragging_piece
@@ -181,7 +209,10 @@ impl ChessApp {
     ) {
         // While the engine is not searching, the human may move either side:
         // after browsing the history that is how play resumes.
-        if self.engine_thinking || self.pending_promotion.is_some() || self.game_history.is_over() {
+        if self.waiting_for_engine_move()
+            || self.pending_promotion.is_some()
+            || self.game_history.is_over()
+        {
             return;
         }
 

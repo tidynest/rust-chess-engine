@@ -5,7 +5,7 @@
 use chess::Color as ChessColor;
 use eframe::egui::{self, Context};
 
-use crate::app::engine_comm::EngineMode;
+use crate::app::engine_comm::{EngineMode, SearchKind};
 use crate::app::engine_link::EngineStatus;
 use crate::app::state::ChessApp;
 use crate::ui::components::{eval_bar, game_status};
@@ -43,7 +43,7 @@ pub fn draw(app: &mut ChessApp, ctx: &Context) {
 
 /// Draw engine controls section
 fn draw_engine_controls(app: &mut ChessApp, ui: &mut egui::Ui) {
-    ui.heading("Computer Opponent");
+    ui.heading("Engine");
     match &app.engine_status {
         EngineStatus::Starting => {
             ui.label("Starting Stockfish...");
@@ -52,15 +52,25 @@ fn draw_engine_controls(app: &mut ChessApp, ui: &mut egui::Ui) {
             ui.colored_label(app.theme.error, format!("Stockfish unavailable: {message}"));
         }
         EngineStatus::Ready => {
-            ui.horizontal(|ui| {
-                ui.label("Play vs Computer");
-                ui.checkbox(&mut app.play_vs_computer, "");
-            });
+            let was_playing = app.play_vs_computer;
+            let was_analysing = app.analysis;
+            ui.checkbox(&mut app.play_vs_computer, "Play vs Computer");
+            ui.checkbox(&mut app.analysis, "Analyse position");
+            // Switching a mode off must not leave its search to land later.
+            let dropped_play = was_playing && !app.play_vs_computer;
+            let dropped_analysis = was_analysing && !app.analysis;
+            if (dropped_play && app.search_kind == SearchKind::Play)
+                || (dropped_analysis && app.search_kind == SearchKind::Analyse)
+            {
+                app.abort_search();
+            }
         }
     }
 
     if app.play_vs_computer {
         draw_color_selection(app, ui);
+    }
+    if app.engine_in_use() {
         draw_engine_settings(app, ui);
         draw_thinking_indicator(app, ui);
         draw_engine_analysis(app, ui);
@@ -149,7 +159,10 @@ fn draw_thinking_indicator(app: &ChessApp, ui: &mut egui::Ui) {
     if app.engine_thinking {
         ui.horizontal(|ui| {
             ui.spinner();
-            ui.label("Engine thinking...");
+            ui.label(match app.search_kind {
+                SearchKind::Play => "Engine thinking...",
+                SearchKind::Analyse => "Analysing...",
+            });
         });
     }
 }

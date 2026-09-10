@@ -11,7 +11,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::ui::theme::{Theme, ThemeVariant};
 
-use super::engine_comm::EngineMode;
+use super::engine_comm::{EngineMode, SearchKind};
 use super::engine_link::{self, EngineCommand, EngineEvent, EngineStatus};
 
 /// Style for displaying captured pieces
@@ -45,6 +45,12 @@ pub struct ChessApp {
     // Engine state
     pub play_vs_computer: bool,
     pub computer_color: ChessColor,
+    /// Evaluate whatever position is on screen, whoever is to move.
+    pub analysis: bool,
+    /// The analysis of the current position has run to its limit.
+    pub analysis_complete: bool,
+    /// What the running or last search was for.
+    pub search_kind: SearchKind,
     pub engine_tx: Option<UnboundedSender<EngineCommand>>,
     pub engine_rx: Option<Receiver<EngineEvent>>,
     pub engine_status: EngineStatus,
@@ -106,6 +112,9 @@ impl ChessApp {
             drag_pos: None,
             play_vs_computer: false,
             computer_color: ChessColor::Black,
+            analysis: false,
+            analysis_complete: false,
+            search_kind: SearchKind::Play,
             engine_tx: None,
             engine_rx: None,
             engine_status: EngineStatus::Starting,
