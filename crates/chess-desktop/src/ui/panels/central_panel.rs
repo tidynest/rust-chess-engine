@@ -133,19 +133,15 @@ fn draw_control_buttons(app: &mut ChessApp, ui: &mut egui::Ui, board_left_edge: 
         if ui
             .add_enabled(app.game_history.can_undo(), egui::Button::new("⬅ Undo"))
             .clicked()
-            && app.game_history.undo()
         {
-            app.sync_engine();
-            app.disable_auto_request = true;
+            app.undo();
         }
 
         if ui
             .add_enabled(app.game_history.can_redo(), egui::Button::new("➡ Redo"))
             .clicked()
-            && app.game_history.redo()
         {
-            app.sync_engine();
-            app.disable_auto_request = true;
+            app.redo();
         }
     });
 }
