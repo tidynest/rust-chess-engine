@@ -28,10 +28,9 @@ pub struct ChessApp {
     pub game_history: GameHistory,
     pub selected_square: Option<ChessSquare>,
     pub legal_moves_for_selected: Vec<ChessMove>,
-    pub move_history: Vec<String>,
     pub last_move: Option<(ChessSquare, ChessSquare)>,
-    pub viewing_move_index: Option<usize>,
-    pub skip_history_rebuild: bool,
+    /// A pawn move waiting for the player to choose the promotion piece.
+    pub pending_promotion: Option<(ChessSquare, ChessSquare)>,
 
     // UI state
     pub board_flip: bool,
@@ -54,7 +53,6 @@ pub struct ChessApp {
     pub engine_evaluation: Option<Score>,
     pub engine_depth_current: u32,
     pub engine_nodes: u64,
-    pub engine_best_move: Option<String>,
     pub engine_pv: Vec<String>,
     pub engine_depth: u32,
     pub engine_movetime: Option<u64>,
@@ -168,8 +166,8 @@ impl ChessApp {
             selected_square: None,
             legal_moves_for_selected: Vec::new(),
             board_flip: false,
-            move_history: Vec::new(),
             last_move: None,
+            pending_promotion: None,
             last_move_count_check: 0,
             loop_protection_counter: 0,
             disable_auto_request: false,
@@ -188,10 +186,7 @@ impl ChessApp {
             engine_evaluation: None,
             engine_depth_current: 0,
             engine_nodes: 0,
-            engine_best_move: None,
             engine_pv: Vec::new(),
-            viewing_move_index: None,
-            skip_history_rebuild: false,
             engine_depth: 20,
             engine_movetime: Some(1000),
             engine_mode: EngineMode::Depth,
@@ -209,7 +204,7 @@ impl ChessApp {
         self.game_history = GameHistory::new();
         self.selected_square = None;
         self.legal_moves_for_selected.clear();
-        self.move_history.clear();
+        self.pending_promotion = None;
         self.last_move = None;
         self.engine_thinking = false;
         self.engine_nodes = 0;

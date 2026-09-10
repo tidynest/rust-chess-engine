@@ -3,7 +3,7 @@
 //! Handles Stockfish engine communication, move parsing, and game history synchronization.
 
 use chess::{ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare};
-use chess_core::{Color, GameHistory, notation};
+use chess_core::{ChessEngine, Color, notation};
 use chess_engine::{EngineCommand, EngineResponse};
 use std::str::FromStr;
 use std::sync::mpsc::TryRecvError;
@@ -90,7 +90,7 @@ impl ChessApp {
             return;
         }
 
-        if self.move_history.len() == self.last_move_count_check {
+        if self.game_history.move_count() == self.last_move_count_check {
             self.loop_protection_counter += 1;
             if self.loop_protection_counter > 3 {
                 eprintln!("ERROR: Move count stuck! Breaking loop.");
@@ -100,7 +100,7 @@ impl ChessApp {
             }
         } else {
             self.loop_protection_counter = 0;
-            self.last_move_count_check = self.move_history.len();
+            self.last_move_count_check = self.game_history.move_count();
         }
 
         let current_turn = if self.engine.side_to_move() == Color::White {
@@ -141,24 +141,27 @@ impl ChessApp {
 
     /// Apply engine's move to the game
     pub(crate) fn apply_engine_move(&mut self, move_str: &str) {
-        let chess_move = match self.parse_uci_move(move_str, self.game_history.current_board()) {
-            Some(m) => m,
-            None => {
-                eprintln!("ERROR: Failed to parse move: {}", move_str);
-                return;
-            }
-        };
+        match self.parse_uci_move(move_str, self.game_history.current_board()) {
+            Some(mv) => self.play_move(mv),
+            None => eprintln!("ERROR: Failed to parse move: {}", move_str),
+        }
+    }
 
-        let san = notation::format_move_san(&chess_move, self.game_history.current_board());
+    /// Play a legal move on the current position, whoever chose it.
+    pub(crate) fn play_move(&mut self, mv: ChessMove) {
+        self.game_history.make_move(mv);
+        self.last_move = Some((mv.get_source(), mv.get_dest()));
+        self.disable_auto_request = false;
+        self.sync_engine();
+    }
 
-        self.game_history.make_move(chess_move);
-        self.move_history.push(san);
-        self.last_move = Some((chess_move.get_source(), chess_move.get_dest()));
-
-        self.sync_engine_from_history();
-
+    /// Point the move validator at the history's current position and drop
+    /// any selection made on the old one.
+    pub(crate) fn sync_engine(&mut self) {
+        self.engine = ChessEngine::from_board(*self.game_history.current_board());
         self.selected_square = None;
         self.legal_moves_for_selected.clear();
+        self.pending_promotion = None;
     }
 
     /// Auto-request engine move if conditions are met
@@ -216,32 +219,6 @@ impl ChessApp {
         })
     }
 
-    /// Synchronize engine state with game history
-    pub(crate) fn sync_engine_from_history(&mut self) {
-        let fen = self.game_history.current_board().to_string();
-        self.engine = chess_core::ChessEngine::from_fen(&fen)
-            .unwrap_or_else(|_| chess_core::ChessEngine::new());
-
-        if self.skip_history_rebuild {
-            self.skip_history_rebuild = false;
-            return;
-        }
-
-        self.move_history.clear();
-        for i in 0..self.game_history.move_count() {
-            if let Some(chess_move) = self.game_history.get_move(i) {
-                let mut temp_history = GameHistory::new();
-                for j in 0..i {
-                    if let Some(prev_move) = self.game_history.get_move(j) {
-                        temp_history.make_move(*prev_move);
-                    }
-                }
-                let san = notation::format_move_san(chess_move, temp_history.current_board());
-                self.move_history.push(san);
-            }
-        }
-    }
-
     /// Format principal variation in SAN notation
     pub fn format_pv_san(&self, pv: &[String]) -> Vec<String> {
         let mut formatted = Vec::new();
@@ -260,30 +237,18 @@ impl ChessApp {
         formatted
     }
 
-    /// Jump to specific move in history
+    /// Show the position after move `target_index` without the engine replying.
     pub(crate) fn jump_to_move(&mut self, target_index: usize) {
-        let current_index = self.game_history.move_count();
-
-        if target_index + 1 == current_index {
-            return;
+        let current = self.game_history.move_count();
+        let target = target_index + 1;
+        for _ in target..current {
+            self.game_history.undo();
         }
-
-        if target_index + 1 < current_index {
-            while self.game_history.move_count() > target_index + 1 {
-                self.game_history.undo();
-            }
-        } else {
-            while self.game_history.move_count() < target_index + 1 {
-                self.game_history.redo();
-            }
+        for _ in current..target {
+            self.game_history.redo();
         }
-
-        self.skip_history_rebuild = true;
-        self.sync_engine_from_history();
-        self.selected_square = None;
-        self.legal_moves_for_selected.clear();
+        self.sync_engine();
         self.disable_auto_request = true;
-        self.viewing_move_index = Some(target_index);
     }
 }
 
@@ -291,7 +256,7 @@ impl ChessApp {
 mod tests {
     use super::*;
     use chess::Board;
-    use chess::Piece as ChessPiece;
+    use chess_core::GameHistory;
 
     #[test]
     fn test_parse_uci_move_basic() {

@@ -3,7 +3,6 @@
 //! Contains game status, engine controls, and move history.
 
 use chess::Color as ChessColor;
-use chess_core::{GameHistory, notation};
 use eframe::egui::{self, Color32, Context};
 
 use crate::app::engine_comm::EngineMode;
@@ -178,91 +177,46 @@ fn draw_move_history(app: &mut ChessApp, ui: &mut egui::Ui, max_height: f32) {
     ui.heading("Move History");
 
     let mut clicked_move: Option<usize> = None;
-    let full_move_count = app.game_history.total_moves();
+    let total = app.game_history.total_moves();
+    let current = app.game_history.move_count();
 
-    // Create scroll area with dynamic height
-    let _scroll_output = egui::ScrollArea::vertical()
+    egui::ScrollArea::vertical()
         .max_height(max_height)
         .auto_shrink([false, false])
-        .stick_to_bottom(true) // ✨ Smart auto-scroll: only follows if already at bottom
+        .stick_to_bottom(true) // Follows new moves only while already at the bottom
         .show(ui, |ui| {
-            if full_move_count == 0 {
+            if total == 0 {
                 ui.label("No moves yet");
-            } else {
-                let current_move = app.game_history.move_count();
+                return;
+            }
 
-                for move_index in 0..full_move_count {
-                    if move_index % 2 == 0 {
-                        ui.horizontal(|ui| {
-                            // Move number
-                            ui.label(
-                                egui::RichText::new(format!("{}.", move_index / 2 + 1))
-                                    .color(Color32::from_gray(160)),
-                            );
+            for white_index in (0..total).step_by(2) {
+                ui.horizontal(|ui| {
+                    ui.label(
+                        egui::RichText::new(format!("{}.", white_index / 2 + 1))
+                            .color(Color32::from_gray(160)),
+                    );
 
-                            // White's move
-                            if let Some(chess_move) = app.game_history.get_move(move_index) {
-                                let is_current = move_index + 1 == current_move;
-                                let is_future = move_index + 1 > current_move;
+                    for index in white_index..(white_index + 2).min(total) {
+                        let san = app.game_history.san(index).unwrap_or("?");
+                        let mut text = egui::RichText::new(san);
+                        if index + 1 == current {
+                            text = text.strong().color(Color32::from_rgb(100, 200, 255));
+                        } else if index + 1 > current {
+                            text = text.color(Color32::from_gray(120));
+                        }
 
-                                let san = get_move_san(app, move_index, *chess_move);
-
-                                let mut text = egui::RichText::new(&san);
-                                if is_current {
-                                    text = text.strong().color(Color32::from_rgb(100, 200, 255));
-                                } else if is_future {
-                                    text = text.color(Color32::from_gray(120));
-                                }
-
-                                if ui.button(text).clicked() {
-                                    clicked_move = Some(move_index);
-                                }
-                            }
-
-                            // Black's move
-                            if move_index + 1 < full_move_count
-                                && let Some(chess_move) = app.game_history.get_move(move_index + 1)
-                            {
-                                let is_current = move_index + 2 == current_move;
-                                let is_future = move_index + 2 > current_move;
-
-                                let san = get_move_san(app, move_index + 1, *chess_move);
-
-                                let mut text = egui::RichText::new(&san);
-                                if is_current {
-                                    text = text.strong().color(Color32::from_rgb(100, 200, 255));
-                                } else if is_future {
-                                    text = text.color(Color32::from_gray(120));
-                                }
-
-                                if ui.button(text).clicked() {
-                                    clicked_move = Some(move_index + 1);
-                                }
-                            }
-                        });
+                        if ui.button(text).clicked() {
+                            clicked_move = Some(index);
+                        }
                     }
-                }
+                });
             }
         });
 
-    // Handle move navigation
     if let Some(move_index) = clicked_move {
         app.jump_to_move(move_index);
     }
-}
-
-/// Get SAN notation for a move at given index
-fn get_move_san(app: &ChessApp, move_index: usize, chess_move: chess::ChessMove) -> String {
-    if let Some(san) = app.move_history.get(move_index) {
-        return san.clone();
-    }
-    let mut temp_history = GameHistory::new();
-    for j in 0..move_index {
-        if let Some(prev_move) = app.game_history.get_move(j) {
-            temp_history.make_move(*prev_move);
-        }
-    }
-    notation::format_move_san(&chess_move, temp_history.current_board())
 }
 
 /// Draw controls legend

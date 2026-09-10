@@ -17,9 +17,13 @@ impl ChessEngine {
         }
     }
 
+    pub fn from_board(board: Board) -> Self {
+        ChessEngine { board }
+    }
+
     pub fn from_fen(fen: &str) -> Result<Self, GameError> {
         Board::from_str(fen)
-            .map(|board| ChessEngine { board })
+            .map(Self::from_board)
             .map_err(|_| GameError::InvalidPosition)
     }
 

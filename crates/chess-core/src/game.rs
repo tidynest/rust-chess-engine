@@ -1,27 +1,27 @@
 //! Game state management with undo/redo support
 
+use crate::notation::format_move_san;
 use chess::{Board, ChessMove};
 
-/// Game state with full move history for undo/redo
+/// Game state with full move history for undo/redo. Each move's SAN is
+/// computed once, when it is played.
 pub struct GameHistory {
     positions: Vec<Board>,
     moves: Vec<ChessMove>,
+    sans: Vec<String>,
     current_index: usize,
 }
 
 impl GameHistory {
     pub fn new() -> Self {
-        Self {
-            positions: vec![Board::default()],
-            moves: Vec::new(),
-            current_index: 0,
-        }
+        Self::from_board(Board::default())
     }
 
     pub fn from_board(board: Board) -> Self {
         Self {
             positions: vec![board],
             moves: Vec::new(),
+            sans: Vec::new(),
             current_index: 0,
         }
     }
@@ -34,9 +34,11 @@ impl GameHistory {
         // Truncate future history when making a new move
         self.positions.truncate(self.current_index + 1);
         self.moves.truncate(self.current_index);
+        self.sans.truncate(self.current_index);
 
-        let new_board = self.current_board().make_move_new(mv);
-        self.positions.push(new_board);
+        let board = *self.current_board();
+        self.sans.push(format_move_san(&mv, &board));
+        self.positions.push(board.make_move_new(mv));
         self.moves.push(mv);
         self.current_index += 1;
     }
@@ -73,6 +75,11 @@ impl GameHistory {
 
     pub fn get_move(&self, index: usize) -> Option<&ChessMove> {
         self.moves.get(index)
+    }
+
+    /// SAN of the move at `index`, including undone moves.
+    pub fn san(&self, index: usize) -> Option<&str> {
+        self.sans.get(index).map(String::as_str)
     }
 
     pub fn current_moves(&self) -> &[ChessMove] {
@@ -312,6 +319,22 @@ mod tests {
 
         history.undo();
         assert_eq!(history.move_count(), 0, "Should be at start");
+    }
+
+    #[test]
+    fn test_san_follows_undo_and_replacement() {
+        let mut history = GameHistory::new();
+        history.make_move(create_move(Square::E2, Square::E4));
+        history.make_move(create_move(Square::E7, Square::E5));
+        history.make_move(create_move(Square::G1, Square::F3));
+        assert_eq!(history.san(2), Some("Nf3"));
+
+        history.undo();
+        assert_eq!(history.san(2), Some("Nf3"), "undone moves keep their SAN");
+
+        history.make_move(create_move(Square::D2, Square::D4));
+        assert_eq!(history.san(2), Some("d4"));
+        assert_eq!(history.san(3), None);
     }
 
     #[test]
