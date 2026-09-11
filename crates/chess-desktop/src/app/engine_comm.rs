@@ -3,8 +3,9 @@
 
 use chess::{Board, ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare};
 use chess_core::{GameHistory, notation};
-use chess_engine::EngineResponse;
+use chess_engine::{EngineResponse, SearchLimit};
 use std::str::FromStr;
+use std::time::{Duration, Instant};
 
 use super::engine_link::{EngineCommand, EngineEvent, EngineStatus, SearchRequest};
 use super::state::ChessApp;
@@ -94,9 +95,7 @@ impl ChessApp {
     /// when it is its turn on the live line, otherwise an analysis of the
     /// position on screen if that is switched on and not done yet.
     pub(crate) fn auto_request(&mut self) {
-        if self.engine_thinking
-            || self.engine_status != EngineStatus::Ready
-            || self.game_history.is_over()
+        if self.engine_thinking || self.engine_status != EngineStatus::Ready || self.is_game_over()
         {
             return;
         }
@@ -108,14 +107,29 @@ impl ChessApp {
     }
 
     fn start_search(&mut self, kind: SearchKind) {
+        // On a clock the engine manages its own time; otherwise the fixed limit.
+        let limit = match (kind, &self.clock) {
+            (SearchKind::Play, Some(clock)) => {
+                let inc = clock.increment().as_millis() as u64;
+                SearchLimit::Clock {
+                    wtime: clock.remaining(ChessColor::White).as_millis() as u64,
+                    btime: clock.remaining(ChessColor::Black).as_millis() as u64,
+                    winc: inc,
+                    binc: inc,
+                }
+            }
+            _ => match self.engine_mode {
+                EngineMode::Depth => SearchLimit::Depth(self.engine_depth),
+                EngineMode::TimeLimit => {
+                    SearchLimit::MoveTime(self.engine_movetime.unwrap_or(1000))
+                }
+            },
+        };
         self.search_id += 1;
         let request = SearchRequest {
             id: self.search_id,
             position: self.uci_position(),
-            depth: (self.engine_mode == EngineMode::Depth).then_some(self.engine_depth),
-            movetime: (self.engine_mode == EngineMode::TimeLimit)
-                .then_some(self.engine_movetime)
-                .flatten(),
+            limit,
             // Analysis is always at full strength; the skill level shapes play only.
             skill_level: match kind {
                 SearchKind::Play => self.engine_skill_level,
@@ -135,6 +149,43 @@ impl ChessApp {
     /// True when the engine panel and the eval bar have something to show.
     pub(crate) fn engine_in_use(&self) -> bool {
         self.play_vs_computer || self.analysis
+    }
+
+    /// Mate, a draw, or a flag fall.
+    pub(crate) fn is_game_over(&self) -> bool {
+        self.timeout.is_some() || self.game_history.is_over()
+    }
+
+    /// The result for the PGN, including a loss on time.
+    pub(crate) fn result(&self) -> &'static str {
+        match self.timeout {
+            Some(ChessColor::White) => "0-1",
+            Some(ChessColor::Black) => "1-0",
+            None => self.game_history.result(),
+        }
+    }
+
+    /// Charge the side to move, stop the game when its flag falls, and keep
+    /// the display moving while the clock runs. Paused while browsing the
+    /// history and once the game is over.
+    pub(crate) fn tick_clock(&mut self, ctx: &egui::Context) {
+        let paused = self.is_game_over() || self.game_history.can_redo();
+        let side = self.board().side_to_move();
+        let Some(clock) = &mut self.clock else {
+            return;
+        };
+        if paused {
+            clock.pause();
+            return;
+        }
+        let flagged = clock.tick(side, Instant::now());
+        let running = clock.is_running();
+        if flagged {
+            self.timeout = Some(side);
+            self.abort_search();
+        } else if running {
+            ctx.request_repaint_after(Duration::from_millis(100));
+        }
     }
 
     /// Forget the running search. Its replies carry the old id and are dropped.
@@ -189,7 +240,11 @@ impl ChessApp {
 
     /// Play a legal move on the current position, whoever chose it.
     pub(crate) fn play_move(&mut self, mv: ChessMove) {
+        let mover = self.board().side_to_move();
         self.game_history.make_move(mv);
+        if let Some(clock) = &mut self.clock {
+            clock.press(mover, Instant::now());
+        }
         self.last_move = Some((mv.get_source(), mv.get_dest()));
         self.disable_auto_request = false;
         self.position_changed();

@@ -186,8 +186,12 @@ impl GameHistory {
     /// The game as PGN: the seven-tag roster, a FEN tag when the game did not
     /// start from the initial position, then the moves up to the current one.
     pub fn pgn(&self, white: &str, black: &str) -> String {
+        self.pgn_with_result(white, black, self.result())
+    }
+
+    /// `pgn` with a result the board cannot know, such as a loss on time.
+    pub fn pgn_with_result(&self, white: &str, black: &str, result: &str) -> String {
         let start = self.start_board();
-        let result = self.result();
         let mut pgn = format!(
             "[Event \"?\"]\n[Site \"?\"]\n[Date \"????.??.??\"]\n[Round \"?\"]\n\
              [White \"{white}\"]\n[Black \"{black}\"]\n[Result \"{result}\"]\n"

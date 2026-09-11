@@ -4,7 +4,7 @@
 //! reply, so a reply to a position the user has since left is dropped rather
 //! than played.
 
-use chess_engine::{EngineResponse, StockfishEngine};
+use chess_engine::{EngineResponse, SearchLimit, StockfishEngine};
 use eframe::egui::Context;
 use std::sync::mpsc::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -16,8 +16,7 @@ pub struct SearchRequest {
     pub id: u64,
     /// Everything after `position `, e.g. `startpos moves e2e4 e7e5`.
     pub position: String,
-    pub depth: Option<u32>,
-    pub movetime: Option<u64>,
+    pub limit: SearchLimit,
     pub skill_level: i32,
 }
 
@@ -165,7 +164,7 @@ async fn start_search(engine: &mut StockfishEngine, request: &SearchRequest) -> 
         .await?;
     engine.wait_ready().await?;
     engine.set_position(&request.position).await?;
-    engine.go(request.depth, request.movetime).await
+    engine.go(request.limit).await
 }
 
 /// Stop the running search, if any, and forward its replies up to and
@@ -207,8 +206,7 @@ mod tests {
         EngineCommand::Search(SearchRequest {
             id,
             position: position.to_owned(),
-            depth: Some(depth),
-            movetime: None,
+            limit: SearchLimit::Depth(depth),
             skill_level: 20,
         })
     }

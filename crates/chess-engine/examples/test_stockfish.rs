@@ -1,7 +1,7 @@
 // Simple test to verify Stockfish integration works
 // Run with: cargo run --package chess-engine --example test_stockfish
 
-use chess_engine::{EngineResponse, StockfishEngine};
+use chess_engine::{EngineResponse, SearchLimit, StockfishEngine};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Search for best move
     println!("5. Searching for best move (depth 15)...");
-    engine.go(Some(15), None).await?;
+    engine.go(SearchLimit::Depth(15)).await?;
 
     // Collect responses
     let mut best_move = None;

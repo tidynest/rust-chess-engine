@@ -41,7 +41,7 @@ fn draw_game_menu(app: &mut ChessApp, ui: &mut egui::Ui, ctx: &Context) {
         }
         if ui.button("Copy PGN").clicked() {
             let (white, black) = player_names(app);
-            ctx.copy_text(app.game_history.pgn(white, black));
+            ctx.copy_text(app.game_history.pgn_with_result(white, black, app.result()));
         }
         if ui.button("Set up position...").clicked() {
             app.fen_input = Some(app.board().to_string());

@@ -21,6 +21,9 @@ pub struct Settings {
     pub show_eval_bar: bool,
     pub captured_display_style: CapturedPiecesStyle,
     pub computer_color: ChessColor,
+    pub clock_enabled: bool,
+    pub clock_minutes: u32,
+    pub clock_increment_s: u32,
 }
 
 impl Settings {
@@ -60,6 +63,9 @@ impl Settings {
             show_eval_bar: app.show_eval_bar,
             captured_display_style: app.captured_display_style,
             computer_color: app.computer_color,
+            clock_enabled: app.clock_enabled,
+            clock_minutes: app.clock_minutes,
+            clock_increment_s: app.clock_increment_s,
         }
     }
 
@@ -74,6 +80,9 @@ impl Settings {
         app.show_eval_bar = self.show_eval_bar;
         app.captured_display_style = self.captured_display_style;
         app.computer_color = self.computer_color;
+        app.clock_enabled = self.clock_enabled;
+        app.clock_minutes = self.clock_minutes;
+        app.clock_increment_s = self.clock_increment_s;
     }
 
     /// Read `key = value` lines; unknown keys and unreadable values keep
@@ -136,6 +145,21 @@ impl Settings {
                     "black" => settings.computer_color = ChessColor::Black,
                     _ => {}
                 },
+                "clock_enabled" => {
+                    if let Ok(enabled) = value.parse() {
+                        settings.clock_enabled = enabled;
+                    }
+                }
+                "clock_minutes" => {
+                    if let Ok(minutes) = value.parse::<u32>() {
+                        settings.clock_minutes = minutes.clamp(1, 180);
+                    }
+                }
+                "clock_increment_s" => {
+                    if let Ok(seconds) = value.parse::<u32>() {
+                        settings.clock_increment_s = seconds.min(60);
+                    }
+                }
                 _ => {}
             }
         }
@@ -172,7 +196,10 @@ impl std::fmt::Display for Settings {
             ChessColor::White => "white",
             ChessColor::Black => "black",
         };
-        writeln!(f, "computer_color = {color}")
+        writeln!(f, "computer_color = {color}")?;
+        writeln!(f, "clock_enabled = {}", self.clock_enabled)?;
+        writeln!(f, "clock_minutes = {}", self.clock_minutes)?;
+        writeln!(f, "clock_increment_s = {}", self.clock_increment_s)
     }
 }
 
@@ -217,6 +244,9 @@ mod tests {
             show_eval_bar: false,
             captured_display_style: CapturedPiecesStyle::ChessCom,
             computer_color: ChessColor::White,
+            clock_enabled: true,
+            clock_minutes: 10,
+            clock_increment_s: 5,
         };
         assert_eq!(Settings::parse(&settings.to_string()), settings);
     }
