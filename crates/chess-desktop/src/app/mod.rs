@@ -2,6 +2,7 @@
 //!
 //! This module contains the main ChessApp struct and its state management.
 
+pub mod clock;
 pub mod engine_comm;
 pub mod engine_link;
 pub mod settings;
@@ -15,6 +16,7 @@ pub use state::{CapturedPiecesStyle, ChessApp};
 impl eframe::App for ChessApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.handle_shortcuts(ctx);
+        self.tick_clock(ctx);
 
         // Poll engine responses
         let best_move = self.poll_engine_responses();

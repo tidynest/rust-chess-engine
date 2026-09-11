@@ -31,6 +31,36 @@ impl Score {
     }
 }
 
+/// How long a search may run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SearchLimit {
+    Depth(u32),
+    /// Milliseconds.
+    MoveTime(u64),
+    /// Both clocks in milliseconds; the engine manages its own time.
+    Clock {
+        wtime: u64,
+        btime: u64,
+        winc: u64,
+        binc: u64,
+    },
+}
+
+impl std::fmt::Display for SearchLimit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Depth(depth) => write!(f, "depth {depth}"),
+            Self::MoveTime(ms) => write!(f, "movetime {ms}"),
+            Self::Clock {
+                wtime,
+                btime,
+                winc,
+                binc,
+            } => write!(f, "wtime {wtime} btime {btime} winc {winc} binc {binc}"),
+        }
+    }
+}
+
 /// A line from the engine that the caller cares about.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EngineResponse {
@@ -183,13 +213,8 @@ impl StockfishEngine {
     }
 
     /// Start searching for the best move
-    pub async fn go(&mut self, depth: Option<u32>, movetime: Option<u64>) -> Result<()> {
-        let cmd = match (depth, movetime) {
-            (Some(d), _) => format!("go depth {}", d),
-            (_, Some(t)) => format!("go movetime {}", t),
-            _ => "go depth 15".to_string(), // Default depth
-        };
-        self.send_command(&cmd).await
+    pub async fn go(&mut self, limit: SearchLimit) -> Result<()> {
+        self.send_command(&format!("go {limit}")).await
     }
 
     /// Stop the current search

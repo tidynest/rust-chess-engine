@@ -11,7 +11,9 @@ use crate::app::state::ChessApp;
 pub fn draw(app: &ChessApp, ui: &mut Ui) {
     let board = app.board();
     let theme = &app.theme;
-    if board.status() == BoardStatus::Checkmate {
+    if let Some(color) = app.timeout {
+        ui.colored_label(theme.error, format!("{color:?} lost on time"));
+    } else if board.status() == BoardStatus::Checkmate {
         let winner = if board.side_to_move() == ChessColor::White {
             "Black wins by checkmate!"
         } else {

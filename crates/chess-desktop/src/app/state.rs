@@ -11,6 +11,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::ui::theme::{Theme, ThemeVariant};
 
+use super::clock::Clock;
 use super::engine_comm::{EngineMode, SearchKind};
 use super::engine_link::{self, EngineCommand, EngineEvent, EngineStatus};
 use super::settings::Settings;
@@ -76,6 +77,16 @@ pub struct ChessApp {
     /// to a position that is not the live one.
     pub disable_auto_request: bool,
 
+    // Clock
+    /// The running game's clock, if the game was started with one.
+    pub clock: Option<Clock>,
+    /// Whose flag fell; the game is over until New Game.
+    pub timeout: Option<ChessColor>,
+    /// The time control for the next game.
+    pub clock_enabled: bool,
+    pub clock_minutes: u32,
+    pub clock_increment_s: u32,
+
     // UI theme
     pub theme: Theme,
     pub theme_variant: ThemeVariant,
@@ -117,6 +128,11 @@ impl ChessApp {
             fen_input: None,
             pgn_input: None,
             disable_auto_request: false,
+            clock: None,
+            timeout: None,
+            clock_enabled: false,
+            clock_minutes: 5,
+            clock_increment_s: 3,
             dragging_piece: None,
             drag_pos: None,
             play_vs_computer: false,
@@ -183,6 +199,10 @@ impl ChessApp {
     /// Replace the game with `history` and tell the engine to forget the old one.
     pub fn start_game(&mut self, history: GameHistory) {
         self.game_history = history;
+        self.clock = self
+            .clock_enabled
+            .then(|| Clock::new(self.clock_minutes, self.clock_increment_s));
+        self.timeout = None;
         self.position_changed();
         self.send(EngineCommand::NewGame);
         self.last_move = None;

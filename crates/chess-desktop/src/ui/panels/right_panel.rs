@@ -24,6 +24,10 @@ pub fn draw(app: &mut ChessApp, ctx: &Context) {
 
             ui.separator();
 
+            draw_clock(app, ui);
+
+            ui.separator();
+
             draw_engine_controls(app, ui);
 
             ui.separator();
@@ -39,6 +43,42 @@ pub fn draw(app: &mut ChessApp, ctx: &Context) {
 
             draw_controls_legend(ui);
         });
+}
+
+/// The two clocks, the side to move in the accent colour and a clock under
+/// ten seconds in red, plus the time control for the next game.
+fn draw_clock(app: &mut ChessApp, ui: &mut egui::Ui) {
+    let theme = app.theme.clone();
+    if let Some(clock) = &app.clock {
+        let to_move = app.board().side_to_move();
+        for color in [ChessColor::White, ChessColor::Black] {
+            let remaining = clock.remaining(color);
+            let mut text = egui::RichText::new(format!(
+                "{color:?}  {}",
+                crate::app::clock::Clock::format(remaining)
+            ))
+            .size(theme.font_size_lg)
+            .monospace();
+            if remaining < std::time::Duration::from_secs(10) {
+                text = text.color(theme.error);
+            } else if color == to_move && app.timeout.is_none() {
+                text = text.color(theme.primary).strong();
+            }
+            ui.label(text);
+        }
+    }
+
+    ui.collapsing("Clock", |ui| {
+        ui.checkbox(&mut app.clock_enabled, "Use a clock from the next game");
+        ui.horizontal(|ui| {
+            ui.label("Minutes:");
+            ui.add(egui::Slider::new(&mut app.clock_minutes, 1..=60));
+        });
+        ui.horizontal(|ui| {
+            ui.label("Increment:");
+            ui.add(egui::Slider::new(&mut app.clock_increment_s, 0..=30).suffix(" s"));
+        });
+    });
 }
 
 /// Draw engine controls section
