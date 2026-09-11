@@ -4,6 +4,19 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+### Sixth round
+
+- Analysis mode shows up to five engine lines (MultiPV): Lines under Engine
+  Settings, remembered between runs. Each line is listed with its score and
+  drawn as an arrow, the best one boldest. Play always searches one line.
+- Engine errors (a refused option, a search that could not start, an illegal
+  move from the engine) appear in the status panel instead of on stderr.
+- The last-move highlight follows the history, so it is right after undo,
+  redo, a jump or a loaded game. It used to keep the undone move.
+- `StockfishEngine::initialise` no longer sets Threads 4 and Hash 128; the
+  GUI sends its own values, the CLI keeps Stockfish's defaults.
+- A test maps every square back from its centre, flipped and not.
+
 ### Fifth round
 
 - egui and eframe 0.36.2. The App trait hands the panels a root `Ui`, the

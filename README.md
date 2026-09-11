@@ -50,8 +50,9 @@ The last one only checks that Stockfish answers over UCI.
 - Copy the FEN or the PGN, set up a position from a FEN, load a PGN, or save
   the game and open a saved one, under Game. Saved games are PGN files under
   `$XDG_DATA_HOME/rust-chess-engine/games/`.
-- "Analyse position" evaluates the position on screen and draws the engine's
-  move as an arrow, in a game or while browsing the history.
+- "Analyse position" evaluates the position on screen and draws up to five
+  engine lines as arrows, the best one boldest, in a game or while browsing
+  the history.
 - Three themes under View > Theme. Settings, engine threads and hash, and the
   time control are remembered between runs.
 - CLI: `e2e4` or SAN (`Nf3`, `O-O`), `play` to face Stockfish, `fen` to print
