@@ -11,15 +11,19 @@ pub struct Clock {
     started: bool,
     /// When the running side was last charged; `None` while paused.
     last_tick: Option<Instant>,
+    /// Both times after each ply, so a takeback can put them back.
+    snapshots: Vec<[Duration; 2]>,
 }
 
 impl Clock {
     pub fn new(minutes: u32, increment_seconds: u32) -> Self {
+        let remaining = [Duration::from_secs(u64::from(minutes) * 60); 2];
         Self {
-            remaining: [Duration::from_secs(u64::from(minutes) * 60); 2],
+            remaining,
             increment: Duration::from_secs(u64::from(increment_seconds)),
             started: false,
             last_tick: None,
+            snapshots: vec![remaining],
         }
     }
 
@@ -54,13 +58,26 @@ impl Clock {
         self.last_tick = None;
     }
 
-    /// `mover` has moved: settle their time, add the increment, and start the
-    /// clock if this was the first move.
-    pub fn press(&mut self, mover: Color, now: Instant) {
+    /// `mover` has played the move that makes `ply` moves: settle their time,
+    /// add the increment, and start the clock if this was the first move.
+    pub fn press(&mut self, mover: Color, now: Instant, ply: usize) {
         self.tick(mover, now);
         self.started = true;
         self.last_tick = Some(now);
         self.remaining[mover.to_index()] += self.increment;
+        self.snapshots.truncate(ply);
+        self.snapshots.push(self.remaining);
+    }
+
+    /// Put both clocks back to where they stood after `ply` moves, for undo,
+    /// redo and jumps. Paused until the next tick, so the time spent browsing
+    /// is nobody's.
+    pub fn restore(&mut self, ply: usize) {
+        if let Some(&remaining) = self.snapshots.get(ply) {
+            self.remaining = remaining;
+            self.started = ply > 0;
+            self.last_tick = None;
+        }
     }
 
     /// `m:ss`, with tenths under ten seconds.
@@ -86,7 +103,7 @@ mod tests {
         assert!(!clock.tick(Color::White, t0 + Duration::from_secs(30)));
         assert_eq!(clock.remaining(Color::White), Duration::from_secs(60));
 
-        clock.press(Color::White, t0);
+        clock.press(Color::White, t0, 1);
         assert_eq!(clock.remaining(Color::White), Duration::from_secs(62));
 
         assert!(!clock.tick(Color::Black, t0 + Duration::from_secs(59)));
@@ -98,9 +115,35 @@ mod tests {
     fn pause_skips_the_gap() {
         let mut clock = Clock::new(1, 0);
         let t0 = Instant::now();
-        clock.press(Color::White, t0);
+        clock.press(Color::White, t0, 1);
         clock.pause();
         clock.tick(Color::Black, t0 + Duration::from_secs(50));
+        assert_eq!(clock.remaining(Color::Black), Duration::from_secs(60));
+    }
+
+    #[test]
+    fn takeback_restores_both_clocks() {
+        let mut clock = Clock::new(1, 0);
+        let t0 = Instant::now();
+        clock.press(Color::White, t0, 1);
+        clock.press(Color::Black, t0 + Duration::from_secs(20), 2);
+        assert_eq!(clock.remaining(Color::Black), Duration::from_secs(40));
+
+        clock.restore(1);
+        assert_eq!(clock.remaining(Color::Black), Duration::from_secs(60));
+        assert!(!clock.is_running());
+        clock.restore(2);
+        assert_eq!(clock.remaining(Color::Black), Duration::from_secs(40));
+
+        // Before the first move the clock is not running, so no time is charged.
+        clock.restore(0);
+        assert!(!clock.tick(Color::White, t0 + Duration::from_secs(100)));
+        assert_eq!(clock.remaining(Color::White), Duration::from_secs(60));
+
+        // A different second move replaces the old snapshot.
+        clock.restore(1);
+        clock.press(Color::Black, t0 + Duration::from_secs(25), 2);
+        clock.restore(2);
         assert_eq!(clock.remaining(Color::Black), Duration::from_secs(60));
     }
 

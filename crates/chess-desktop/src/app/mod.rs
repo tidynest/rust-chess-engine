@@ -5,6 +5,7 @@
 pub mod clock;
 pub mod engine_comm;
 pub mod engine_link;
+pub mod games;
 pub mod settings;
 pub mod state;
 

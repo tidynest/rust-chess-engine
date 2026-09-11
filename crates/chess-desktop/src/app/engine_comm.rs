@@ -256,9 +256,11 @@ impl ChessApp {
     pub(crate) fn play_move(&mut self, mv: ChessMove) {
         let mover = self.board().side_to_move();
         self.game_history.make_move(mv);
+        let now = Instant::now();
         if let Some(clock) = &mut self.clock {
-            clock.press(mover, Instant::now());
+            clock.press(mover, now, self.game_history.move_count());
         }
+        self.animation = Some((mv, now));
         self.last_move = Some((mv.get_source(), mv.get_dest()));
         self.disable_auto_request = false;
         self.position_changed();
@@ -271,7 +273,17 @@ impl ChessApp {
         self.legal_moves_for_selected.clear();
         self.pending_promotion = None;
         self.analysis_complete = false;
+        self.notice = None;
         self.abort_search();
+    }
+
+    /// Put the clock back to where it stood at the current ply, after the
+    /// history moved under it.
+    fn sync_clock(&mut self) {
+        let ply = self.game_history.move_count();
+        if let Some(clock) = &mut self.clock {
+            clock.restore(ply);
+        }
     }
 
     /// True in a game against the computer when it is the computer's turn.
@@ -282,15 +294,15 @@ impl ChessApp {
 
     /// Take back one ply, or two against the computer so the human is to move again.
     pub(crate) fn undo(&mut self) {
-        self.step_history(GameHistory::undo);
+        self.step_history(GameHistory::undo, false);
     }
 
     /// Replay one ply, or two against the computer so the human is to move again.
     pub(crate) fn redo(&mut self) {
-        self.step_history(GameHistory::redo);
+        self.step_history(GameHistory::redo, true);
     }
 
-    fn step_history(&mut self, step: fn(&mut GameHistory) -> bool) {
+    fn step_history(&mut self, step: fn(&mut GameHistory) -> bool, forward: bool) {
         if !step(&mut self.game_history) {
             return;
         }
@@ -300,6 +312,20 @@ impl ChessApp {
         self.position_changed();
         // Still the computer's turn means we hit an end of the history; let it play.
         self.disable_auto_request = false;
+        self.sync_clock();
+
+        // Slide the piece of the last ply stepped; on undo, back to where it came from.
+        let ply = self.game_history.move_count();
+        let history = &self.game_history;
+        let stepped = if forward {
+            ply.checked_sub(1)
+                .and_then(|index| history.get_move(index).copied())
+        } else {
+            history
+                .get_move(ply)
+                .map(|mv| ChessMove::new(mv.get_dest(), mv.get_source(), None))
+        };
+        self.animation = stepped.map(|mv| (mv, Instant::now()));
     }
 
     /// Parse UCI move string to ChessMove
@@ -367,6 +393,7 @@ impl ChessApp {
         }
         self.position_changed();
         self.disable_auto_request = self.game_history.can_redo();
+        self.sync_clock();
     }
 }
 
@@ -446,6 +473,23 @@ mod tests {
         app.redo();
         assert_eq!(app.game_history.move_count(), 2);
         assert!(!app.disable_auto_request);
+    }
+
+    #[test]
+    fn test_undo_gives_the_clock_time_back() {
+        use crate::app::clock::Clock;
+
+        let mut app = ChessApp::headless();
+        app.clock = Some(Clock::new(5, 0));
+        play(&mut app, &["e2e4"]);
+        let clock = app.clock.as_mut().unwrap();
+        clock.tick(ChessColor::Black, Instant::now() + Duration::from_secs(30));
+        assert!(clock.remaining(ChessColor::Black) <= Duration::from_secs(270));
+
+        app.undo();
+        let clock = app.clock.as_ref().unwrap();
+        assert_eq!(clock.remaining(ChessColor::Black), Duration::from_secs(300));
+        assert!(!clock.is_running());
     }
 
     #[test]
