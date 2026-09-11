@@ -7,7 +7,7 @@ use eframe::egui;
 
 use crate::app::engine_comm::{EngineMode, SearchKind};
 use crate::app::engine_link::EngineStatus;
-use crate::app::state::ChessApp;
+use crate::app::state::{ChessApp, EngineLine};
 use crate::ui::components::{eval_bar, game_status};
 
 /// Draw the right panel
@@ -185,6 +185,20 @@ fn draw_engine_settings(app: &mut ChessApp, ui: &mut egui::Ui) {
             level => format!("Stockfish skill level {level} of 20"),
         });
 
+        if app.analysis {
+            ui.separator();
+            let lines = app.analysis_lines;
+            ui.horizontal(|ui| {
+                ui.label("Lines:");
+                ui.add(egui::Slider::new(&mut app.analysis_lines, 1..=5));
+            });
+            // The running analysis was asked for the old number; start over.
+            if lines != app.analysis_lines {
+                app.abort_search();
+                app.analysis_complete = false;
+            }
+        }
+
         ui.separator();
 
         let (threads, hash) = (app.engine_threads, app.engine_hash_mb);
@@ -211,6 +225,7 @@ fn draw_engine_settings(app: &mut ChessApp, ui: &mut egui::Ui) {
             app.engine_skill_level = 20;
             app.engine_threads = crate::app::state::default_threads();
             app.engine_hash_mb = 128;
+            app.analysis_lines = 1;
         }
 
         // Options reach the engine only when they change; it restarts its
@@ -234,28 +249,47 @@ fn draw_thinking_indicator(app: &ChessApp, ui: &mut egui::Ui) {
     }
 }
 
-/// Draw engine analysis display
+/// The first line's score, depth and node count, then every line with its
+/// score and variation.
 fn draw_engine_analysis(app: &ChessApp, ui: &mut egui::Ui) {
-    if let Some(eval) = app.engine_evaluation {
-        ui.separator();
-        ui.heading("Engine Analysis");
-        ui.horizontal(|ui| {
-            ui.label("Evaluation:");
-            ui.label(egui::RichText::new(eval_bar::label(eval)).strong());
+    let Some(first) = app.engine_lines.first() else {
+        return;
+    };
+    ui.separator();
+    ui.heading("Engine Analysis");
+    ui.horizontal(|ui| {
+        ui.label("Evaluation:");
+        ui.label(egui::RichText::new(eval_bar::label(first.score)).strong());
+    });
+    ui.horizontal(|ui| {
+        ui.label("Depth:");
+        ui.label(first.depth.to_string());
+    });
+    ui.horizontal(|ui| {
+        ui.label("Nodes:");
+        ui.label(app.engine_nodes.to_string());
+    });
+    let lines: Vec<&EngineLine> = app
+        .engine_lines
+        .iter()
+        .filter(|line| !line.pv.is_empty())
+        .collect();
+    if !lines.is_empty() {
+        ui.label(if lines.len() == 1 {
+            "Principal Variation:"
+        } else {
+            "Lines:"
         });
-        ui.horizontal(|ui| {
-            ui.label("Depth:");
-            ui.label(format!("{}", app.engine_depth_current));
+    }
+    for line in lines {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                egui::RichText::new(eval_bar::label(line.score))
+                    .monospace()
+                    .strong(),
+            );
+            ui.label(app.format_pv_san(&line.pv).join(" "));
         });
-        ui.horizontal(|ui| {
-            ui.label("Nodes:");
-            ui.label(format!("{}", app.engine_nodes));
-        });
-        if !app.engine_pv.is_empty() {
-            ui.label("Principal Variation:");
-            let pv_san = app.format_pv_san(&app.engine_pv);
-            ui.label(pv_san.join(" "));
-        }
     }
 }
 

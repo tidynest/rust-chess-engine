@@ -43,7 +43,7 @@ pub fn draw(app: &ChessApp, ui: &mut Ui) {
 
     // White sits at the bottom unless the board is flipped.
     let white_at_bottom = !app.board_flip;
-    let share = app.engine_evaluation.map_or(0.5, white_share);
+    let share = app.engine_evaluation().map_or(0.5, white_share);
     let white_height = share * inner.height();
     let white_rect = if white_at_bottom {
         Rect::from_min_max(
@@ -67,7 +67,7 @@ pub fn draw(app: &ChessApp, ui: &mut Ui) {
         (1.0, theme.text_secondary),
     );
 
-    let Some(score) = app.engine_evaluation else {
+    let Some(score) = app.engine_evaluation() else {
         return;
     };
 

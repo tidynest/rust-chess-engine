@@ -102,7 +102,7 @@ impl ChessApp {
             pieces::draw(&painter, from.lerp(to, eased), square_size, piece, color);
         }
 
-        self.draw_best_move_arrow(board_rect, square_size, &painter);
+        self.draw_engine_arrows(board_rect, square_size, &painter);
 
         // Draw dragging piece on top
         self.draw_dragging_piece(square_size, &painter);
@@ -136,7 +136,7 @@ impl ChessApp {
         painter.rect_filled(square_rect, CornerRadius::ZERO, square_color);
 
         // Highlight last move
-        if let Some((from, to)) = self.last_move
+        if let Some((from, to)) = self.last_move()
             && (square == from || square == to)
         {
             painter.rect_filled(square_rect, CornerRadius::ZERO, theme.last_move);
@@ -221,22 +221,27 @@ impl ChessApp {
         board_rect.min + Vec2::new(col as f32 + 0.5, row as f32 + 0.5) * square_size
     }
 
-    /// In analysis mode, an arrow for the first move of the engine's line.
-    fn draw_best_move_arrow(&self, board_rect: Rect, square_size: f32, painter: &egui::Painter) {
+    /// In analysis mode, an arrow for the first move of each engine line,
+    /// the best line boldest and on top.
+    fn draw_engine_arrows(&self, board_rect: Rect, square_size: f32, painter: &egui::Painter) {
         if !self.analysis {
             return;
         }
-        let Some(mv) = self
-            .engine_pv
-            .first()
-            .and_then(|uci| self.parse_uci_move(uci, self.board()))
-        else {
-            return;
-        };
-        let from = self.square_center(mv.get_source(), board_rect, square_size);
-        let to = self.square_center(mv.get_dest(), board_rect, square_size);
-        let stroke = egui::Stroke::new(square_size * 0.12, self.theme.accent.gamma_multiply(0.7));
-        painter.arrow(from, to - from, stroke);
+        for (index, line) in self.engine_lines.iter().enumerate().rev() {
+            let Some(mv) = line
+                .pv
+                .first()
+                .and_then(|uci| self.parse_uci_move(uci, self.board()))
+            else {
+                continue;
+            };
+            let from = self.square_center(mv.get_source(), board_rect, square_size);
+            let to = self.square_center(mv.get_dest(), board_rect, square_size);
+            let alpha = if index == 0 { 0.7 } else { 0.35 };
+            let stroke =
+                egui::Stroke::new(square_size * 0.12, self.theme.accent.gamma_multiply(alpha));
+            painter.arrow(from, to - from, stroke);
+        }
     }
 
     /// Draw piece being dragged by user

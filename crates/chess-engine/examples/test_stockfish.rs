@@ -43,6 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 nodes,
                 nps,
                 pv,
+                ..
             } => {
                 // Only print every few depths to avoid spam
                 if depth % 3 == 0 {

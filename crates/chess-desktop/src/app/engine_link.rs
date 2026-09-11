@@ -44,6 +44,8 @@ pub enum EngineEvent {
         id: u64,
         response: EngineResponse,
     },
+    /// A command the engine refused; the thread carries on.
+    Error(String),
     /// The process could not be started or went away. Nothing follows.
     Failed(String),
 }
@@ -98,7 +100,7 @@ async fn run(mut commands: UnboundedReceiver<EngineCommand>, emit: &dyn Fn(Engin
                 Some(EngineCommand::SetOption { name, value }) => {
                     finish_search(&mut engine, &mut current, emit).await;
                     if let Err(e) = engine.set_option(&name, &value).await {
-                        eprintln!("engine: {e:#}");
+                        emit(EngineEvent::Error(format!("{name}: {e:#}")));
                     }
                 }
                 Some(EngineCommand::NewGame) => {
@@ -108,7 +110,7 @@ async fn run(mut commands: UnboundedReceiver<EngineCommand>, emit: &dyn Fn(Engin
                 Some(EngineCommand::Search(request)) => {
                     finish_search(&mut engine, &mut current, emit).await;
                     if let Err(e) = start_search(&mut engine, &request).await {
-                        eprintln!("engine: {e:#}");
+                        emit(EngineEvent::Error(format!("search: {e:#}")));
                         continue;
                     }
                     current = Some(request.id);
