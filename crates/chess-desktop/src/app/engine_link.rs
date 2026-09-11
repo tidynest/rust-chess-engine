@@ -17,7 +17,8 @@ pub struct SearchRequest {
     /// Everything after `position `, e.g. `startpos moves e2e4 e7e5`.
     pub position: String,
     pub limit: SearchLimit,
-    pub skill_level: i32,
+    /// Hold the engine to this Elo; `None` plays at full strength.
+    pub elo: Option<u32>,
 }
 
 /// What the UI can ask the thread to do.
@@ -158,12 +159,18 @@ async fn start() -> anyhow::Result<StockfishEngine> {
 }
 
 async fn start_search(engine: &mut StockfishEngine, request: &SearchRequest) -> anyhow::Result<()> {
+    // Stockfish clamps the Elo to its own range, 1320 to 3190 since version 16.
     engine
         .send_command(&format!(
-            "setoption name Skill Level value {}",
-            request.skill_level.clamp(0, 20)
+            "setoption name UCI_LimitStrength value {}",
+            request.elo.is_some()
         ))
         .await?;
+    if let Some(elo) = request.elo {
+        engine
+            .send_command(&format!("setoption name UCI_Elo value {elo}"))
+            .await?;
+    }
     engine.wait_ready().await?;
     engine.set_position(&request.position).await?;
     engine.go(request.limit).await
@@ -209,7 +216,7 @@ mod tests {
             id,
             position: position.to_owned(),
             limit: SearchLimit::Depth(depth),
-            skill_level: 20,
+            elo: None,
         })
     }
 

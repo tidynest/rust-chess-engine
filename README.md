@@ -56,8 +56,9 @@ The last one only checks that Stockfish answers over UCI.
 - Three themes under View > Theme. Settings, engine threads and hash, and the
   time control are remembered between runs.
 - CLI: `e2e4` or SAN (`Nf3`, `O-O`), `play` to face Stockfish, `fen` to print
-  or set a position, `undo`.
-- Play Stockfish as White or Black, with a depth or time limit and skill level 0 to 20.
+  or set a position, `undo`, `redo`, `pgn`.
+- Play Stockfish as White or Black, with a depth or time limit, at full
+  strength or held to an Elo from 1320 to 3190.
   The engine gets the full move list, so it sees repetitions and the 50-move rule.
 - Evaluation bar, depth, node count and principal variation while the engine thinks.
 - Captured pieces in Lichess or Chess.com style, and the opening's name and
@@ -74,7 +75,8 @@ what has been done since is in `CHANGELOG.md`.
 
 ## Layout
 
-- `crates/chess-core`: domain types, `GameHistory` with undo, redo and SAN, long-algebraic notation.
+- `crates/chess-core`: `GameHistory` with undo, redo, SAN and PGN, the move
+  notation readers, the opening table, a text board for the CLI.
 - `crates/chess-engine`: async UCI client for the Stockfish process.
 - `crates/chess-desktop`: the egui GUI (`chess-gui`) and the CLI (`chess-cli`).
   `app/engine_link.rs` is the engine thread; the UI talks to it with tagged requests.

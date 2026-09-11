@@ -175,14 +175,16 @@ fn draw_engine_settings(app: &mut ChessApp, ui: &mut egui::Ui) {
 
         ui.separator();
 
-        ui.horizontal(|ui| {
-            ui.label("Skill Level:");
-            ui.add(egui::Slider::new(&mut app.engine_skill_level, 0..=20));
-        });
-
-        ui.label(match app.engine_skill_level {
-            20 => "Full strength".to_owned(),
-            level => format!("Stockfish skill level {level} of 20"),
+        let mut limited = app.engine_elo.is_some();
+        ui.checkbox(&mut limited, "Limit strength");
+        app.engine_elo = limited.then(|| {
+            // Stockfish's own scale, 1320 to 3190 since version 16.
+            let mut elo = app.engine_elo.unwrap_or(1500);
+            ui.horizontal(|ui| {
+                ui.label("Elo:");
+                ui.add(egui::Slider::new(&mut elo, 1320..=3190));
+            });
+            elo
         });
 
         if app.analysis {
@@ -222,7 +224,7 @@ fn draw_engine_settings(app: &mut ChessApp, ui: &mut egui::Ui) {
             app.engine_depth = 20;
             app.engine_movetime = Some(1000);
             app.engine_mode = EngineMode::Depth;
-            app.engine_skill_level = 20;
+            app.engine_elo = None;
             app.engine_threads = crate::app::state::default_threads();
             app.engine_hash_mb = 128;
             app.analysis_lines = 1;

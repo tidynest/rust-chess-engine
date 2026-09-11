@@ -19,12 +19,12 @@ draw questions (repetition from the stored boards, the fifty-move rule from
 a halfmove clock it derives, insufficient material from bitboards), reads
 and writes PGN, and gives the UCI move list the engine needs.
 
-`notation` formats SAN with disambiguation and parses it by matching the
-formatter against the legal moves. `openings` names the opening from the
-Lichess table compiled into the crate, by the longest row a game's SAN
-begins with. `ChessEngine` and `GameState` wrap a
-single board for the CLI. Move generation and legality come from the
-`chess` crate throughout.
+`notation` formats SAN with disambiguation and parses both SAN and long
+algebraic moves by matching against the legal moves. `openings` names the
+opening from the Lichess table compiled into the crate, by the longest row
+a game's SAN begins with. `display` draws a board as text for the CLI,
+which keeps a `GameHistory` of its own. Move generation, legality and every
+domain type come from the `chess` crate; chess-core adds none.
 
 ## chess-engine
 

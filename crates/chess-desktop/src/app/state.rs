@@ -83,7 +83,8 @@ pub struct ChessApp {
     pub engine_depth: u32,
     pub engine_movetime: Option<u64>,
     pub engine_mode: EngineMode,
-    pub engine_skill_level: i32,
+    /// Play at this Elo through UCI_LimitStrength, or at full strength.
+    pub engine_elo: Option<u32>,
     /// Stockfish's Threads and Hash options.
     pub engine_threads: usize,
     pub engine_hash_mb: u32,
@@ -171,7 +172,7 @@ impl ChessApp {
             engine_depth: 20,
             engine_movetime: Some(1000),
             engine_mode: EngineMode::Depth,
-            engine_skill_level: 20,
+            engine_elo: None,
             engine_threads: default_threads(),
             engine_hash_mb: 128,
             show_eval_bar: true,

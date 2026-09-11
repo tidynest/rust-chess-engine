@@ -4,6 +4,21 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+### Eighth round
+
+- chess-core's own `Color`, `PieceType`, `Piece`, `Square` and `Move`, the
+  `GameState` trait and the `ChessEngine` wrapper are gone; everything speaks
+  the `chess` crate's types. `notation::parse_uci` reads long algebraic moves
+  by matching the legal moves and serves the CLI and the GUI alike;
+  `GameHistory::uci_position` moved in from the GUI.
+- The CLI keeps a `GameHistory`: `redo`, `pgn`, the draw rules, the opening
+  name, and SAN that works. The old loop lowercased the input before parsing,
+  so `Nf3` was rejected as `nf3`. Stockfish gets the full move list from the
+  CLI too.
+- Strength is set as an Elo (Stockfish's `UCI_LimitStrength` and `UCI_Elo`,
+  1320 to 3190) behind a "Limit strength" box, instead of the skill level.
+  The setting key is `engine_elo`; an old `skill_level` line is ignored.
+
 ### Seventh round
 
 - The opening's name and ECO code, from the Lichess opening table (CC0,
