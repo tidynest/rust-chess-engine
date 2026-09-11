@@ -5,6 +5,8 @@ Desktop chess GUI and terminal CLI in Rust. Plays against a locally installed
 validation come from the `chess` crate. The project contains no search engine
 of its own.
 
+![A game against Stockfish with the clock running](docs/screenshot.png)
+
 ## Prerequisites
 
 - Rust 1.88 or newer (`rustup update stable`).
@@ -41,8 +43,9 @@ The last one only checks that Stockfish answers over UCI.
 - Undo, redo, and click any move in the history to jump to it. Against the
   computer, undo takes back your move and its reply together. Arrow keys,
   Home, End and F work too.
-- Checkmate, stalemate, threefold repetition, the fifty-move rule and
-  insufficient material end the game.
+- Checkmate, stalemate, threefold repetition, the fifty-move rule,
+  insufficient material, a flag fall or resigning end the game.
+- Optional clock with minutes and increment; the engine then manages its own time.
 - Copy the FEN or the PGN, set up a position from a FEN, or load a PGN, under Game.
 - "Analyse position" evaluates the position on screen and draws the engine's
   move as an arrow, in a game or while browsing the history.
@@ -55,7 +58,7 @@ The last one only checks that Stockfish answers over UCI.
 
 ## Known limitations
 
-- No clocks. PGN goes through the clipboard; games are not saved to disk.
+- PGN goes through the clipboard; games are not saved to disk.
 - The engine is `CHESS_STOCKFISH` if set, else `stockfish` on `PATH` or in the
   usual places; 4 threads and 128 MB hash are fixed.
 
