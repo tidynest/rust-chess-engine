@@ -29,14 +29,15 @@ single board for the CLI. Move generation and legality come from the
 `StockfishEngine` spawns the binary with piped stdin and stdout and runs a
 writer task and a reader task on tokio. It knows nothing about the GUI. Its
 parser turns stdout lines into `EngineResponse`: search info with an exact
-`Score` (centipawns or mate distance, from the side to move), a best move,
-or nothing for lines that carry no score.
+`Score` (centipawns or mate distance, from the side to move) and the line's
+number under MultiPV, a best move, or nothing for lines that carry no score.
 
 ## chess-desktop
 
 `ChessApp` holds one `GameHistory`, the selection and drag state, the engine
 link and the theme. The board is always read from the history; there is no
-second copy.
+second copy. The engine's lines sit in `engine_lines`, best first; the eval
+bar reads the first, the board draws an arrow for each.
 
 The engine thread lives in `app/engine_link.rs`. The UI sends
 `EngineCommand`s (search, stop, new game, quit) over a tokio channel and
