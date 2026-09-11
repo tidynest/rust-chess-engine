@@ -115,6 +115,7 @@ pub mod display;
 pub mod engine;
 pub mod game;
 pub mod notation;
+pub mod openings;
 pub mod traits;
 
 pub use engine::ChessEngine;

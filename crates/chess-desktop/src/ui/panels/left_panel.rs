@@ -2,6 +2,7 @@
 //!
 //! Displays captured pieces and selected square details.
 
+use chess_core::openings;
 use eframe::egui;
 
 use crate::app::state::ChessApp;
@@ -28,6 +29,21 @@ pub fn draw(app: &ChessApp, ui: &mut egui::Ui) {
             ui.add_space(theme.space_sm);
             ui.separator();
             ui.add_space(theme.space_sm);
+
+            // ponytail: looked up every frame; at most 36 hash lookups.
+            if let Some(opening) = openings::of(&app.game_history) {
+                ui.label(
+                    egui::RichText::new("Opening")
+                        .strong()
+                        .size(theme.font_size_md),
+                );
+                ui.add_space(theme.space_xs);
+                ui.label(opening.name);
+                ui.label(egui::RichText::new(opening.eco).weak());
+                ui.add_space(theme.space_sm);
+                ui.separator();
+                ui.add_space(theme.space_sm);
+            }
 
             if let Some(square) = app.selected_square {
                 ui.label(
