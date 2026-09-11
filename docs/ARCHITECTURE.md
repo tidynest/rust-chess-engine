@@ -20,7 +20,9 @@ a halfmove clock it derives, insufficient material from bitboards), reads
 and writes PGN, and gives the UCI move list the engine needs.
 
 `notation` formats SAN with disambiguation and parses it by matching the
-formatter against the legal moves. `ChessEngine` and `GameState` wrap a
+formatter against the legal moves. `openings` names the opening from the
+Lichess table compiled into the crate, by the longest row a game's SAN
+begins with. `ChessEngine` and `GameState` wrap a
 single board for the CLI. Move generation and legality come from the
 `chess` crate throughout.
 

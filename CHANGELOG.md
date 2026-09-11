@@ -4,6 +4,12 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+### Seventh round
+
+- The opening's name and ECO code, from the Lichess opening table (CC0,
+  3810 rows in `crates/chess-core/data/openings.tsv`), in the left panel. A
+  test plays every row through the PGN reader and finds it again.
+
 ### Sixth round
 
 - Analysis mode shows up to five engine lines (MultiPV): Lines under Engine
