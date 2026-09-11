@@ -1,10 +1,9 @@
 //! The UI side of the engine link, plus the move and history operations
 //! that have to keep it informed.
 
-use chess::{Board, ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare};
+use chess::{ChessMove, Color as ChessColor};
 use chess_core::{GameHistory, notation};
 use chess_engine::{EngineResponse, SearchLimit};
-use std::str::FromStr;
 use std::time::{Duration, Instant};
 
 use super::engine_link::{EngineCommand, EngineEvent, EngineStatus, SearchRequest};
@@ -156,7 +155,7 @@ impl ChessApp {
         self.search_id += 1;
         let request = SearchRequest {
             id: self.search_id,
-            position: self.uci_position(),
+            position: self.game_history.uci_position(),
             limit,
             // Analysis is always at full strength; the skill level shapes play only.
             skill_level: match kind {
@@ -247,30 +246,9 @@ impl ChessApp {
             .is_some_and(|tx| tx.send(command).is_ok())
     }
 
-    /// The `position` argument for the current line: the start position and
-    /// every move played, so the engine can see repetitions and the 50-move
-    /// clock, which a bare FEN from the `chess` crate does not carry.
-    fn uci_position(&self) -> String {
-        let start = self.game_history.start_board();
-        let mut position = if *start == Board::default() {
-            "startpos".to_owned()
-        } else {
-            format!("fen {start}")
-        };
-        let moves = self.game_history.current_moves();
-        if !moves.is_empty() {
-            position.push_str(" moves");
-            for mv in moves {
-                position.push(' ');
-                position.push_str(&mv.to_string());
-            }
-        }
-        position
-    }
-
     /// Apply engine's move to the game
     pub(crate) fn apply_engine_move(&mut self, move_str: &str) {
-        match self.parse_uci_move(move_str, self.game_history.current_board()) {
+        match notation::parse_uci(self.game_history.current_board(), move_str) {
             Some(mv) => self.play_move(mv),
             None => {
                 self.notice = Some(format!("Engine played {move_str}, which is not legal here"));
@@ -355,48 +333,13 @@ impl ChessApp {
         self.animation = stepped.map(|mv| (mv, Instant::now()));
     }
 
-    /// Parse UCI move string to ChessMove
-    pub fn parse_uci_move(&self, move_str: &str, board: &chess::Board) -> Option<ChessMove> {
-        if move_str.len() < 4 {
-            return None;
-        }
-
-        let from_str = &move_str[0..2];
-        let to_str = &move_str[2..4];
-
-        let (from, to) = match (
-            ChessSquare::from_str(from_str),
-            ChessSquare::from_str(to_str),
-        ) {
-            (Ok(f), Ok(t)) => (f, t),
-            _ => return None,
-        };
-
-        let promotion = if move_str.len() > 4 {
-            match &move_str[4..5] {
-                "q" => Some(ChessPiece::Queen),
-                "r" => Some(ChessPiece::Rook),
-                "b" => Some(ChessPiece::Bishop),
-                "n" => Some(ChessPiece::Knight),
-                _ => None,
-            }
-        } else {
-            None
-        };
-
-        let mut legal_moves = chess::MoveGen::new_legal(board);
-        legal_moves.find(|m| {
-            m.get_source() == from && m.get_dest() == to && m.get_promotion() == promotion
-        })
-    }
-
     /// Format principal variation in SAN notation
     pub fn format_pv_san(&self, pv: &[String]) -> Vec<String> {
         let mut formatted = Vec::new();
         let mut temp_board = *self.game_history.current_board();
 
         for move_str in pv.iter().take(6) {
-            if let Some(chess_move) = self.parse_uci_move(move_str, &temp_board) {
+            if let Some(chess_move) = notation::parse_uci(&temp_board, move_str) {
                 let san = notation::format_move_san(&chess_move, &temp_board);
                 formatted.push(san);
                 temp_board = temp_board.make_move_new(chess_move);
@@ -429,56 +372,13 @@ mod tests {
     use super::*;
     use chess::Board;
     use chess_core::GameHistory;
+    use std::str::FromStr;
 
     fn play(app: &mut ChessApp, moves: &[&str]) {
         for mv in moves {
-            let mv = app
-                .parse_uci_move(mv, app.game_history.current_board())
-                .unwrap();
+            let mv = notation::parse_uci(app.game_history.current_board(), mv).unwrap();
             app.play_move(mv);
         }
-    }
-
-    #[test]
-    fn test_parse_uci_move_basic() {
-        let app = ChessApp::headless();
-        let mv = app.parse_uci_move("e2e4", &Board::default()).unwrap();
-        assert_eq!(mv.get_source().to_string(), "e2");
-        assert_eq!(mv.get_dest().to_string(), "e4");
-    }
-
-    #[test]
-    fn test_parse_uci_move_promotion() {
-        let board = Board::from_str("4k3/P7/8/8/8/8/8/4K3 w - - 0 1").unwrap();
-        let app = ChessApp::headless();
-        let mv = app.parse_uci_move("a7a8q", &board).unwrap();
-        assert_eq!(mv.get_promotion(), Some(ChessPiece::Queen));
-    }
-
-    #[test]
-    fn test_parse_uci_move_invalid() {
-        let board = Board::default();
-        let app = ChessApp::headless();
-        assert!(app.parse_uci_move("e2e5", &board).is_none());
-        assert!(app.parse_uci_move("e2", &board).is_none());
-        assert!(app.parse_uci_move("xyz", &board).is_none());
-    }
-
-    #[test]
-    fn test_uci_position_lists_the_moves_played() {
-        let mut app = ChessApp::headless();
-        assert_eq!(app.uci_position(), "startpos");
-
-        play(&mut app, &["e2e4", "e7e5", "g1f3"]);
-        assert_eq!(app.uci_position(), "startpos moves e2e4 e7e5 g1f3");
-
-        app.game_history.undo();
-        assert_eq!(app.uci_position(), "startpos moves e2e4 e7e5");
-
-        let fen = "4k3/P7/8/8/8/8/8/4K3 w - - 0 1";
-        app.game_history = GameHistory::from_board(Board::from_str(fen).unwrap());
-        play(&mut app, &["a7a8n"]);
-        assert_eq!(app.uci_position(), format!("fen {fen} moves a7a8n"));
     }
 
     #[test]

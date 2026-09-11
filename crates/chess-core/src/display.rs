@@ -1,175 +1,64 @@
-//! Display utilities for chess positions
+//! The board and the state of the game as text, for the CLI.
 
-use crate::{Color, GameState, PieceType, Square};
+use chess::{Board, BoardStatus, Color, File, Rank, Square};
 
-/// Display mode for the chess board
-#[derive(Clone, Copy)]
-pub enum DisplayMode {
-    Unicode,
-    Ascii,
-    Compact,
-}
+use crate::GameHistory;
 
-/// ASCII representation of the chess board with configurable display mode
-pub fn display_board_with_mode(game: &dyn GameState, mode: DisplayMode) -> String {
-    match mode {
-        DisplayMode::Compact => display_board_compact(game),
-        _ => display_board_grid(game, mode),
-    }
-}
-
-/// Grid-based display (original implementation)
-fn display_board_grid(game: &dyn GameState, mode: DisplayMode) -> String {
-    let mut output = String::new();
-
-    // Unicode chess pieces
-    const WHITE_UNICODE: [char; 6] = ['♔', '♕', '♖', '♗', '♘', '♙'];
-    const BLACK_UNICODE: [char; 6] = ['♚', '♛', '♜', '♝', '♞', '♟'];
-
-    // ASCII chess pieces
-    const WHITE_ASCII: [char; 6] = ['K', 'Q', 'R', 'B', 'N', 'P'];
-    const BLACK_ASCII: [char; 6] = ['k', 'q', 'r', 'b', 'n', 'p'];
-
-    output.push_str("  ┌───────────────────────────────┐\n");
-
+/// The board with White at the bottom, pieces as letters, empty squares as
+/// dots.
+pub fn board(board: &Board) -> String {
+    let mut out = String::from("\n");
     for rank in (0..8).rev() {
-        output.push_str(&format!("{} │", rank + 1));
-
+        out.push_str(&format!("{} ", rank + 1));
         for file in 0..8 {
-            let Some(square) = Square::new(file, rank) else {
-                continue;
+            let square = Square::make_square(Rank::from_index(rank), File::from_index(file));
+            let glyph = match (board.piece_on(square), board.color_on(square)) {
+                (Some(piece), Some(color)) => piece.to_string(color),
+                _ if (rank + file).is_multiple_of(2) => ".".to_owned(),
+                _ => "\u{b7}".to_owned(),
             };
-            let piece_char = match game.piece_at(square) {
-                Some(piece) => {
-                    let (white_pieces, black_pieces) = match mode {
-                        DisplayMode::Unicode => (&WHITE_UNICODE, &BLACK_UNICODE),
-                        DisplayMode::Ascii => (&WHITE_ASCII, &BLACK_ASCII),
-                        _ => (&WHITE_ASCII, &BLACK_ASCII),
-                    };
-
-                    let pieces = match piece.color {
-                        Color::White => white_pieces,
-                        Color::Black => black_pieces,
-                    };
-
-                    match piece.piece_type {
-                        PieceType::King => pieces[0],
-                        PieceType::Queen => pieces[1],
-                        PieceType::Rook => pieces[2],
-                        PieceType::Bishop => pieces[3],
-                        PieceType::Knight => pieces[4],
-                        PieceType::Pawn => pieces[5],
-                    }
-                }
-                None => {
-                    if (rank + file) % 2 == 0 {
-                        '·'
-                    } else {
-                        ' '
-                    }
-                }
-            };
-
-            output.push_str(&format!(" {} ", piece_char));
-
-            if file < 7 {
-                output.push('│');
-            }
+            out.push_str(&format!(" {glyph} "));
         }
-
-        output.push_str("│\n");
-
-        if rank > 0 {
-            output.push_str("  ├───┼───┼───┼───┼───┼───┼───┼───┤\n");
-        }
+        out.push('\n');
     }
-
-    output.push_str("  └───────────────────────────────┘\n");
-    output.push_str("    a   b   c   d   e   f   g   h\n");
-
-    output
+    out.push_str("   a  b  c  d  e  f  g  h\n");
+    out
 }
 
-/// Compact display without grid lines
-fn display_board_compact(game: &dyn GameState) -> String {
-    let mut output = String::new();
-
-    // ASCII chess pieces
-    const WHITE_ASCII: [char; 6] = ['K', 'Q', 'R', 'B', 'N', 'P'];
-    const BLACK_ASCII: [char; 6] = ['k', 'q', 'r', 'b', 'n', 'p'];
-
-    output.push('\n');
-
-    for rank in (0..8).rev() {
-        output.push_str(&format!("{} ", rank + 1));
-
-        for file in 0..8 {
-            let Some(square) = Square::new(file, rank) else {
-                continue;
-            };
-            let piece_char = match game.piece_at(square) {
-                Some(piece) => {
-                    let pieces = match piece.color {
-                        Color::White => &WHITE_ASCII,
-                        Color::Black => &BLACK_ASCII,
-                    };
-
-                    match piece.piece_type {
-                        PieceType::King => pieces[0],
-                        PieceType::Queen => pieces[1],
-                        PieceType::Rook => pieces[2],
-                        PieceType::Bishop => pieces[3],
-                        PieceType::Knight => pieces[4],
-                        PieceType::Pawn => pieces[5],
-                    }
-                }
-                None => {
-                    if (rank + file) % 2 == 0 {
-                        '.'
-                    } else {
-                        '·'
-                    }
-                }
-            };
-
-            output.push_str(&format!(" {} ", piece_char));
-        }
-
-        output.push('\n');
-    }
-
-    output.push_str("   a  b  c  d  e  f  g  h\n");
-
-    output
-}
-
-/// Default display board function using compact mode
-pub fn display_board(game: &dyn GameState) -> String {
-    display_board_with_mode(game, DisplayMode::Compact)
-}
-
-/// Display game status
-pub fn display_status(game: &dyn GameState) -> String {
-    let mut status = String::new();
-
-    let side = match game.side_to_move() {
+/// Whose move it is, or how the game ended.
+pub fn status(history: &GameHistory) -> String {
+    let board = history.current_board();
+    let name = |color: Color| match color {
         Color::White => "White",
         Color::Black => "Black",
     };
-
-    if game.is_checkmate() {
-        let winner = match game.side_to_move() {
-            Color::White => "Black",
-            Color::Black => "White",
-        };
-        status.push_str(&format!("Checkmate! {} wins!", winner));
-    } else if game.is_stalemate() {
-        status.push_str("Stalemate! Game is a draw.");
-    } else if game.is_check() {
-        status.push_str(&format!("{} is in check!", side));
+    let to_move = board.side_to_move();
+    if board.status() == BoardStatus::Checkmate {
+        format!("Checkmate! {} wins!", name(!to_move))
+    } else if let Some(reason) = history.draw_reason() {
+        format!("Draw by {}.", reason.describe())
+    } else if board.checkers().popcnt() > 0 {
+        format!("{} is in check!", name(to_move))
     } else {
-        status.push_str(&format!("{} to move", side));
+        format!("{} to move", name(to_move))
     }
+}
 
-    status
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn board_prints_letters_and_status_names_the_end() {
+        let text = board(&Board::default());
+        assert!(text.contains(" r  n  b  q  k  b  n  r "), "{text}");
+        assert!(text.ends_with("   a  b  c  d  e  f  g  h\n"));
+
+        let mut history = GameHistory::new();
+        assert_eq!(status(&history), "White to move");
+        history = GameHistory::from_pgn("1. f3 e5 2. g4 Qh4#").unwrap();
+        assert_eq!(status(&history), "Checkmate! Black wins!");
+        history = GameHistory::from_fen("7k/5Q2/6K1/8/8/8/8/8 b - - 0 1").unwrap();
+        assert_eq!(status(&history), "Draw by stalemate.");
+    }
 }

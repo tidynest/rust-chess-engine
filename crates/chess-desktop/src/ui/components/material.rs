@@ -201,7 +201,7 @@ mod tests {
         let mut app = ChessApp::headless();
         let board = Board::from_str("4k3/P7/8/8/8/8/8/4K3 w - - 0 1").unwrap();
         app.game_history = chess_core::GameHistory::from_board(board);
-        let mv = app.parse_uci_move("a7a8q", &board).unwrap();
+        let mv = chess_core::notation::parse_uci(&board, "a7a8q").unwrap();
         app.play_move(mv);
 
         let (white, black, white_captured, black_captured) = calculate_material(&app);
