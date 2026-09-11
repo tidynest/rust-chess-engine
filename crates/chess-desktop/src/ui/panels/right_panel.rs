@@ -3,7 +3,7 @@
 //! Contains game status, engine controls, and move history.
 
 use chess::Color as ChessColor;
-use eframe::egui::{self, Context};
+use eframe::egui;
 
 use crate::app::engine_comm::{EngineMode, SearchKind};
 use crate::app::engine_link::EngineStatus;
@@ -11,12 +11,12 @@ use crate::app::state::ChessApp;
 use crate::ui::components::{eval_bar, game_status};
 
 /// Draw the right panel
-pub fn draw(app: &mut ChessApp, ctx: &Context) {
-    egui::SidePanel::right("right_panel")
-        .default_width(250.0)
-        .width_range(200.0..=400.0)
+pub fn draw(app: &mut ChessApp, ui: &mut egui::Ui) {
+    egui::Panel::right("right_panel")
+        .default_size(250.0)
+        .size_range(200.0..=400.0)
         .resizable(true)
-        .show(ctx, |ui| {
+        .show(ui, |ui| {
             ui.heading("Game Information");
             ui.separator();
 

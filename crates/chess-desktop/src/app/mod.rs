@@ -14,9 +14,10 @@ pub use settings::Settings;
 pub use state::{CapturedPiecesStyle, ChessApp};
 
 impl eframe::App for ChessApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.handle_shortcuts(ctx);
-        self.tick_clock(ctx);
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
+        self.handle_shortcuts(&ctx);
+        self.tick_clock(&ctx);
 
         // Poll engine responses
         let best_move = self.poll_engine_responses();
@@ -27,19 +28,19 @@ impl eframe::App for ChessApp {
         }
 
         // Render UI panels
-        crate::ui::panels::top_bar::draw(self, ctx);
-        crate::ui::panels::right_panel::draw(self, ctx);
-        crate::ui::panels::left_panel::draw(self, ctx);
-        crate::ui::panels::central_panel::draw(self, ctx);
-        self.draw_promotion_picker(ctx);
-        crate::ui::panels::top_bar::draw_setup_window(self, ctx);
-        crate::ui::panels::top_bar::draw_pgn_window(self, ctx);
+        crate::ui::panels::top_bar::draw(self, ui);
+        crate::ui::panels::right_panel::draw(self, ui);
+        crate::ui::panels::left_panel::draw(self, ui);
+        crate::ui::panels::central_panel::draw(self, ui);
+        self.draw_promotion_picker(&ctx);
+        crate::ui::panels::top_bar::draw_setup_window(self, &ctx);
+        crate::ui::panels::top_bar::draw_pgn_window(self, &ctx);
 
         self.auto_request();
     }
 
     /// Closing the window ends the engine and keeps the settings.
-    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+    fn on_exit(&mut self) {
         Settings::from_app(self).save();
         self.send(EngineCommand::Quit);
     }
@@ -52,7 +53,7 @@ impl ChessApp {
     fn handle_shortcuts(&mut self, ctx: &egui::Context) {
         use egui::Key;
 
-        if ctx.wants_keyboard_input() {
+        if ctx.egui_wants_keyboard_input() {
             return;
         }
         let pressed = |key| ctx.input(|input| input.key_pressed(key));
