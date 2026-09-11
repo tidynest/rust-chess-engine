@@ -15,7 +15,7 @@ pub struct Settings {
     pub engine_mode: EngineMode,
     pub engine_depth: u32,
     pub engine_movetime: u64,
-    pub engine_skill_level: i32,
+    pub engine_elo: Option<u32>,
     pub engine_threads: usize,
     pub engine_hash_mb: u32,
     pub analysis_lines: u32,
@@ -58,7 +58,7 @@ impl Settings {
             engine_mode: app.engine_mode,
             engine_depth: app.engine_depth,
             engine_movetime: app.engine_movetime.unwrap_or(1000),
-            engine_skill_level: app.engine_skill_level,
+            engine_elo: app.engine_elo,
             engine_threads: app.engine_threads,
             engine_hash_mb: app.engine_hash_mb,
             analysis_lines: app.analysis_lines,
@@ -76,7 +76,7 @@ impl Settings {
         app.engine_mode = self.engine_mode;
         app.engine_depth = self.engine_depth;
         app.engine_movetime = Some(self.engine_movetime);
-        app.engine_skill_level = self.engine_skill_level;
+        app.engine_elo = self.engine_elo;
         app.engine_threads = self.engine_threads;
         app.engine_hash_mb = self.engine_hash_mb;
         app.analysis_lines = self.analysis_lines;
@@ -118,11 +118,11 @@ impl Settings {
                         settings.engine_movetime = ms;
                     }
                 }
-                "skill_level" => {
-                    if let Ok(level) = value.parse::<i32>() {
-                        settings.engine_skill_level = level.clamp(0, 20);
-                    }
-                }
+                "engine_elo" => match value.parse::<u32>() {
+                    Ok(elo) => settings.engine_elo = Some(elo.clamp(1320, 3190)),
+                    Err(_) if value == "full" => settings.engine_elo = None,
+                    Err(_) => {}
+                },
                 "engine_threads" => {
                     if let Ok(threads) = value.parse::<usize>() {
                         settings.engine_threads = threads.clamp(1, 64);
@@ -191,7 +191,10 @@ impl std::fmt::Display for Settings {
         writeln!(f, "engine_mode = {mode}")?;
         writeln!(f, "engine_depth = {}", self.engine_depth)?;
         writeln!(f, "engine_movetime = {}", self.engine_movetime)?;
-        writeln!(f, "skill_level = {}", self.engine_skill_level)?;
+        match self.engine_elo {
+            Some(elo) => writeln!(f, "engine_elo = {elo}")?,
+            None => writeln!(f, "engine_elo = full")?,
+        }
         writeln!(f, "engine_threads = {}", self.engine_threads)?;
         writeln!(f, "engine_hash_mb = {}", self.engine_hash_mb)?;
         writeln!(f, "analysis_lines = {}", self.analysis_lines)?;
@@ -253,7 +256,7 @@ mod tests {
             engine_mode: EngineMode::TimeLimit,
             engine_depth: 12,
             engine_movetime: 2500,
-            engine_skill_level: 7,
+            engine_elo: Some(1500),
             engine_threads: 3,
             engine_hash_mb: 256,
             analysis_lines: 3,
@@ -269,10 +272,16 @@ mod tests {
 
     #[test]
     fn unreadable_lines_keep_defaults() {
-        let parsed = Settings::parse("theme = neon\nengine_depth = deep\nskill_level = 99\njunk\n");
+        let parsed = Settings::parse("theme = neon\nengine_depth = deep\nengine_elo = 99\njunk\n");
         let defaults = Settings::default();
         assert_eq!(parsed.theme, defaults.theme);
         assert_eq!(parsed.engine_depth, defaults.engine_depth);
-        assert_eq!(parsed.engine_skill_level, 20);
+        assert_eq!(
+            parsed.engine_elo,
+            Some(1320),
+            "an Elo out of range is clamped"
+        );
+        assert_eq!(Settings::parse("engine_elo = full\n").engine_elo, None);
+        assert_eq!(Settings::parse("engine_elo = strong\n").engine_elo, None);
     }
 }

@@ -157,10 +157,10 @@ impl ChessApp {
             id: self.search_id,
             position: self.game_history.uci_position(),
             limit,
-            // Analysis is always at full strength; the skill level shapes play only.
-            skill_level: match kind {
-                SearchKind::Play => self.engine_skill_level,
-                SearchKind::Analyse => 20,
+            // Analysis is always at full strength; the Elo limit shapes play only.
+            elo: match kind {
+                SearchKind::Play => self.engine_elo,
+                SearchKind::Analyse => None,
             },
         };
         self.search_kind = kind;
