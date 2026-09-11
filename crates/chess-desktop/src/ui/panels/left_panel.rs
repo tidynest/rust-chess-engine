@@ -2,18 +2,18 @@
 //!
 //! Displays captured pieces and selected square details.
 
-use eframe::egui::{self, Context};
+use eframe::egui;
 
 use crate::app::state::ChessApp;
 use crate::ui::components::material;
 
 /// Draw the left panel
-pub fn draw(app: &ChessApp, ctx: &Context) {
-    egui::SidePanel::left("left_panel")
-        .default_width(200.0)
-        .width_range(150.0..=300.0)
+pub fn draw(app: &ChessApp, ui: &mut egui::Ui) {
+    egui::Panel::left("left_panel")
+        .default_size(200.0)
+        .size_range(150.0..=300.0)
         .resizable(true)
-        .show(ctx, |ui| {
+        .show(ui, |ui| {
             let theme = &app.theme;
             ui.add_space(theme.space_xs);
 

@@ -11,18 +11,18 @@ use crate::app::state::{CapturedPiecesStyle, ChessApp};
 use crate::ui::theme::ThemeVariant;
 
 /// Draw the top menu bar
-pub fn draw(app: &mut ChessApp, ctx: &Context) {
-    egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+pub fn draw(app: &mut ChessApp, ui: &mut egui::Ui) {
+    egui::Panel::top("top_panel").show(ui, |ui| {
         ui.horizontal(|ui| {
-            draw_game_menu(app, ui, ctx);
-            draw_view_menu(app, ui, ctx);
+            draw_game_menu(app, ui);
+            draw_view_menu(app, ui);
             draw_turn_indicator(app, ui);
         });
     });
 }
 
 /// Draw the Game menu
-fn draw_game_menu(app: &mut ChessApp, ui: &mut egui::Ui, ctx: &Context) {
+fn draw_game_menu(app: &mut ChessApp, ui: &mut egui::Ui) {
     ui.menu_button("Game", |ui| {
         if ui.button("🆕 New Game").clicked() {
             app.new_game();
@@ -37,11 +37,12 @@ fn draw_game_menu(app: &mut ChessApp, ui: &mut egui::Ui, ctx: &Context) {
         ui.separator();
 
         if ui.button("Copy FEN").clicked() {
-            ctx.copy_text(app.board().to_string());
+            ui.ctx().copy_text(app.board().to_string());
         }
         if ui.button("Copy PGN").clicked() {
             let (white, black) = player_names(app);
-            ctx.copy_text(app.game_history.pgn_with_result(white, black, app.result()));
+            ui.ctx()
+                .copy_text(app.game_history.pgn_with_result(white, black, app.result()));
         }
         if ui.button("Set up position...").clicked() {
             app.fen_input = Some(app.board().to_string());
@@ -54,7 +55,7 @@ fn draw_game_menu(app: &mut ChessApp, ui: &mut egui::Ui, ctx: &Context) {
 
         if ui.button("❌ Quit").clicked() {
             app.send(EngineCommand::Quit);
-            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
         }
     });
 }
@@ -157,7 +158,7 @@ fn draw_loader(
 }
 
 /// Draw the View menu
-fn draw_view_menu(app: &mut ChessApp, ui: &mut egui::Ui, ctx: &Context) {
+fn draw_view_menu(app: &mut ChessApp, ui: &mut egui::Ui) {
     ui.menu_button("View", |ui| {
         ui.menu_button("Theme", |ui| {
             for variant in ThemeVariant::all() {
@@ -166,7 +167,7 @@ fn draw_view_menu(app: &mut ChessApp, ui: &mut egui::Ui, ctx: &Context) {
                     .clicked()
                 {
                     app.set_theme(variant);
-                    app.theme.apply(ctx);
+                    app.theme.apply(ui.ctx());
                 }
             }
         });

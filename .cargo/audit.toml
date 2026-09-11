@@ -7,6 +7,4 @@ ignore = [
     "RUSTSEC-2026-0097",
     # ttf-parser 0.25.1 is the latest release and ab_glyph (via egui) requires it.
     "RUSTSEC-2026-0192",
-    # paste comes in only through metal, the macOS wgpu backend. Drop after egui >= 0.36.
-    "RUSTSEC-2024-0436",
 ]

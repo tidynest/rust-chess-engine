@@ -2,14 +2,14 @@
 //!
 //! Contains the main board display and control buttons.
 
-use eframe::egui::{self, Context, Vec2};
+use eframe::egui::{self, Vec2};
 
 use crate::app::state::ChessApp;
 use crate::ui::components::eval_bar;
 
 /// Draw the central panel
-pub fn draw(app: &mut ChessApp, ctx: &Context) {
-    egui::CentralPanel::default().show(ctx, |ui| {
+pub fn draw(app: &mut ChessApp, ui: &mut egui::Ui) {
+    egui::CentralPanel::default().show(ui, |ui| {
         ui.vertical_centered(|ui| {
             ui.heading("Chess Board");
             ui.add_space(app.theme.space_sm);
