@@ -49,8 +49,10 @@ The last one only checks that Stockfish answers over UCI.
 - Copy the FEN or the PGN, set up a position from a FEN, or load a PGN, under Game.
 - "Analyse position" evaluates the position on screen and draws the engine's
   move as an arrow, in a game or while browsing the history.
-- Three themes under View > Theme. Settings are remembered between runs.
-- CLI: `e2e4` or SAN (`Nf3`, `O-O`), `fen` to print or set a position, `undo`.
+- Three themes under View > Theme. Settings, engine threads and hash, and the
+  time control are remembered between runs.
+- CLI: `e2e4` or SAN (`Nf3`, `O-O`), `play` to face Stockfish, `fen` to print
+  or set a position, `undo`.
 - Play Stockfish as White or Black, with a depth or time limit and skill level 0 to 20.
   The engine gets the full move list, so it sees repetitions and the 50-move rule.
 - Evaluation bar, depth, node count and principal variation while the engine thinks.
@@ -60,7 +62,8 @@ The last one only checks that Stockfish answers over UCI.
 
 - PGN goes through the clipboard; games are not saved to disk.
 - The engine is `CHESS_STOCKFISH` if set, else `stockfish` on `PATH` or in the
-  usual places; 4 threads and 128 MB hash are fixed.
+  usual places.
+- Undo does not give time back on the clock.
 
 The full list and the plan to fix them is in `docs/AUDIT_2026-09-09.md`;
 what has been done since is in `CHANGELOG.md`.
