@@ -60,7 +60,8 @@ The last one only checks that Stockfish answers over UCI.
 - Play Stockfish as White or Black, with a depth or time limit and skill level 0 to 20.
   The engine gets the full move list, so it sees repetitions and the 50-move rule.
 - Evaluation bar, depth, node count and principal variation while the engine thinks.
-- Captured pieces in Lichess or Chess.com style.
+- Captured pieces in Lichess or Chess.com style, and the opening's name and
+  ECO code from the Lichess opening table.
 
 ## Known limitations
 
@@ -89,3 +90,6 @@ cargo test -p chess-desktop -- --ignored
 ## Licence
 
 MIT. See `LICENSE`.
+
+The opening names in `crates/chess-core/data/openings.tsv` are the Lichess
+opening table, released by Lichess under CC0 1.0; see the README next to it.
