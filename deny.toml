@@ -11,6 +11,12 @@ ignore = [
     { id = "RUSTSEC-2026-0192", reason = "ttf-parser 0.25.1 is the latest release and ab_glyph, via egui, requires it" },
 ]
 
+[bans]
+# Two windows-sys generations sit under eframe (glutin and winit on 0.52 and
+# 0.59, arboard on 0.60). Warning about them on every run prints hundreds of
+# lines and nothing here can change it before egui 0.36.
+multiple-versions = "allow"
+
 [licenses]
 allow = [
     "0BSD",
