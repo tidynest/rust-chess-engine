@@ -1,6 +1,44 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chess_core::{ChessEngine, GameState, display, notation};
+use chess_engine::{EngineResponse, SearchLimit, StockfishEngine};
 use std::io::{self, Write};
+
+/// Stockfish driven synchronously from the prompt loop.
+struct Opponent {
+    runtime: tokio::runtime::Runtime,
+    engine: StockfishEngine,
+}
+
+impl Opponent {
+    fn start() -> Result<Self> {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+        let engine = runtime.block_on(async {
+            let path = std::env::var("CHESS_STOCKFISH").unwrap_or_else(|_| "stockfish".to_owned());
+            let mut engine = StockfishEngine::new(&path).await?;
+            engine.initialise().await?;
+            anyhow::Ok(engine)
+        })?;
+        Ok(Self { runtime, engine })
+    }
+
+    /// The engine's move for `fen`, in long algebraic notation.
+    // ponytail: a bare FEN, so the engine cannot see repetitions here.
+    fn best_move(&mut self, fen: &str) -> Result<String> {
+        let Self { runtime, engine } = self;
+        runtime.block_on(async {
+            engine.set_position(&format!("fen {fen}")).await?;
+            engine.go(SearchLimit::Depth(12)).await?;
+            while let Some(response) = engine.recv_response().await {
+                if let EngineResponse::BestMove { mv, .. } = response {
+                    return mv.context("the engine has no legal move");
+                }
+            }
+            anyhow::bail!("the engine closed its output")
+        })
+    }
+}
 
 fn print_help() {
     println!("\n=== Chess Engine Commands ===");
@@ -14,6 +52,7 @@ fn print_help() {
     println!("    undo      - Take back the last move");
     println!("    fen       - Print the position as FEN");
     println!("    fen <fen> - Set up a position");
+    println!("    play      - Let Stockfish answer your moves (again to stop)");
     println!();
 }
 
@@ -37,6 +76,7 @@ fn main() -> Result<()> {
     let mut engine = ChessEngine::new();
     // Positions before each move, newest last; popping one is an undo.
     let mut history: Vec<ChessEngine> = Vec::new();
+    let mut opponent: Option<Opponent> = None;
 
     loop {
         println!("\n{}", display::display_board(&engine));
@@ -86,6 +126,16 @@ fn main() -> Result<()> {
                 Some(previous) => engine = previous,
                 None => println!("Nothing to undo"),
             },
+            "play" => match opponent.take() {
+                Some(_) => println!("Stockfish stopped"),
+                None => match Opponent::start() {
+                    Ok(started) => {
+                        opponent = Some(started);
+                        println!("Stockfish will answer your moves");
+                    }
+                    Err(e) => println!("Could not start Stockfish: {e:#}"),
+                },
+            },
             "fen" => println!("{}", engine.board()),
             command if command.starts_with("fen ") => match ChessEngine::from_fen(&input[4..]) {
                 Ok(position) => {
@@ -112,7 +162,19 @@ fn main() -> Result<()> {
                     Err(e) => {
                         println!("Invalid move: {}", e);
                         println!("Type 'moves' to see legal moves, 'help' for the formats");
+                        continue;
                     }
+                }
+
+                if let Some(stockfish) = &mut opponent
+                    && !engine.is_checkmate()
+                    && !engine.is_stalemate()
+                {
+                    let reply = stockfish.best_move(&engine.board().to_string())?;
+                    let mv = notation::parse_algebraic(&reply)
+                        .with_context(|| format!("engine sent {reply:?}"))?;
+                    engine.make_move(mv)?;
+                    println!("Stockfish played: {reply}");
                 }
             }
         }
