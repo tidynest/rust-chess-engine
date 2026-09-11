@@ -13,6 +13,8 @@ pub fn draw(app: &ChessApp, ui: &mut Ui) {
     let theme = &app.theme;
     if let Some(color) = app.timeout {
         ui.colored_label(theme.error, format!("{color:?} lost on time"));
+    } else if let Some(color) = app.resigned {
+        ui.colored_label(theme.error, format!("{color:?} resigned"));
     } else if board.status() == BoardStatus::Checkmate {
         let winner = if board.side_to_move() == ChessColor::White {
             "Black wins by checkmate!"

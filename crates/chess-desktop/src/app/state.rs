@@ -82,6 +82,8 @@ pub struct ChessApp {
     pub clock: Option<Clock>,
     /// Whose flag fell; the game is over until New Game.
     pub timeout: Option<ChessColor>,
+    /// Who resigned; the game is over until New Game.
+    pub resigned: Option<ChessColor>,
     /// The time control for the next game.
     pub clock_enabled: bool,
     pub clock_minutes: u32,
@@ -130,6 +132,7 @@ impl ChessApp {
             disable_auto_request: false,
             clock: None,
             timeout: None,
+            resigned: None,
             clock_enabled: false,
             clock_minutes: 5,
             clock_increment_s: 3,
@@ -203,6 +206,7 @@ impl ChessApp {
             .clock_enabled
             .then(|| Clock::new(self.clock_minutes, self.clock_increment_s));
         self.timeout = None;
+        self.resigned = None;
         self.position_changed();
         self.send(EngineCommand::NewGame);
         self.last_move = None;

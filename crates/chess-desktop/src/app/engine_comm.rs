@@ -151,14 +151,28 @@ impl ChessApp {
         self.play_vs_computer || self.analysis
     }
 
-    /// Mate, a draw, or a flag fall.
+    /// Mate, a draw, a flag fall or a resignation.
     pub(crate) fn is_game_over(&self) -> bool {
-        self.timeout.is_some() || self.game_history.is_over()
+        self.timeout.is_some() || self.resigned.is_some() || self.game_history.is_over()
     }
 
-    /// The result for the PGN, including a loss on time.
+    /// The side to move gives up; against the computer that is the human.
+    pub(crate) fn resign(&mut self) {
+        if self.is_game_over() {
+            return;
+        }
+        let loser = if self.play_vs_computer {
+            !self.computer_color
+        } else {
+            self.board().side_to_move()
+        };
+        self.resigned = Some(loser);
+        self.abort_search();
+    }
+
+    /// The result for the PGN, including a loss on time or by resignation.
     pub(crate) fn result(&self) -> &'static str {
-        match self.timeout {
+        match self.timeout.or(self.resigned) {
             Some(ChessColor::White) => "0-1",
             Some(ChessColor::Black) => "1-0",
             None => self.game_history.result(),

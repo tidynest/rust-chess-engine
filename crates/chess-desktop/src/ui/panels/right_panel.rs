@@ -312,7 +312,7 @@ fn draw_controls_legend(ui: &mut egui::Ui) {
     ui.heading("Controls");
     ui.label("• Click or drag a piece to move it");
     ui.label("• Dots mark the legal targets");
-    ui.label("• Left and Right arrows step through the moves");
+    ui.label("• Left and Right arrows, or Ctrl+Z and Ctrl+Y, step through the moves");
     ui.label("• Home and End jump to either end");
-    ui.label("• F flips the board");
+    ui.label("• F flips the board, Ctrl+N starts a new game");
 }
