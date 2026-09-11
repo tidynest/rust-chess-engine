@@ -272,6 +272,27 @@ impl GameHistory {
         self.sans.get(index).map(String::as_str)
     }
 
+    /// The `position` argument for the current line: the start position and
+    /// every move played, so an engine can see repetitions and the 50-move
+    /// clock, which a bare FEN from the `chess` crate does not carry.
+    pub fn uci_position(&self) -> String {
+        let start = self.start_board();
+        let mut position = if *start == Board::default() {
+            "startpos".to_owned()
+        } else {
+            format!("fen {start}")
+        };
+        let moves = self.current_moves();
+        if !moves.is_empty() {
+            position.push_str(" moves");
+            for mv in moves {
+                position.push(' ');
+                position.push_str(&mv.to_string());
+            }
+        }
+        position
+    }
+
     pub fn current_moves(&self) -> &[ChessMove] {
         &self.moves[..self.current_index]
     }
@@ -681,6 +702,27 @@ mod tests {
             let history = GameHistory::from_fen(fen).unwrap();
             assert_eq!(history.draw_reason(), expected, "{fen}");
         }
+    }
+
+    #[test]
+    fn test_uci_position_lists_the_moves_played() {
+        let mut history = GameHistory::new();
+        assert_eq!(history.uci_position(), "startpos");
+        for (from, to) in [
+            (Square::E2, Square::E4),
+            (Square::E7, Square::E5),
+            (Square::G1, Square::F3),
+        ] {
+            history.make_move(create_move(from, to));
+        }
+        assert_eq!(history.uci_position(), "startpos moves e2e4 e7e5 g1f3");
+        history.undo();
+        assert_eq!(history.uci_position(), "startpos moves e2e4 e7e5");
+
+        let fen = "4k3/P7/8/8/8/8/8/4K3 w - - 0 1";
+        let mut history = GameHistory::from_fen(fen).unwrap();
+        history.make_move(ChessMove::new(Square::A7, Square::A8, Some(Piece::Knight)));
+        assert_eq!(history.uci_position(), format!("fen {fen} moves a7a8n"));
     }
 
     #[test]

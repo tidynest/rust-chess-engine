@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use crate::app::state::ChessApp;
 use crate::ui::pieces;
+use chess_core::notation;
 
 /// How long a piece takes to slide to its square.
 const SLIDE_TIME: Duration = Duration::from_millis(150);
@@ -231,7 +232,7 @@ impl ChessApp {
             let Some(mv) = line
                 .pv
                 .first()
-                .and_then(|uci| self.parse_uci_move(uci, self.board()))
+                .and_then(|uci| notation::parse_uci(self.board(), uci))
             else {
                 continue;
             };

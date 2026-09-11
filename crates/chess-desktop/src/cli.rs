@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use chess_core::{ChessEngine, GameState, display, notation};
+use chess_core::{GameHistory, PgnTags, display, notation, openings};
 use chess_engine::{EngineResponse, SearchLimit, StockfishEngine};
 use std::io::{self, Write};
 
@@ -23,12 +23,11 @@ impl Opponent {
         Ok(Self { runtime, engine })
     }
 
-    /// The engine's move for `fen`, in long algebraic notation.
-    // ponytail: a bare FEN, so the engine cannot see repetitions here.
-    fn best_move(&mut self, fen: &str) -> Result<String> {
+    /// The engine's move after `position`, in long algebraic notation.
+    fn best_move(&mut self, position: &str) -> Result<String> {
         let Self { runtime, engine } = self;
         runtime.block_on(async {
-            engine.set_position(&format!("fen {fen}")).await?;
+            engine.set_position(position).await?;
             engine.go(SearchLimit::Depth(12)).await?;
             while let Some(response) = engine.recv_response().await {
                 if let EngineResponse::BestMove { mv, .. } = response {
@@ -50,39 +49,50 @@ fn print_help() {
     println!("    new       - Start a new game");
     println!("    moves     - Show all legal moves");
     println!("    undo      - Take back the last move");
+    println!("    redo      - Replay a move taken back");
+    println!("    pgn       - Print the game as PGN");
     println!("    fen       - Print the position as FEN");
     println!("    fen <fen> - Set up a position");
     println!("    play      - Let Stockfish answer your moves (again to stop)");
     println!();
 }
 
-fn show_legal_moves(engine: &ChessEngine) {
-    let moves = engine.legal_moves();
+fn show_legal_moves(board: &chess::Board) {
+    let mut moves: Vec<String> = chess::MoveGen::new_legal(board)
+        .map(|mv| mv.to_string())
+        .collect();
+    moves.sort();
     println!("\nLegal moves ({} total):", moves.len());
-
-    let mut move_strings: Vec<String> = moves.iter().map(notation::to_algebraic).collect();
-    move_strings.sort();
-
-    // Display in columns
-    for chunk in move_strings.chunks(10) {
+    for chunk in moves.chunks(10) {
         println!("  {}", chunk.join("  "));
     }
 }
 
+/// Say what the last move of the history was.
+fn announce(game: &GameHistory, who: &str) {
+    let san = game
+        .move_count()
+        .checked_sub(1)
+        .and_then(|index| game.san(index))
+        .unwrap_or("?");
+    println!("{who}: {san}");
+}
+
 fn main() -> Result<()> {
-    println!("♔ Welcome to Rust Chess Engine! ♚");
+    println!("\u{2654} Welcome to Rust Chess Engine! \u{265a}");
     println!("Type 'help' for commands\n");
 
-    let mut engine = ChessEngine::new();
-    // Positions before each move, newest last; popping one is an undo.
-    let mut history: Vec<ChessEngine> = Vec::new();
+    let mut game = GameHistory::new();
     let mut opponent: Option<Opponent> = None;
 
     loop {
-        println!("\n{}", display::display_board(&engine));
-        println!("{}", display::display_status(&engine));
+        println!("\n{}", display::board(game.current_board()));
+        println!("{}", display::status(&game));
+        if let Some(opening) = openings::of(&game) {
+            println!("{} ({})", opening.name, opening.eco);
+        }
 
-        if engine.is_checkmate() || engine.is_stalemate() {
+        if game.is_over() {
             println!("\nGame Over!");
             print!("Play again? (y/n): ");
             io::stdout().flush()?;
@@ -90,13 +100,11 @@ fn main() -> Result<()> {
             let mut input = String::new();
             io::stdin().read_line(&mut input)?;
 
-            if input.trim().to_lowercase() == "y" {
-                engine = ChessEngine::new();
-                history.clear();
+            if input.trim().eq_ignore_ascii_case("y") {
+                game = GameHistory::new();
                 continue;
-            } else {
-                break;
             }
+            break;
         }
 
         print!("\nEnter move: ");
@@ -107,25 +115,28 @@ fn main() -> Result<()> {
         let input = input.trim();
 
         match input.to_lowercase().as_str() {
+            "" => {}
             "quit" | "exit" | "q" => {
                 println!("Thanks for playing!");
                 break;
             }
-            "help" | "h" | "?" => {
-                print_help();
-            }
+            "help" | "h" | "?" => print_help(),
             "new" => {
-                engine = ChessEngine::new();
-                history.clear();
+                game = GameHistory::new();
                 println!("New game has started!");
             }
-            "moves" | "m" => {
-                show_legal_moves(&engine);
+            "moves" | "m" => show_legal_moves(game.current_board()),
+            "undo" | "u" => {
+                if !game.undo() {
+                    println!("Nothing to undo");
+                }
             }
-            "undo" | "u" => match history.pop() {
-                Some(previous) => engine = previous,
-                None => println!("Nothing to undo"),
-            },
+            "redo" | "r" => {
+                if !game.redo() {
+                    println!("Nothing to redo");
+                }
+            }
+            "pgn" => println!("{}", game.pgn(PgnTags::default())),
             "play" => match opponent.take() {
                 Some(_) => println!("Stockfish stopped"),
                 None => match Opponent::start() {
@@ -136,45 +147,34 @@ fn main() -> Result<()> {
                     Err(e) => println!("Could not start Stockfish: {e:#}"),
                 },
             },
-            "fen" => println!("{}", engine.board()),
-            command if command.starts_with("fen ") => match ChessEngine::from_fen(&input[4..]) {
-                Ok(position) => {
-                    engine = position;
-                    history.clear();
+            "fen" => println!("{}", game.current_board()),
+            command if command.starts_with("fen ") => {
+                match GameHistory::from_fen(input[4..].trim()) {
+                    Ok(position) => game = position,
+                    Err(e) => println!("Invalid position: {e}"),
                 }
-                Err(e) => println!("Invalid position: {e}"),
-            },
-            move_str => {
-                if move_str.is_empty() {
+            }
+            _ => {
+                // SAN is case-sensitive, so the move is read as typed.
+                let board = game.current_board();
+                let Some(mv) =
+                    notation::parse_uci(board, input).or_else(|| notation::parse_san(board, input))
+                else {
+                    println!("Invalid move: {input}");
+                    println!("Type 'moves' to see legal moves, 'help' for the formats");
                     continue;
-                }
-
-                let before = engine.clone();
-                let played = match notation::parse_algebraic(move_str) {
-                    Some(mv) => engine.make_move(mv),
-                    None => engine.make_san(move_str),
                 };
-                match played {
-                    Ok(()) => {
-                        history.push(before);
-                        println!("Move played: {}", move_str);
-                    }
-                    Err(e) => {
-                        println!("Invalid move: {}", e);
-                        println!("Type 'moves' to see legal moves, 'help' for the formats");
-                        continue;
-                    }
-                }
+                game.make_move(mv);
+                announce(&game, "Move played");
 
                 if let Some(stockfish) = &mut opponent
-                    && !engine.is_checkmate()
-                    && !engine.is_stalemate()
+                    && !game.is_over()
                 {
-                    let reply = stockfish.best_move(&engine.board().to_string())?;
-                    let mv = notation::parse_algebraic(&reply)
+                    let reply = stockfish.best_move(&game.uci_position())?;
+                    let mv = notation::parse_uci(game.current_board(), &reply)
                         .with_context(|| format!("engine sent {reply:?}"))?;
-                    engine.make_move(mv)?;
-                    println!("Stockfish played: {reply}");
+                    game.make_move(mv);
+                    announce(&game, "Stockfish played");
                 }
             }
         }
