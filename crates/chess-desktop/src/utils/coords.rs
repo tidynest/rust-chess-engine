@@ -32,3 +32,31 @@ pub fn get_square_from_pos(
         File::from_index(display_file),
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use eframe::egui::Vec2;
+
+    #[test]
+    fn every_square_maps_back_from_its_centre() {
+        let rect = Rect::from_min_size(Pos2::new(10.0, 20.0), Vec2::splat(400.0));
+        for flip in [false, true] {
+            for square in chess::ALL_SQUARES {
+                let (rank, file) = (square.get_rank().to_index(), square.get_file().to_index());
+                let row = if flip { rank } else { 7 - rank };
+                let col = if flip { 7 - file } else { file };
+                let centre = rect.min + Vec2::new(col as f32 + 0.5, row as f32 + 0.5) * 50.0;
+                assert_eq!(get_square_from_pos(centre, rect, 50.0, flip), Some(square));
+            }
+        }
+        assert_eq!(
+            get_square_from_pos(Pos2::new(9.0, 20.0), rect, 50.0, false),
+            None
+        );
+        assert_eq!(
+            get_square_from_pos(Pos2::new(410.5, 20.0), rect, 50.0, false),
+            None
+        );
+    }
+}
