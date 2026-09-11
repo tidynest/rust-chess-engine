@@ -4,6 +4,18 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+### Fifth round
+
+- egui and eframe 0.36.2. The App trait hands the panels a root `Ui`, the
+  default renderer is wgpu, and `paste` left the lockfile along with its
+  advisory ignore.
+- Save game writes the PGN to `$XDG_DATA_HOME/rust-chess-engine/games/`,
+  named by the moment it was saved; Open game lists the twenty newest and
+  plays one through. The PGN Date tag carries the real date. Both use UTC.
+- Undo, redo and jumps put both clocks back to where they stood at that ply.
+- Pieces slide to their square over 150 ms, for played moves and for the
+  ply stepped by undo or redo; a piece dropped by drag stays put.
+
 ### Fourth round
 
 - Game clocks: minutes plus a Fischer increment, off by default, set under

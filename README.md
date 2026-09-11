@@ -45,8 +45,11 @@ The last one only checks that Stockfish answers over UCI.
   Home, End and F work too.
 - Checkmate, stalemate, threefold repetition, the fifty-move rule,
   insufficient material, a flag fall or resigning end the game.
-- Optional clock with minutes and increment; the engine then manages its own time.
-- Copy the FEN or the PGN, set up a position from a FEN, or load a PGN, under Game.
+- Optional clock with minutes and increment; the engine then manages its own
+  time, and a takeback gives the time back.
+- Copy the FEN or the PGN, set up a position from a FEN, load a PGN, or save
+  the game and open a saved one, under Game. Saved games are PGN files under
+  `$XDG_DATA_HOME/rust-chess-engine/games/`.
 - "Analyse position" evaluates the position on screen and draws the engine's
   move as an arrow, in a game or while browsing the history.
 - Three themes under View > Theme. Settings, engine threads and hash, and the
@@ -60,10 +63,9 @@ The last one only checks that Stockfish answers over UCI.
 
 ## Known limitations
 
-- PGN goes through the clipboard; games are not saved to disk.
 - The engine is `CHESS_STOCKFISH` if set, else `stockfish` on `PATH` or in the
   usual places.
-- Undo does not give time back on the clock.
+- Saved game names and the PGN Date tag use UTC.
 
 The full list and the plan to fix them is in `docs/AUDIT_2026-09-09.md`;
 what has been done since is in `CHANGELOG.md`.
