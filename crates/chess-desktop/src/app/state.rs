@@ -7,6 +7,7 @@ use chess_core::GameHistory;
 use chess_engine::Score;
 use eframe::egui::Pos2;
 use std::sync::mpsc::{Receiver, channel};
+use std::time::Instant;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::ui::theme::{Theme, ThemeVariant};
@@ -38,6 +39,10 @@ pub struct ChessApp {
     pub fen_input: Option<String>,
     /// Text of the "Load PGN" window while it is open.
     pub pgn_input: Option<String>,
+    /// A piece sliding along this move since this instant.
+    pub animation: Option<(ChessMove, Instant)>,
+    /// A line for the status panel: where a game was saved, or why not.
+    pub notice: Option<String>,
 
     // UI state
     pub board_flip: bool,
@@ -129,6 +134,8 @@ impl ChessApp {
             pending_promotion: None,
             fen_input: None,
             pgn_input: None,
+            animation: None,
+            notice: None,
             disable_auto_request: false,
             clock: None,
             timeout: None,

@@ -185,15 +185,16 @@ impl GameHistory {
 
     /// The game as PGN: the seven-tag roster, a FEN tag when the game did not
     /// start from the initial position, then the moves up to the current one.
-    pub fn pgn(&self, white: &str, black: &str) -> String {
-        self.pgn_with_result(white, black, self.result())
+    pub fn pgn(&self, tags: PgnTags<'_>) -> String {
+        self.pgn_with_result(tags, self.result())
     }
 
     /// `pgn` with a result the board cannot know, such as a loss on time.
-    pub fn pgn_with_result(&self, white: &str, black: &str, result: &str) -> String {
+    pub fn pgn_with_result(&self, tags: PgnTags<'_>, result: &str) -> String {
+        let PgnTags { white, black, date } = tags;
         let start = self.start_board();
         let mut pgn = format!(
-            "[Event \"?\"]\n[Site \"?\"]\n[Date \"????.??.??\"]\n[Round \"?\"]\n\
+            "[Event \"?\"]\n[Site \"?\"]\n[Date \"{date}\"]\n[Round \"?\"]\n\
              [White \"{white}\"]\n[Black \"{black}\"]\n[Result \"{result}\"]\n"
         );
         if *start != Board::default() {
@@ -359,6 +360,26 @@ fn insufficient_material(board: &Board) -> bool {
         (0, 0) | (1, 0) | (0, 1) => true,
         (0, _) => (bishops & LIGHT_SQUARES) == bishops || (bishops & LIGHT_SQUARES).popcnt() == 0,
         _ => false,
+    }
+}
+
+/// The player and date tags of the seven-tag roster; the others are fixed
+/// or derived. Unknown values print as PGN's `?`.
+#[derive(Debug, Clone, Copy)]
+pub struct PgnTags<'a> {
+    pub white: &'a str,
+    pub black: &'a str,
+    /// `YYYY.MM.DD`, with `?` for the parts not known.
+    pub date: &'a str,
+}
+
+impl Default for PgnTags<'_> {
+    fn default() -> Self {
+        Self {
+            white: "?",
+            black: "?",
+            date: "????.??.??",
+        }
     }
 }
 
@@ -673,14 +694,23 @@ mod tests {
         ] {
             history.make_move(create_move(from, to));
         }
-        let pgn = history.pgn("Human", "Stockfish");
+        let pgn = history.pgn(PgnTags {
+            white: "Human",
+            black: "Stockfish",
+            date: "2026.09.11",
+        });
         assert!(pgn.starts_with("[Event \"?\"]\n"), "{pgn}");
+        assert!(pgn.contains("[Date \"2026.09.11\"]\n"), "{pgn}");
         assert!(pgn.contains("[White \"Human\"]\n[Black \"Stockfish\"]\n[Result \"0-1\"]\n\n"));
         assert!(pgn.ends_with("1. f3 e5 2. g4 Qh4# 0-1"), "{pgn}");
         assert!(!pgn.contains("[FEN"));
 
         history.undo();
-        assert!(history.pgn("?", "?").ends_with("1. f3 e5 2. g4 *"));
+        assert!(
+            history
+                .pgn(PgnTags::default())
+                .ends_with("1. f3 e5 2. g4 *")
+        );
     }
 
     #[test]
@@ -691,7 +721,7 @@ mod tests {
         assert_eq!(history.move_count(), 7);
         assert_eq!(history.san(6), Some("Ba4"));
 
-        let again = GameHistory::from_pgn(&history.pgn("?", "?")).unwrap();
+        let again = GameHistory::from_pgn(&history.pgn(PgnTags::default())).unwrap();
         assert_eq!(again.current_board(), history.current_board());
 
         assert_eq!(
@@ -713,7 +743,7 @@ mod tests {
         let mut history = GameHistory::from_fen(fen).unwrap();
         history.make_move(create_move(Square::E7, Square::E5));
         history.make_move(create_move(Square::G1, Square::F3));
-        let pgn = history.pgn("?", "?");
+        let pgn = history.pgn(PgnTags::default());
         assert!(pgn.contains("[SetUp \"1\"]\n[FEN \""), "{pgn}");
         assert!(pgn.ends_with("1... e5 2. Nf3 *"), "{pgn}");
     }

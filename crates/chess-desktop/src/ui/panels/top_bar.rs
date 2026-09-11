@@ -3,10 +3,11 @@
 //! Contains game menu, view options, and turn indicator.
 
 use chess::Color as ChessColor;
-use chess_core::GameHistory;
+use chess_core::{GameHistory, PgnTags};
 use eframe::egui::{self, Context};
 
 use crate::app::engine_link::EngineCommand;
+use crate::app::games;
 use crate::app::state::{CapturedPiecesStyle, ChessApp};
 use crate::ui::theme::ThemeVariant;
 
@@ -40,9 +41,7 @@ fn draw_game_menu(app: &mut ChessApp, ui: &mut egui::Ui) {
             ui.ctx().copy_text(app.board().to_string());
         }
         if ui.button("Copy PGN").clicked() {
-            let (white, black) = player_names(app);
-            ui.ctx()
-                .copy_text(app.game_history.pgn_with_result(white, black, app.result()));
+            ui.ctx().copy_text(pgn(app));
         }
         if ui.button("Set up position...").clicked() {
             app.fen_input = Some(app.board().to_string());
@@ -53,6 +52,22 @@ fn draw_game_menu(app: &mut ChessApp, ui: &mut egui::Ui) {
 
         ui.separator();
 
+        if ui
+            .add_enabled(
+                app.game_history.move_count() > 0,
+                egui::Button::new("Save game"),
+            )
+            .clicked()
+        {
+            app.notice = Some(match games::save(&pgn(app)) {
+                Ok(path) => format!("Saved to {}", path.display()),
+                Err(e) => format!("Could not save the game: {e}"),
+            });
+        }
+        ui.menu_button("Open game", |ui| draw_saved_games(app, ui));
+
+        ui.separator();
+
         if ui.button("❌ Quit").clicked() {
             app.send(EngineCommand::Quit);
             ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
@@ -60,14 +75,47 @@ fn draw_game_menu(app: &mut ChessApp, ui: &mut egui::Ui) {
     });
 }
 
-/// Who plays which side, for the PGN tags.
-fn player_names(app: &ChessApp) -> (&'static str, &'static str) {
-    if !app.play_vs_computer {
-        return ("?", "?");
+/// The PGN of the game on screen: who plays which side, today, the result.
+fn pgn(app: &ChessApp) -> String {
+    let (white, black) = match (app.play_vs_computer, app.computer_color) {
+        (false, _) => ("?", "?"),
+        (true, ChessColor::White) => ("Stockfish", "Human"),
+        (true, ChessColor::Black) => ("Human", "Stockfish"),
+    };
+    let date = games::today();
+    let tags = PgnTags {
+        white,
+        black,
+        date: &date,
+    };
+    app.game_history.pgn_with_result(tags, app.result())
+}
+
+/// The saved games, newest first, named by their files. Picking one plays
+/// it through; a file that will not parse says so in the status panel.
+fn draw_saved_games(app: &mut ChessApp, ui: &mut egui::Ui) {
+    // ponytail: the directory is read every frame the submenu is open; at
+    // twenty entries that is nothing.
+    let saved = games::list(20);
+    if saved.is_empty() {
+        ui.label("No saved games");
+        return;
     }
-    match app.computer_color {
-        ChessColor::White => ("Stockfish", "Human"),
-        ChessColor::Black => ("Human", "Stockfish"),
+    for path in saved {
+        let name = path
+            .file_stem()
+            .map_or_else(String::new, |stem| stem.to_string_lossy().into_owned());
+        if !ui.button(&name).clicked() {
+            continue;
+        }
+        let loaded = std::fs::read_to_string(&path)
+            .map_err(|e| e.to_string())
+            .and_then(|text| GameHistory::from_pgn(&text).map_err(|e| e.to_string()));
+        match loaded {
+            Ok(history) => app.start_game(history),
+            Err(reason) => app.notice = Some(format!("{name}: {reason}")),
+        }
+        ui.close();
     }
 }
 

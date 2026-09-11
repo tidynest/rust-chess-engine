@@ -3,7 +3,7 @@
 //! Shows current game state (check, checkmate, stalemate, in progress).
 
 use chess::{BoardStatus, Color as ChessColor};
-use eframe::egui::Ui;
+use eframe::egui::{self, Ui};
 
 use crate::app::state::ChessApp;
 
@@ -28,5 +28,12 @@ pub fn draw(app: &ChessApp, ui: &mut Ui) {
         ui.colored_label(theme.check, "Check!");
     } else {
         ui.label("Game in progress");
+    }
+    if let Some(notice) = &app.notice {
+        ui.label(
+            egui::RichText::new(notice)
+                .color(theme.text_secondary)
+                .small(),
+        );
     }
 }

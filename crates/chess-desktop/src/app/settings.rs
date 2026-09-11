@@ -220,11 +220,17 @@ fn theme_from_key(key: &str) -> Option<ThemeVariant> {
 /// `$XDG_CONFIG_HOME/rust-chess-engine/settings`, or the platform's usual
 /// stand-in for the first part.
 fn path() -> Option<PathBuf> {
-    let base = std::env::var_os("XDG_CONFIG_HOME")
+    Some(app_dir("XDG_CONFIG_HOME", "APPDATA", ".config")?.join("settings"))
+}
+
+/// `$<xdg>/rust-chess-engine`, or `$<windows>` or `~/<home>` when the XDG
+/// variable is not set.
+pub(crate) fn app_dir(xdg: &str, windows: &str, home: &str) -> Option<PathBuf> {
+    let base = std::env::var_os(xdg)
         .map(PathBuf::from)
-        .or_else(|| std::env::var_os("APPDATA").map(PathBuf::from))
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))?;
-    Some(base.join("rust-chess-engine").join("settings"))
+        .or_else(|| std::env::var_os(windows).map(PathBuf::from))
+        .or_else(|| std::env::var_os("HOME").map(|dir| PathBuf::from(dir).join(home)))?;
+    Some(base.join("rust-chess-engine"))
 }
 
 #[cfg(test)]

@@ -6,9 +6,13 @@ use chess::{
     ChessMove, Color as ChessColor, File, Piece as ChessPiece, Rank, Square as ChessSquare,
 };
 use eframe::egui::{self, Context, CornerRadius, Rect, Response, Ui, Vec2};
+use std::time::Duration;
 
 use crate::app::state::ChessApp;
 use crate::ui::pieces;
+
+/// How long a piece takes to slide to its square.
+const SLIDE_TIME: Duration = Duration::from_millis(150);
 
 impl ChessApp {
     /// Draw the chess board with pieces and interactions
@@ -32,6 +36,18 @@ impl ChessApp {
             let board = self.board();
             (board.checkers().popcnt() > 0).then(|| board.king_square(board.side_to_move()))
         };
+        // A piece still on its way is drawn between squares, not on one.
+        let sliding = self.animation.and_then(|(mv, started)| {
+            let t = started.elapsed().as_secs_f32() / SLIDE_TIME.as_secs_f32();
+            (t < 1.0).then_some((mv, t))
+        });
+        if sliding.is_some() {
+            ui.ctx().request_repaint();
+        }
+        let hidden = self
+            .dragging_piece
+            .map(|(square, _, _)| square)
+            .or(sliding.map(|(mv, _)| mv.get_dest()));
 
         // Draw all squares and pieces
         for rank in 0..8 {
@@ -68,8 +84,22 @@ impl ChessApp {
                     square_rect,
                     &painter,
                 );
-                self.draw_piece_on_square(square, square_rect, square_size, &painter);
+                if Some(square) != hidden
+                    && let Some((piece, color)) = self.piece_at(square)
+                {
+                    pieces::draw(&painter, square_rect.center(), square_size, piece, color);
+                }
             }
+        }
+
+        if let Some((mv, t)) = sliding
+            && let Some((piece, color)) = self.piece_at(mv.get_dest())
+        {
+            let from = self.square_center(mv.get_source(), board_rect, square_size);
+            let to = self.square_center(mv.get_dest(), board_rect, square_size);
+            // Ease out: quick off the square, settling on arrival.
+            let eased = 1.0 - (1.0 - t) * (1.0 - t);
+            pieces::draw(&painter, from.lerp(to, eased), square_size, piece, color);
         }
 
         self.draw_best_move_arrow(board_rect, square_size, &painter);
@@ -183,23 +213,6 @@ impl ChessApp {
         }
     }
 
-    /// Draw piece on a square (if not being dragged)
-    fn draw_piece_on_square(
-        &self,
-        square: ChessSquare,
-        square_rect: Rect,
-        square_size: f32,
-        painter: &egui::Painter,
-    ) {
-        if self
-            .dragging_piece
-            .is_none_or(|(drag_sq, _, _)| drag_sq != square)
-            && let Some((piece, color)) = self.piece_at(square)
-        {
-            pieces::draw(painter, square_rect.center(), square_size, piece, color);
-        }
-    }
-
     /// Screen centre of `square`, honouring the board flip.
     fn square_center(&self, square: ChessSquare, board_rect: Rect, square_size: f32) -> egui::Pos2 {
         let (rank, file) = (square.get_rank().to_index(), square.get_file().to_index());
@@ -282,6 +295,8 @@ impl ChessApp {
                 && let Some(to_square) = square_at(pos)
             {
                 self.try_make_move(from_square, to_square);
+                // The piece was dropped where it lands; nothing to slide.
+                self.animation = None;
             }
             self.dragging_piece = None;
             self.drag_pos = None;
