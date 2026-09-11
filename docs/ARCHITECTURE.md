@@ -54,7 +54,8 @@ are played: `play_move` is the single entry for human and engine moves, and
 The panels under `ui/` draw from `ChessApp` and the theme tokens in
 `ui/theme.rs`. Pieces are shape drawings in `ui/pieces.rs`, one triangulated
 silhouette per piece. Settings live in `app/settings.rs` as `key = value`
-lines in the user's config directory.
+lines in the user's config directory; saved games are PGN files in the data
+directory, written and listed by `app/games.rs`.
 
 ## From a click to a reply
 
