@@ -161,6 +161,13 @@ impl StockfishEngine {
         Ok(())
     }
 
+    /// Set a UCI option and wait until the engine has taken it.
+    pub async fn set_option(&mut self, name: &str, value: impl std::fmt::Display) -> Result<()> {
+        self.send_command(&format!("setoption name {name} value {value}"))
+            .await?;
+        self.wait_ready().await
+    }
+
     /// Start a new game
     pub async fn new_game(&mut self) -> Result<()> {
         self.send_command("ucinewgame").await?;

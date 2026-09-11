@@ -16,6 +16,8 @@ pub struct Settings {
     pub engine_depth: u32,
     pub engine_movetime: u64,
     pub engine_skill_level: i32,
+    pub engine_threads: usize,
+    pub engine_hash_mb: u32,
     pub show_eval_bar: bool,
     pub captured_display_style: CapturedPiecesStyle,
     pub computer_color: ChessColor,
@@ -53,6 +55,8 @@ impl Settings {
             engine_depth: app.engine_depth,
             engine_movetime: app.engine_movetime.unwrap_or(1000),
             engine_skill_level: app.engine_skill_level,
+            engine_threads: app.engine_threads,
+            engine_hash_mb: app.engine_hash_mb,
             show_eval_bar: app.show_eval_bar,
             captured_display_style: app.captured_display_style,
             computer_color: app.computer_color,
@@ -65,6 +69,8 @@ impl Settings {
         app.engine_depth = self.engine_depth;
         app.engine_movetime = Some(self.engine_movetime);
         app.engine_skill_level = self.engine_skill_level;
+        app.engine_threads = self.engine_threads;
+        app.engine_hash_mb = self.engine_hash_mb;
         app.show_eval_bar = self.show_eval_bar;
         app.captured_display_style = self.captured_display_style;
         app.computer_color = self.computer_color;
@@ -103,6 +109,16 @@ impl Settings {
                 "skill_level" => {
                     if let Ok(level) = value.parse::<i32>() {
                         settings.engine_skill_level = level.clamp(0, 20);
+                    }
+                }
+                "engine_threads" => {
+                    if let Ok(threads) = value.parse::<usize>() {
+                        settings.engine_threads = threads.clamp(1, 64);
+                    }
+                }
+                "engine_hash_mb" => {
+                    if let Ok(mb) = value.parse::<u32>() {
+                        settings.engine_hash_mb = mb.clamp(16, 4096);
                     }
                 }
                 "show_eval_bar" => {
@@ -144,6 +160,8 @@ impl std::fmt::Display for Settings {
         writeln!(f, "engine_depth = {}", self.engine_depth)?;
         writeln!(f, "engine_movetime = {}", self.engine_movetime)?;
         writeln!(f, "skill_level = {}", self.engine_skill_level)?;
+        writeln!(f, "engine_threads = {}", self.engine_threads)?;
+        writeln!(f, "engine_hash_mb = {}", self.engine_hash_mb)?;
         writeln!(f, "show_eval_bar = {}", self.show_eval_bar)?;
         let style = match self.captured_display_style {
             CapturedPiecesStyle::Lichess => "lichess",
@@ -194,6 +212,8 @@ mod tests {
             engine_depth: 12,
             engine_movetime: 2500,
             engine_skill_level: 7,
+            engine_threads: 3,
+            engine_hash_mb: 256,
             show_eval_bar: false,
             captured_display_style: CapturedPiecesStyle::ChessCom,
             computer_color: ChessColor::White,

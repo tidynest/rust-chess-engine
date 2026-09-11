@@ -68,6 +68,9 @@ pub struct ChessApp {
     pub engine_movetime: Option<u64>,
     pub engine_mode: EngineMode,
     pub engine_skill_level: i32,
+    /// Stockfish's Threads and Hash options.
+    pub engine_threads: usize,
+    pub engine_hash_mb: u32,
 
     /// Set while the user browses the history, so the engine does not reply
     /// to a position that is not the live one.
@@ -134,6 +137,8 @@ impl ChessApp {
             engine_movetime: Some(1000),
             engine_mode: EngineMode::Depth,
             engine_skill_level: 20,
+            engine_threads: default_threads(),
+            engine_hash_mb: 128,
             show_eval_bar: true,
             captured_display_style: CapturedPiecesStyle::Lichess,
             theme: Theme::default(),
@@ -150,6 +155,19 @@ impl ChessApp {
     pub fn piece_at(&self, square: ChessSquare) -> Option<(ChessPiece, ChessColor)> {
         let board = self.board();
         Some((board.piece_on(square)?, board.color_on(square)?))
+    }
+
+    /// Send the Threads and Hash options to the engine.
+    pub fn send_engine_options(&self) {
+        for (name, value) in [
+            ("Threads", self.engine_threads.to_string()),
+            ("Hash", self.engine_hash_mb.to_string()),
+        ] {
+            self.send(EngineCommand::SetOption {
+                name: name.to_owned(),
+                value,
+            });
+        }
     }
 
     /// Put the human's pieces at the bottom of the board.
@@ -174,4 +192,10 @@ impl ChessApp {
         self.engine_evaluation = None;
         self.disable_auto_request = false;
     }
+}
+
+/// Half the machine's threads, between one and four: enough for a strong
+/// opponent without taking the whole machine.
+pub fn default_threads() -> usize {
+    std::thread::available_parallelism().map_or(1, |n| (n.get() / 2).clamp(1, 4))
 }

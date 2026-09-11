@@ -34,7 +34,10 @@ impl ChessApp {
         let mut best_move = None;
         for event in events {
             match event {
-                EngineEvent::Ready => self.engine_status = EngineStatus::Ready,
+                EngineEvent::Ready => {
+                    self.engine_status = EngineStatus::Ready;
+                    self.send_engine_options();
+                }
                 EngineEvent::Failed(message) => {
                     self.engine_status = EngineStatus::Failed(message);
                     self.engine_thinking = false;

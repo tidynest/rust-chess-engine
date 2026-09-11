@@ -147,11 +147,36 @@ fn draw_engine_settings(app: &mut ChessApp, ui: &mut egui::Ui) {
 
         ui.separator();
 
+        let (threads, hash) = (app.engine_threads, app.engine_hash_mb);
+        let max_threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+        ui.horizontal(|ui| {
+            ui.label("Threads:");
+            ui.add(egui::Slider::new(&mut app.engine_threads, 1..=max_threads));
+        });
+        ui.horizontal(|ui| {
+            ui.label("Hash:");
+            ui.add(
+                egui::Slider::new(&mut app.engine_hash_mb, 16..=2048)
+                    .suffix(" MB")
+                    .logarithmic(true),
+            );
+        });
+
+        ui.separator();
+
         if ui.button("Reset to defaults").clicked() {
             app.engine_depth = 20;
             app.engine_movetime = Some(1000);
             app.engine_mode = EngineMode::Depth;
             app.engine_skill_level = 20;
+            app.engine_threads = crate::app::state::default_threads();
+            app.engine_hash_mb = 128;
+        }
+
+        // Options reach the engine only when they change; it restarts its
+        // search threads and clears the hash for them.
+        if (threads, hash) != (app.engine_threads, app.engine_hash_mb) {
+            app.send_engine_options();
         }
     });
 }
