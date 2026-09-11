@@ -29,6 +29,11 @@ pub enum EngineCommand {
     Stop,
     /// `ucinewgame`, so the engine clears its tables.
     NewGame,
+    /// `setoption name <name> value <value>`, applied between searches.
+    SetOption {
+        name: String,
+        value: String,
+    },
     Quit,
 }
 
@@ -90,6 +95,12 @@ async fn run(mut commands: UnboundedReceiver<EngineCommand>, emit: &dyn Fn(Engin
                 None | Some(EngineCommand::Quit) => break,
                 Some(EngineCommand::Stop) => {
                     let _ = engine.stop().await;
+                }
+                Some(EngineCommand::SetOption { name, value }) => {
+                    finish_search(&mut engine, &mut current, emit).await;
+                    if let Err(e) = engine.set_option(&name, &value).await {
+                        eprintln!("engine: {e:#}");
+                    }
                 }
                 Some(EngineCommand::NewGame) => {
                     finish_search(&mut engine, &mut current, emit).await;
