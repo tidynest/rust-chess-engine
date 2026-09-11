@@ -18,8 +18,8 @@ anyhow = "1.0.102"
 chess = "3.2.0"
 thiserror = "2.0.18"
 
-egui = "0.32.3"
-eframe = "0.32.3"
+egui = "0.33.3"
+eframe = "0.33.3"
 
 # One child-process pipe; no need for net, fs, signal.
 tokio = { version = "1.52.0", features = ["rt", "process", "io-util", "sync", "time", "macros"] }
