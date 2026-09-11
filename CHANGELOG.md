@@ -4,6 +4,18 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+### Fourth round
+
+- Game clocks: minutes plus a Fischer increment, off by default, set under
+  Clock for the next game. A flag fall ends the game and sets the PGN result.
+  With a clock the engine searches on `go wtime btime winc binc` and manages
+  its own time; `SearchLimit` replaces the depth and movetime pair.
+- Resign button; Ctrl+Z, Ctrl+Y and Ctrl+N shortcuts.
+- Stockfish Threads and Hash are settings, sent as setoption and remembered.
+  The thread default is half the machine's threads, at most four.
+- CLI `play` answers your moves with Stockfish.
+- README screenshot.
+
 ### Third round
 
 - Analysis mode: "Analyse position" evaluates whatever is on screen, also
