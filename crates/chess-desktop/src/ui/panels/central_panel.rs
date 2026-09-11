@@ -119,6 +119,15 @@ fn draw_control_buttons(app: &mut ChessApp, ui: &mut egui::Ui, board_left_edge: 
         if ui.button("🔃 Flip Board").clicked() {
             app.board_flip = !app.board_flip;
         }
+        if ui
+            .add_enabled(
+                !app.is_game_over() && app.game_history.move_count() > 0,
+                egui::Button::new("🏳 Resign"),
+            )
+            .clicked()
+        {
+            app.resign();
+        }
 
         ui.add_space(app.theme.space_xs);
         ui.separator();

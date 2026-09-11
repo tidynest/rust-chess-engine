@@ -46,8 +46,9 @@ impl eframe::App for ChessApp {
 }
 
 impl ChessApp {
-    /// Arrow keys step through the history, Home and End jump to its ends,
-    /// F flips the board. Ignored while a text field has the keyboard.
+    /// Arrow keys or Ctrl+Z and Ctrl+Y step through the history, Home and
+    /// End jump to its ends, F flips the board, Ctrl+N starts a new game.
+    /// Ignored while a text field has the keyboard.
     fn handle_shortcuts(&mut self, ctx: &egui::Context) {
         use egui::Key;
 
@@ -55,10 +56,14 @@ impl ChessApp {
             return;
         }
         let pressed = |key| ctx.input(|input| input.key_pressed(key));
-        if pressed(Key::ArrowLeft) {
+        let command = |key| ctx.input(|input| input.modifiers.command && input.key_pressed(key));
+        if command(Key::N) {
+            self.new_game();
+        }
+        if pressed(Key::ArrowLeft) || command(Key::Z) {
             self.undo();
         }
-        if pressed(Key::ArrowRight) {
+        if pressed(Key::ArrowRight) || command(Key::Y) {
             self.redo();
         }
         if pressed(Key::Home) {
