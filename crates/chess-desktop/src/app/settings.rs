@@ -18,6 +18,7 @@ pub struct Settings {
     pub engine_skill_level: i32,
     pub engine_threads: usize,
     pub engine_hash_mb: u32,
+    pub analysis_lines: u32,
     pub show_eval_bar: bool,
     pub captured_display_style: CapturedPiecesStyle,
     pub computer_color: ChessColor,
@@ -60,6 +61,7 @@ impl Settings {
             engine_skill_level: app.engine_skill_level,
             engine_threads: app.engine_threads,
             engine_hash_mb: app.engine_hash_mb,
+            analysis_lines: app.analysis_lines,
             show_eval_bar: app.show_eval_bar,
             captured_display_style: app.captured_display_style,
             computer_color: app.computer_color,
@@ -77,6 +79,7 @@ impl Settings {
         app.engine_skill_level = self.engine_skill_level;
         app.engine_threads = self.engine_threads;
         app.engine_hash_mb = self.engine_hash_mb;
+        app.analysis_lines = self.analysis_lines;
         app.show_eval_bar = self.show_eval_bar;
         app.captured_display_style = self.captured_display_style;
         app.computer_color = self.computer_color;
@@ -128,6 +131,11 @@ impl Settings {
                 "engine_hash_mb" => {
                     if let Ok(mb) = value.parse::<u32>() {
                         settings.engine_hash_mb = mb.clamp(16, 4096);
+                    }
+                }
+                "analysis_lines" => {
+                    if let Ok(lines) = value.parse::<u32>() {
+                        settings.analysis_lines = lines.clamp(1, 5);
                     }
                 }
                 "show_eval_bar" => {
@@ -186,6 +194,7 @@ impl std::fmt::Display for Settings {
         writeln!(f, "skill_level = {}", self.engine_skill_level)?;
         writeln!(f, "engine_threads = {}", self.engine_threads)?;
         writeln!(f, "engine_hash_mb = {}", self.engine_hash_mb)?;
+        writeln!(f, "analysis_lines = {}", self.analysis_lines)?;
         writeln!(f, "show_eval_bar = {}", self.show_eval_bar)?;
         let style = match self.captured_display_style {
             CapturedPiecesStyle::Lichess => "lichess",
@@ -247,6 +256,7 @@ mod tests {
             engine_skill_level: 7,
             engine_threads: 3,
             engine_hash_mb: 256,
+            analysis_lines: 3,
             show_eval_bar: false,
             captured_display_style: CapturedPiecesStyle::ChessCom,
             computer_color: ChessColor::White,

@@ -26,13 +26,20 @@ pub enum CapturedPiecesStyle {
     ChessCom,
 }
 
+/// One line of the engine's search, its score from White's side.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EngineLine {
+    pub depth: u32,
+    pub score: Score,
+    pub pv: Vec<String>,
+}
+
 /// Main application state
 pub struct ChessApp {
     // Game state
     pub game_history: GameHistory,
     pub selected_square: Option<ChessSquare>,
     pub legal_moves_for_selected: Vec<ChessMove>,
-    pub last_move: Option<(ChessSquare, ChessSquare)>,
     /// A pawn move waiting for the player to choose the promotion piece.
     pub pending_promotion: Option<(ChessSquare, ChessSquare)>,
     /// Text of the "Set up position" window while it is open.
@@ -66,10 +73,13 @@ pub struct ChessApp {
     /// Id of the latest search; replies to any other id are stale.
     pub search_id: u64,
     pub engine_thinking: bool,
-    pub engine_evaluation: Option<Score>,
-    pub engine_depth_current: u32,
+    /// The lines of the running or last search, best first.
+    pub engine_lines: Vec<EngineLine>,
     pub engine_nodes: u64,
-    pub engine_pv: Vec<String>,
+    /// How many lines analysis asks for; play always asks for one.
+    pub analysis_lines: u32,
+    /// The MultiPV value the engine has, so it is only sent on change.
+    pub engine_multipv: u32,
     pub engine_depth: u32,
     pub engine_movetime: Option<u64>,
     pub engine_mode: EngineMode,
@@ -130,7 +140,6 @@ impl ChessApp {
             selected_square: None,
             legal_moves_for_selected: Vec::new(),
             board_flip: false,
-            last_move: None,
             pending_promotion: None,
             fen_input: None,
             pgn_input: None,
@@ -155,10 +164,10 @@ impl ChessApp {
             engine_status: EngineStatus::Starting,
             search_id: 0,
             engine_thinking: false,
-            engine_evaluation: None,
-            engine_depth_current: 0,
+            engine_lines: Vec::new(),
             engine_nodes: 0,
-            engine_pv: Vec::new(),
+            analysis_lines: 1,
+            engine_multipv: 1,
             engine_depth: 20,
             engine_movetime: Some(1000),
             engine_mode: EngineMode::Depth,
@@ -175,6 +184,18 @@ impl ChessApp {
     /// The position on the board right now.
     pub fn board(&self) -> &Board {
         self.game_history.current_board()
+    }
+
+    /// The squares of the move that made the position on screen.
+    pub fn last_move(&self) -> Option<(ChessSquare, ChessSquare)> {
+        let index = self.game_history.move_count().checked_sub(1)?;
+        let mv = self.game_history.get_move(index)?;
+        Some((mv.get_source(), mv.get_dest()))
+    }
+
+    /// The first line's score, from White's side.
+    pub fn engine_evaluation(&self) -> Option<Score> {
+        self.engine_lines.first().map(|line| line.score)
     }
 
     /// The piece on `square`, with its colour.
@@ -216,11 +237,8 @@ impl ChessApp {
         self.resigned = None;
         self.position_changed();
         self.send(EngineCommand::NewGame);
-        self.last_move = None;
         self.engine_nodes = 0;
-        self.engine_depth_current = 0;
-        self.engine_pv.clear();
-        self.engine_evaluation = None;
+        self.engine_lines.clear();
         self.disable_auto_request = false;
     }
 }

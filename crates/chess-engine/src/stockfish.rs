@@ -66,9 +66,11 @@ impl std::fmt::Display for SearchLimit {
 pub enum EngineResponse {
     /// `readyok`.
     Ready,
-    /// A search update carrying an exact score.
+    /// A search update carrying an exact score. `multipv` is the line's
+    /// number, from 1, when the engine reports several.
     Info {
         depth: u32,
+        multipv: u32,
         score: Score,
         nodes: u64,
         nps: u64,
@@ -155,14 +157,7 @@ impl StockfishEngine {
         .await
         .context("Timeout waiting for engine initialisation")??;
 
-        // Configure engine options
-        self.send_command("setoption name Hash value 128").await?;
-        self.send_command("setoption name Threads value 4").await?;
-
-        // Wait for ready
-        self.wait_ready().await?;
-
-        Ok(())
+        self.wait_ready().await
     }
 
     /// Send a raw command to the engine
@@ -265,10 +260,11 @@ fn parse_bestmove(mut words: SplitWhitespace<'_>) -> EngineResponse {
     EngineResponse::BestMove { mv, ponder }
 }
 
-/// Words after `info`. Only lines with an exact score for the first PV are
-/// reported; everything else would flash meaningless numbers in a UI.
+/// Words after `info`. Only lines with an exact score are reported;
+/// everything else would flash meaningless numbers in a UI.
 fn parse_info(mut words: SplitWhitespace<'_>) -> Option<EngineResponse> {
     let mut depth = 0;
+    let mut multipv = 1;
     let mut score = None;
     let mut nodes = 0;
     let mut nps = 0;
@@ -277,7 +273,7 @@ fn parse_info(mut words: SplitWhitespace<'_>) -> Option<EngineResponse> {
     while let Some(key) = words.next() {
         match key {
             "string" | "lowerbound" | "upperbound" => return None,
-            "multipv" if words.next()? != "1" => return None,
+            "multipv" => multipv = words.next()?.parse().ok()?,
             "depth" => depth = words.next()?.parse().ok()?,
             "nodes" => nodes = words.next()?.parse().ok()?,
             "nps" => nps = words.next()?.parse().ok()?,
@@ -300,6 +296,7 @@ fn parse_info(mut words: SplitWhitespace<'_>) -> Option<EngineResponse> {
 
     Some(EngineResponse::Info {
         depth,
+        multipv,
         score: score?,
         nodes,
         nps,
@@ -345,6 +342,7 @@ mod tests {
             parse_engine_line(line),
             Some(EngineResponse::Info {
                 depth: 15,
+                multipv: 1,
                 score: Score::Cp(34),
                 nodes: 1234567,
                 nps: 500000,
@@ -367,11 +365,25 @@ mod tests {
             "info string NNUE evaluation using nn-1c0000000000.nnue",
             "info depth 12 currmove e2e4 currmovenumber 1",
             "info depth 18 score cp 40 lowerbound nodes 100 pv e2e4",
-            "info depth 18 multipv 2 score cp 12 pv d2d4",
             "info depth 18 score cp notanumber pv e2e4",
         ] {
             assert_eq!(parse_engine_line(line), None, "{line:?}");
         }
+    }
+
+    #[test]
+    fn test_parse_info_numbers_the_lines() {
+        assert_eq!(
+            parse_engine_line("info depth 18 multipv 2 score cp 12 pv d2d4"),
+            Some(EngineResponse::Info {
+                depth: 18,
+                multipv: 2,
+                score: Score::Cp(12),
+                nodes: 0,
+                nps: 0,
+                pv: vec!["d2d4".into()],
+            })
+        );
     }
 
     #[test]

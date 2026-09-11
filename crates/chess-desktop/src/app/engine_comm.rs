@@ -8,7 +8,7 @@ use std::str::FromStr;
 use std::time::{Duration, Instant};
 
 use super::engine_link::{EngineCommand, EngineEvent, EngineStatus, SearchRequest};
-use super::state::ChessApp;
+use super::state::{ChessApp, EngineLine};
 
 /// Engine operating mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -44,12 +44,14 @@ impl ChessApp {
                     self.engine_thinking = false;
                     self.play_vs_computer = false;
                 }
+                EngineEvent::Error(message) => self.notice = Some(format!("Engine: {message}")),
                 // A reply to a position the user has already left.
                 EngineEvent::Search { id, .. } if id != self.search_id => {}
                 EngineEvent::Search {
                     response:
                         EngineResponse::Info {
                             depth,
+                            multipv,
                             score,
                             nodes,
                             pv,
@@ -57,17 +59,27 @@ impl ChessApp {
                         },
                     ..
                 } => {
-                    self.engine_depth_current = depth;
                     // Stockfish scores from the side to move; the UI shows White's view.
                     let black_to_move =
                         self.game_history.current_board().side_to_move() == ChessColor::Black;
-                    self.engine_evaluation = Some(if black_to_move {
-                        score.flipped()
-                    } else {
-                        score
-                    });
+                    let line = EngineLine {
+                        depth,
+                        score: if black_to_move {
+                            score.flipped()
+                        } else {
+                            score
+                        },
+                        pv,
+                    };
+                    // Lines arrive in order, so a gap can only be a line past
+                    // the number asked for.
+                    let index = multipv.saturating_sub(1) as usize;
+                    if let Some(slot) = self.engine_lines.get_mut(index) {
+                        *slot = line;
+                    } else if index == self.engine_lines.len() {
+                        self.engine_lines.push(line);
+                    }
                     self.engine_nodes = nodes;
-                    self.engine_pv = pv;
                 }
                 EngineEvent::Search {
                     response: EngineResponse::BestMove { mv, .. },
@@ -80,8 +92,11 @@ impl ChessApp {
                     }
                     // The line's first move is about to be played; keep the
                     // continuation so it still formats from the new position.
-                    if mv.is_some() && self.engine_pv.first() == mv.as_ref() {
-                        self.engine_pv.remove(0);
+                    if let Some(first) = self.engine_lines.first_mut()
+                        && mv.is_some()
+                        && first.pv.first() == mv.as_ref()
+                    {
+                        first.pv.remove(0);
                     }
                     best_move = mv;
                 }
@@ -125,6 +140,19 @@ impl ChessApp {
                 }
             },
         };
+        let lines = match kind {
+            SearchKind::Play => 1,
+            SearchKind::Analyse => self.analysis_lines,
+        };
+        if lines != self.engine_multipv {
+            self.send(EngineCommand::SetOption {
+                name: "MultiPV".to_owned(),
+                value: lines.to_string(),
+            });
+            self.engine_multipv = lines;
+        }
+        // Lines beyond the first belong to the position searched before.
+        self.engine_lines.truncate(1);
         self.search_id += 1;
         let request = SearchRequest {
             id: self.search_id,
@@ -245,7 +273,7 @@ impl ChessApp {
         match self.parse_uci_move(move_str, self.game_history.current_board()) {
             Some(mv) => self.play_move(mv),
             None => {
-                eprintln!("engine played {move_str}, which is not legal here");
+                self.notice = Some(format!("Engine played {move_str}, which is not legal here"));
                 // Without this the next frame would ask again, forever.
                 self.disable_auto_request = true;
             }
@@ -261,7 +289,6 @@ impl ChessApp {
             clock.press(mover, now, self.game_history.move_count());
         }
         self.animation = Some((mv, now));
-        self.last_move = Some((mv.get_source(), mv.get_dest()));
         self.disable_auto_request = false;
         self.position_changed();
     }
@@ -514,6 +541,41 @@ mod tests {
         tx.send(best(7)).unwrap();
         assert_eq!(app.poll_engine_responses(), Some("e2e4".to_owned()));
         assert!(!app.engine_thinking);
+    }
+
+    #[test]
+    fn test_lines_are_kept_by_number_and_cut_on_a_new_search() {
+        let mut app = ChessApp::headless();
+        let (tx, rx) = std::sync::mpsc::channel();
+        app.engine_rx = Some(rx);
+        app.search_id = 1;
+        let info = |multipv, cp, pv: &str| EngineEvent::Search {
+            id: 1,
+            response: EngineResponse::Info {
+                depth: 10,
+                multipv,
+                score: chess_engine::Score::Cp(cp),
+                nodes: 0,
+                nps: 0,
+                pv: vec![pv.to_owned()],
+            },
+        };
+        tx.send(info(1, 30, "e2e4")).unwrap();
+        tx.send(info(2, 20, "d2d4")).unwrap();
+        // A line with a gap before it cannot be placed and is dropped.
+        tx.send(info(4, 10, "c2c4")).unwrap();
+        tx.send(info(1, 35, "e2e4")).unwrap();
+        app.poll_engine_responses();
+        assert_eq!(app.engine_lines.len(), 2);
+        assert_eq!(app.engine_evaluation(), Some(chess_engine::Score::Cp(35)));
+        assert_eq!(app.engine_lines[1].pv, ["d2d4"]);
+
+        app.analysis_lines = 3;
+        app.start_search(SearchKind::Analyse);
+        assert_eq!(app.engine_multipv, 3);
+        assert_eq!(app.engine_lines.len(), 1, "only the first line survives");
+        app.start_search(SearchKind::Play);
+        assert_eq!(app.engine_multipv, 1);
     }
 
     #[test]
