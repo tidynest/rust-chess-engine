@@ -157,9 +157,7 @@ fn main() -> Result<()> {
             _ => {
                 // SAN is case-sensitive, so the move is read as typed.
                 let board = game.current_board();
-                let Some(mv) =
-                    notation::parse_uci(board, input).or_else(|| notation::parse_san(board, input))
-                else {
+                let Some(mv) = notation::parse_move(board, input) else {
                     println!("Invalid move: {input}");
                     println!("Type 'moves' to see legal moves, 'help' for the formats");
                     continue;

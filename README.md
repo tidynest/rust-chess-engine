@@ -12,7 +12,8 @@ of its own.
 ## Prerequisites
 
 - Rust 1.88 or newer (`rustup update stable`).
-- Stockfish on `PATH` for the computer opponent. Arch: `pacman -S stockfish`.
+- Stockfish on `PATH` for the computer opponent, 16 or newer for the Elo
+  limit (older versions clamp it to their own range). Arch: `pacman -S stockfish`.
   Debian and Ubuntu: `apt install stockfish`. macOS: `brew install stockfish`.
   Windows: download from stockfishchess.org and put `stockfish.exe` on `PATH`.
 - Linux build dependencies for eframe (Debian names):
@@ -46,8 +47,9 @@ The last one only checks that Stockfish answers over UCI.
 
 ## Features
 
-- Click or drag to move. Legal targets are marked, the last move is highlighted.
-  A pawn reaching the last rank asks which piece it becomes.
+- Click or drag to move, or type `e4`, `Nf3` or `e2e4` in the box under the
+  board. Legal targets are marked, the last move is highlighted. A pawn
+  reaching the last rank asks which piece it becomes.
 - Undo, redo, and click any move in the history to jump to it. Against the
   computer, undo takes back your move and its reply together. Arrow keys,
   Home, End, F and Escape work too.
@@ -55,7 +57,8 @@ The last one only checks that Stockfish answers over UCI.
   insufficient material, a flag fall or resigning end the game.
 - Optional clock with minutes and increment, or a preset from 1+0 to 15+10;
   the engine then manages its own time, and a takeback gives the time back.
-- Copy the FEN or the PGN, set up a position from a FEN, load a PGN, or save
+- Copy the FEN or the PGN, set up a position from a FEN, load a PGN (the first
+  game of a collection), or save
   the game (Ctrl+S) and open a saved one, under Game. Saved games are PGN
   files under `$XDG_DATA_HOME/rust-chess-engine/games/`.
 - "Analyse position" evaluates the position on screen and draws up to five
