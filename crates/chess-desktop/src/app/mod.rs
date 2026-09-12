@@ -34,6 +34,7 @@ impl eframe::App for ChessApp {
         crate::ui::panels::left_panel::draw(self, ui);
         crate::ui::panels::central_panel::draw(self, ui);
         self.draw_promotion_picker(&ctx);
+        crate::ui::panels::central_panel::draw_resign_prompt(self, &ctx);
         crate::ui::panels::top_bar::draw_setup_window(self, &ctx);
         crate::ui::panels::top_bar::draw_pgn_window(self, &ctx);
 
