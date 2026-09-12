@@ -129,6 +129,7 @@ fn draw_engine_controls(app: &mut ChessApp, ui: &mut egui::Ui) {
         draw_engine_settings(app, ui);
         draw_thinking_indicator(app, ui);
         draw_engine_analysis(app, ui);
+        draw_play_best_move(app, ui);
     }
 }
 
@@ -305,6 +306,26 @@ fn draw_engine_analysis(app: &ChessApp, ui: &mut egui::Ui) {
             );
             ui.label(app.format_pv_san(&line.pv).join(" "));
         });
+    }
+}
+
+/// In analysis mode, a button that plays the first move of the best line.
+fn draw_play_best_move(app: &mut ChessApp, ui: &mut egui::Ui) {
+    let best = app
+        .engine_lines
+        .first()
+        .and_then(|line| line.pv.first())
+        .and_then(|uci| chess_core::notation::parse_uci(app.board(), uci));
+    let allowed = app.analysis
+        && !app.is_game_over()
+        && app.pending_promotion.is_none()
+        && !app.waiting_for_engine_move();
+    if let Some(mv) = best
+        && ui
+            .add_enabled(allowed, egui::Button::new("Play the best move"))
+            .clicked()
+    {
+        app.play_move(mv);
     }
 }
 

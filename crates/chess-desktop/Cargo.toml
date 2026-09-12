@@ -1,5 +1,6 @@
 [package]
 name = "chess-desktop"
+description = "egui chess GUI and terminal CLI that play against Stockfish"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

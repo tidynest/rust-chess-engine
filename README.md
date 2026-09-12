@@ -82,7 +82,8 @@ The last one only checks that Stockfish answers over UCI.
 - Saved game names and the PGN Date tag use UTC.
 
 The full list and the plan to fix them is in `docs/AUDIT_2026-09-09.md`;
-what has been done since is in `CHANGELOG.md`.
+what has been done since is in `CHANGELOG.md`, and what is still waiting on
+a decision is in `docs/DECISIONS.md`.
 
 ## Layout
 

@@ -1,5 +1,6 @@
 [package]
 name = "chess-engine"
+description = "Async UCI client for a Stockfish process"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
