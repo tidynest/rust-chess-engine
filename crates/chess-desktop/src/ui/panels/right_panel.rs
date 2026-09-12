@@ -7,7 +7,7 @@ use eframe::egui;
 
 use crate::app::engine_comm::{EngineMode, SearchKind};
 use crate::app::engine_link::EngineStatus;
-use crate::app::state::{ChessApp, EngineLine};
+use crate::app::state::{ChessApp, ComputerSide, EngineLine};
 use crate::ui::components::{eval_bar, game_status};
 
 /// Draw the right panel
@@ -137,12 +137,13 @@ fn draw_color_selection(app: &mut ChessApp, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
         ui.label("Computer plays:");
 
-        let old_color = app.computer_color;
+        let old_side = app.computer_side;
 
-        ui.radio_value(&mut app.computer_color, ChessColor::White, "White");
-        ui.radio_value(&mut app.computer_color, ChessColor::Black, "Black");
+        ui.radio_value(&mut app.computer_side, ComputerSide::White, "White");
+        ui.radio_value(&mut app.computer_side, ComputerSide::Black, "Black");
+        ui.radio_value(&mut app.computer_side, ComputerSide::Both, "Both");
 
-        if old_color != app.computer_color {
+        if old_side != app.computer_side {
             app.abort_search();
             app.disable_auto_request = false;
             app.face_computer();
@@ -314,6 +315,9 @@ fn draw_move_history(app: &mut ChessApp, ui: &mut egui::Ui, max_height: f32) {
     let mut clicked_move: Option<usize> = None;
     let total = app.game_history.total_moves();
     let current = app.game_history.move_count();
+    // Bring the current move into view once per change of position, so the
+    // list follows the arrow keys without fighting the user's own scrolling.
+    let follow = app.history_scrolled_to != current;
 
     egui::ScrollArea::vertical()
         .max_height(max_height)
@@ -342,14 +346,19 @@ fn draw_move_history(app: &mut ChessApp, ui: &mut egui::Ui, max_height: f32) {
                             text = text.color(theme.text_disabled);
                         }
 
-                        if ui.button(text).clicked() {
+                        let response = ui.button(text);
+                        if response.clicked() {
                             clicked_move = Some(index);
+                        }
+                        if follow && index + 1 == current.max(1) {
+                            response.scroll_to_me(Some(egui::Align::Center));
                         }
                     }
                 });
             }
         });
 
+    app.history_scrolled_to = current;
     if let Some(move_index) = clicked_move {
         app.jump_to_ply(move_index + 1);
     }

@@ -27,6 +27,25 @@ pub enum CapturedPiecesStyle {
     ChessCom,
 }
 
+/// Which side, or sides, the engine plays in a game against it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComputerSide {
+    White,
+    Black,
+    /// The engine plays itself; the human watches.
+    Both,
+}
+
+impl ComputerSide {
+    pub fn plays(self, color: ChessColor) -> bool {
+        match self {
+            Self::White => color == ChessColor::White,
+            Self::Black => color == ChessColor::Black,
+            Self::Both => true,
+        }
+    }
+}
+
 /// One line of the engine's search, its score from White's side.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EngineLine {
@@ -47,6 +66,8 @@ pub struct ChessApp {
     pub fen_input: Option<String>,
     /// Text of the "Load PGN" window while it is open.
     pub pgn_input: Option<String>,
+    /// The ply the move list last scrolled to, so it follows the position.
+    pub history_scrolled_to: usize,
     /// A piece sliding along this move since this instant.
     pub animation: Option<(ChessMove, Instant)>,
     /// A line for the status panel: where a game was saved, or why not.
@@ -61,7 +82,7 @@ pub struct ChessApp {
 
     // Engine state
     pub play_vs_computer: bool,
-    pub computer_color: ChessColor,
+    pub computer_side: ComputerSide,
     /// Evaluate whatever position is on screen, whoever is to move.
     pub analysis: bool,
     /// The analysis of the current position has run to its limit.
@@ -152,6 +173,7 @@ impl ChessApp {
             pending_promotion: None,
             fen_input: None,
             pgn_input: None,
+            history_scrolled_to: 0,
             animation: None,
             notice: None,
             disable_auto_request: false,
@@ -165,7 +187,7 @@ impl ChessApp {
             dragging_piece: None,
             drag_pos: None,
             play_vs_computer: false,
-            computer_color: ChessColor::Black,
+            computer_side: ComputerSide::Black,
             analysis: false,
             analysis_complete: false,
             search_kind: SearchKind::Play,
@@ -205,10 +227,11 @@ impl ChessApp {
 
     /// The PGN of the game on screen: who plays which side, today, the result.
     pub fn pgn(&self) -> String {
-        let (white, black) = match (self.play_vs_computer, self.computer_color) {
+        let (white, black) = match (self.play_vs_computer, self.computer_side) {
             (false, _) => ("?", "?"),
-            (true, ChessColor::White) => ("Stockfish", "Human"),
-            (true, ChessColor::Black) => ("Human", "Stockfish"),
+            (true, ComputerSide::White) => ("Stockfish", "Human"),
+            (true, ComputerSide::Black) => ("Human", "Stockfish"),
+            (true, ComputerSide::Both) => ("Stockfish", "Stockfish"),
         };
         let date = games::today();
         let tags = PgnTags {
@@ -256,7 +279,7 @@ impl ChessApp {
 
     /// Put the human's pieces at the bottom of the board.
     pub fn face_computer(&mut self) {
-        self.board_flip = self.computer_color == ChessColor::White;
+        self.board_flip = self.computer_side == ComputerSide::White;
     }
 
     /// Reset the game to initial position

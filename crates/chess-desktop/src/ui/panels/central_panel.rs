@@ -149,7 +149,10 @@ fn draw_control_buttons(app: &mut ChessApp, ui: &mut egui::Ui, board_left_edge: 
         }
         if ui
             .add_enabled(
-                !app.is_game_over() && app.game_history.move_count() > 0,
+                !app.is_game_over()
+                    && app.game_history.move_count() > 0
+                    && !(app.play_vs_computer
+                        && app.computer_side == crate::app::state::ComputerSide::Both),
                 egui::Button::new("🏳 Resign"),
             )
             .clicked()
