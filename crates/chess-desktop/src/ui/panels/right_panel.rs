@@ -78,6 +78,15 @@ fn draw_clock(app: &mut ChessApp, ui: &mut egui::Ui) {
             ui.label("Increment:");
             ui.add(egui::Slider::new(&mut app.clock_increment_s, 0..=30).suffix(" s"));
         });
+        ui.horizontal(|ui| {
+            for (minutes, increment) in [(1, 0), (3, 2), (5, 3), (10, 0), (15, 10)] {
+                if ui.small_button(format!("{minutes}+{increment}")).clicked() {
+                    app.clock_minutes = minutes;
+                    app.clock_increment_s = increment;
+                    app.clock_enabled = true;
+                }
+            }
+        });
     });
 }
 
@@ -90,6 +99,9 @@ fn draw_engine_controls(app: &mut ChessApp, ui: &mut egui::Ui) {
         }
         EngineStatus::Failed(message) => {
             ui.colored_label(app.theme.error, format!("Stockfish unavailable: {message}"));
+            if ui.button("Try again").clicked() {
+                app.start_engine(ui.ctx());
+            }
         }
         EngineStatus::Ready => {
             let was_playing = app.play_vs_computer;

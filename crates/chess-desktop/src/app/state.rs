@@ -5,7 +5,7 @@
 use chess::{Board, ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare};
 use chess_core::{GameHistory, PgnTags};
 use chess_engine::Score;
-use eframe::egui::Pos2;
+use eframe::egui::{Context, Pos2};
 use std::sync::mpsc::{Receiver, channel};
 use std::time::Instant;
 use tokio::sync::mpsc::UnboundedSender;
@@ -101,6 +101,8 @@ pub struct ChessApp {
     pub timeout: Option<ChessColor>,
     /// Who resigned; the game is over until New Game.
     pub resigned: Option<ChessColor>,
+    /// The "Resign?" prompt is open.
+    pub confirm_resign: bool,
     /// The time control for the next game.
     pub clock_enabled: bool,
     pub clock_minutes: u32,
@@ -114,19 +116,24 @@ pub struct ChessApp {
 impl ChessApp {
     /// Create the app and start the Stockfish thread.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let (engine_tx, commands) = tokio::sync::mpsc::unbounded_channel();
-        let (events, engine_rx) = channel();
-        engine_link::spawn(commands, events, cc.egui_ctx.clone());
-
-        let mut app = Self {
-            engine_tx: Some(engine_tx),
-            engine_rx: Some(engine_rx),
-            ..Self::headless()
-        };
+        let mut app = Self::headless();
+        app.start_engine(&cc.egui_ctx);
         Settings::load().apply(&mut app);
         app.face_computer();
         app.theme.apply(&cc.egui_ctx);
         app
+    }
+
+    /// Start the Stockfish thread, or start it again after a failure. The
+    /// old thread, if any, sees its command channel close and quits.
+    pub fn start_engine(&mut self, ctx: &Context) {
+        let (engine_tx, commands) = tokio::sync::mpsc::unbounded_channel();
+        let (events, engine_rx) = channel();
+        engine_link::spawn(commands, events, ctx.clone());
+        self.engine_tx = Some(engine_tx);
+        self.engine_rx = Some(engine_rx);
+        self.engine_status = EngineStatus::Starting;
+        self.engine_thinking = false;
     }
 
     /// Switch theme; the caller applies it to the egui context.
@@ -151,6 +158,7 @@ impl ChessApp {
             clock: None,
             timeout: None,
             resigned: None,
+            confirm_resign: false,
             clock_enabled: false,
             clock_minutes: 5,
             clock_increment_s: 3,

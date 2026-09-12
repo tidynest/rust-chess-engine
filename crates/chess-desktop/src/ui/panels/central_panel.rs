@@ -28,6 +28,34 @@ pub fn draw(app: &mut ChessApp, ui: &mut egui::Ui) {
     });
 }
 
+/// "Resign?" in the middle of the window, so a stray click cannot end the game.
+pub fn draw_resign_prompt(app: &mut ChessApp, ctx: &egui::Context) {
+    if !app.confirm_resign {
+        return;
+    }
+    let mut open = true;
+    egui::Window::new("Resign?")
+        .collapsible(false)
+        .resizable(false)
+        .anchor(egui::Align2::CENTER_CENTER, Vec2::ZERO)
+        .open(&mut open)
+        .show(ctx, |ui| {
+            ui.label("Give up this game?");
+            ui.horizontal(|ui| {
+                if ui.button("Resign").clicked() {
+                    app.resign();
+                    app.confirm_resign = false;
+                }
+                if ui.button("Keep playing").clicked() {
+                    app.confirm_resign = false;
+                }
+            });
+        });
+    if !open {
+        app.confirm_resign = false;
+    }
+}
+
 /// Calculate board dimensions based on available space
 fn calculate_board_dimensions(app: &ChessApp, ui: &egui::Ui) -> (f32, f32, f32) {
     let available = ui.available_size();
@@ -126,7 +154,7 @@ fn draw_control_buttons(app: &mut ChessApp, ui: &mut egui::Ui, board_left_edge: 
             )
             .clicked()
         {
-            app.resign();
+            app.confirm_resign = true;
         }
 
         ui.add_space(app.theme.space_xs);
