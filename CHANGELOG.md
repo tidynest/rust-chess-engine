@@ -4,6 +4,12 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+### Fourteenth round
+
+- A box under the board takes a typed move, `e4`, `Nf3` or `e2e4`.
+- A PGN file holding several games opens its first game instead of failing.
+- README: Stockfish 16 or newer for the Elo limit.
+
 ### Thirteenth round
 
 - CI installs Stockfish and runs the engine-link test against it.
