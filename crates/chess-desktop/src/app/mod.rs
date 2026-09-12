@@ -17,6 +17,8 @@ pub use state::{CapturedPiecesStyle, ChessApp};
 impl eframe::App for ChessApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        // Before any panel takes its share, the root Ui spans the window.
+        self.window_size = ui.max_rect().size().into();
         self.handle_shortcuts(&ctx);
         self.tick_clock(&ctx);
 

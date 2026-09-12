@@ -8,7 +8,7 @@ use super::state::{CapturedPiecesStyle, ChessApp, ComputerSide};
 use crate::ui::theme::ThemeVariant;
 
 /// Everything the user can set that is not part of a game.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Settings {
     pub theme: ThemeVariant,
     pub engine_mode: EngineMode,
@@ -24,6 +24,7 @@ pub struct Settings {
     pub clock_enabled: bool,
     pub clock_minutes: u32,
     pub clock_increment_s: u32,
+    pub window_size: [f32; 2],
 }
 
 impl Settings {
@@ -67,6 +68,7 @@ impl Settings {
             clock_enabled: app.clock_enabled,
             clock_minutes: app.clock_minutes,
             clock_increment_s: app.clock_increment_s,
+            window_size: app.window_size,
         }
     }
 
@@ -85,6 +87,7 @@ impl Settings {
         app.clock_enabled = self.clock_enabled;
         app.clock_minutes = self.clock_minutes;
         app.clock_increment_s = self.clock_increment_s;
+        app.window_size = self.window_size;
     }
 
     /// Read `key = value` lines; unknown keys and unreadable values keep
@@ -163,6 +166,16 @@ impl Settings {
                         settings.clock_minutes = minutes.clamp(1, 180);
                     }
                 }
+                "window_width" => {
+                    if let Ok(width) = value.parse::<f32>() {
+                        settings.window_size[0] = width.clamp(400.0, 8000.0);
+                    }
+                }
+                "window_height" => {
+                    if let Ok(height) = value.parse::<f32>() {
+                        settings.window_size[1] = height.clamp(300.0, 8000.0);
+                    }
+                }
                 "clock_increment_s" => {
                     if let Ok(seconds) = value.parse::<u32>() {
                         settings.clock_increment_s = seconds.min(60);
@@ -212,7 +225,9 @@ impl std::fmt::Display for Settings {
         writeln!(f, "computer_color = {color}")?;
         writeln!(f, "clock_enabled = {}", self.clock_enabled)?;
         writeln!(f, "clock_minutes = {}", self.clock_minutes)?;
-        writeln!(f, "clock_increment_s = {}", self.clock_increment_s)
+        writeln!(f, "clock_increment_s = {}", self.clock_increment_s)?;
+        writeln!(f, "window_width = {:.0}", self.window_size[0])?;
+        writeln!(f, "window_height = {:.0}", self.window_size[1])
     }
 }
 
@@ -267,6 +282,7 @@ mod tests {
             clock_enabled: true,
             clock_minutes: 10,
             clock_increment_s: 5,
+            window_size: [1280.0, 800.0],
         };
         assert_eq!(Settings::parse(&settings.to_string()), settings);
     }

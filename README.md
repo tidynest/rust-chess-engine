@@ -1,5 +1,7 @@
 # rust-chess-engine
 
+[![CI](https://github.com/tidynest/rust-chess-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/tidynest/rust-chess-engine/actions/workflows/ci.yml)
+
 Desktop chess GUI and terminal CLI in Rust. Plays against a locally installed
 [Stockfish](https://stockfishchess.org/) over UCI. Move generation and
 validation come from the `chess` crate. The project contains no search engine
@@ -59,8 +61,8 @@ The last one only checks that Stockfish answers over UCI.
 - "Analyse position" evaluates the position on screen and draws up to five
   engine lines as arrows, the best one boldest, in a game or while browsing
   the history.
-- Three themes under View > Theme. Settings, engine threads and hash, and the
-  time control are remembered between runs.
+- Three themes under View > Theme. Settings, engine threads and hash, the
+  time control and the window size are remembered between runs.
 - CLI: `e2e4` or SAN (`Nf3`, `O-O`), `play` to face Stockfish, `fen` to print
   or set a position, `undo`, `redo`, `pgn`.
 - Play Stockfish as White or Black, or watch it play both sides, with a depth
