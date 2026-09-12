@@ -4,6 +4,15 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+### Ninth round
+
+- Stockfish's "No such option" and "Unknown command" replies fail the
+  command instead of vanishing behind its `readyok`, so a refused option
+  reaches the status panel.
+- Ctrl+S saves the game.
+- A test runs a clock past zero and checks the flag fall ends the game.
+- README screenshot shows analysis with three lines and the opening name.
+
 ### Eighth round
 
 - chess-core's own `Color`, `PieceType`, `Piece`, `Square` and `Move`, the
