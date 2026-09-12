@@ -420,6 +420,27 @@ mod tests {
     }
 
     #[test]
+    fn test_flag_fall_ends_the_game() {
+        use crate::app::clock::Clock;
+
+        let mut app = ChessApp::headless();
+        app.clock = Some(Clock::new(1, 0));
+        play(&mut app, &["e2e4"]);
+        // Black is on the clock; charge it past zero, then let a frame notice.
+        let clock = app.clock.as_mut().unwrap();
+        assert!(clock.tick(ChessColor::Black, Instant::now() + Duration::from_secs(61)));
+        app.tick_clock(&egui::Context::default());
+        assert_eq!(app.timeout, Some(ChessColor::Black));
+        assert!(app.is_game_over());
+        assert_eq!(app.result(), "1-0");
+
+        // Once over, nothing ticks and a new game clears it.
+        app.new_game();
+        assert_eq!(app.timeout, None);
+        assert!(!app.is_game_over());
+    }
+
+    #[test]
     fn test_stale_replies_are_dropped() {
         let mut app = ChessApp::headless();
         let (tx, rx) = std::sync::mpsc::channel();

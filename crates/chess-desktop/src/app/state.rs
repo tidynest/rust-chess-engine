@@ -3,7 +3,7 @@
 //! Contains the ChessApp struct and all game state.
 
 use chess::{Board, ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare};
-use chess_core::GameHistory;
+use chess_core::{GameHistory, PgnTags};
 use chess_engine::Score;
 use eframe::egui::Pos2;
 use std::sync::mpsc::{Receiver, channel};
@@ -15,6 +15,7 @@ use crate::ui::theme::{Theme, ThemeVariant};
 use super::clock::Clock;
 use super::engine_comm::{EngineMode, SearchKind};
 use super::engine_link::{self, EngineCommand, EngineEvent, EngineStatus};
+use super::games;
 use super::settings::Settings;
 
 /// Style for displaying captured pieces
@@ -192,6 +193,33 @@ impl ChessApp {
         let index = self.game_history.move_count().checked_sub(1)?;
         let mv = self.game_history.get_move(index)?;
         Some((mv.get_source(), mv.get_dest()))
+    }
+
+    /// The PGN of the game on screen: who plays which side, today, the result.
+    pub fn pgn(&self) -> String {
+        let (white, black) = match (self.play_vs_computer, self.computer_color) {
+            (false, _) => ("?", "?"),
+            (true, ChessColor::White) => ("Stockfish", "Human"),
+            (true, ChessColor::Black) => ("Human", "Stockfish"),
+        };
+        let date = games::today();
+        let tags = PgnTags {
+            white,
+            black,
+            date: &date,
+        };
+        self.game_history.pgn_with_result(tags, self.result())
+    }
+
+    /// Write the game to the games directory and say where, or why not.
+    pub fn save_game(&mut self) {
+        if self.game_history.move_count() == 0 {
+            return;
+        }
+        self.notice = Some(match games::save(&self.pgn()) {
+            Ok(path) => format!("Saved to {}", path.display()),
+            Err(e) => format!("Could not save the game: {e}"),
+        });
     }
 
     /// The first line's score, from White's side.
