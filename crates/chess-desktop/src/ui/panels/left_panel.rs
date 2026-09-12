@@ -45,38 +45,45 @@ pub fn draw(app: &ChessApp, ui: &mut egui::Ui) {
                 ui.add_space(theme.space_sm);
             }
 
-            if let Some(square) = app.selected_square {
-                ui.label(
-                    egui::RichText::new("Selected Square")
-                        .strong()
-                        .size(theme.font_size_md),
-                );
-                ui.add_space(theme.space_xs);
-
-                ui.label(format!("📍 {}", square));
-
-                if let Some((piece, color)) = app.piece_at(square) {
-                    ui.add_space(theme.space_xs);
-                    ui.label(format!("♟️  {color:?} {piece:?}"));
-                    ui.label(format!(
-                        "⚡ {} legal moves",
-                        app.legal_moves_for_selected.len()
-                    ));
+            ui.label(
+                egui::RichText::new("Position")
+                    .strong()
+                    .size(theme.font_size_md),
+            );
+            ui.add_space(theme.space_xs);
+            let history = &app.game_history;
+            let board = history.current_board();
+            let ply = history.move_count();
+            ui.label(format!(
+                "Move {}, {} to play",
+                ply / 2 + 1,
+                if board.side_to_move() == chess::Color::White {
+                    "White"
                 } else {
-                    ui.add_space(theme.space_xs);
-                    ui.label(egui::RichText::new("Empty square").italics().weak());
+                    "Black"
                 }
-            } else {
-                // No selection state
-                ui.label(egui::RichText::new("No Square Selected").weak().italics());
-                ui.add_space(theme.space_xs);
-                ui.label(
-                    egui::RichText::new("Click a piece to see details")
-                        .size(theme.font_size_xs)
-                        .weak(),
-                );
+            ));
+            ui.label(format!(
+                "{} since the last capture or pawn move",
+                match history.halfmove_clock() {
+                    1 => "1 ply".to_owned(),
+                    n => format!("{n} plies"),
+                }
+            ));
+            if let Some(square) = app.selected_square {
+                ui.label(format!(
+                    "{square}: {} legal moves",
+                    app.legal_moves_for_selected.len()
+                ));
             }
-
+            ui.add_space(theme.space_xs);
+            ui.label(egui::RichText::new("FEN").weak().size(theme.font_size_xs));
+            // Selectable, so it can be copied straight from the panel.
+            ui.add(
+                egui::Label::new(egui::RichText::new(board.to_string()).size(theme.font_size_xs))
+                    .wrap()
+                    .selectable(true),
+            );
             ui.add_space(theme.space_xs);
         });
 }

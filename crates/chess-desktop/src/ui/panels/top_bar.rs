@@ -89,13 +89,7 @@ fn draw_saved_games(app: &mut ChessApp, ui: &mut egui::Ui) {
         if !ui.button(&name).clicked() {
             continue;
         }
-        let loaded = std::fs::read_to_string(&path)
-            .map_err(|e| e.to_string())
-            .and_then(|text| GameHistory::from_pgn(&text).map_err(|e| e.to_string()));
-        match loaded {
-            Ok(history) => app.start_game(history),
-            Err(reason) => app.notice = Some(format!("{name}: {reason}")),
-        }
+        app.open_pgn_file(&path);
         ui.close();
     }
 }

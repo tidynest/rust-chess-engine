@@ -22,6 +22,12 @@ of its own.
 cargo run --release --bin chess-gui
 ```
 
+A PGN file named on the command line is opened at start:
+
+```bash
+cargo run --release --bin chess-gui -- game.pgn
+```
+
 ```bash
 cargo run --bin chess-cli
 ```
