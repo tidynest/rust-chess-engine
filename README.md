@@ -45,8 +45,8 @@ The last one only checks that Stockfish answers over UCI.
   Home, End and F work too.
 - Checkmate, stalemate, threefold repetition, the fifty-move rule,
   insufficient material, a flag fall or resigning end the game.
-- Optional clock with minutes and increment; the engine then manages its own
-  time, and a takeback gives the time back.
+- Optional clock with minutes and increment, or a preset from 1+0 to 15+10;
+  the engine then manages its own time, and a takeback gives the time back.
 - Copy the FEN or the PGN, set up a position from a FEN, load a PGN, or save
   the game (Ctrl+S) and open a saved one, under Game. Saved games are PGN
   files under `$XDG_DATA_HOME/rust-chess-engine/games/`.
