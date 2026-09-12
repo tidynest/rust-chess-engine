@@ -4,6 +4,13 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+### Tenth round
+
+- Resign asks first.
+- Clock presets 1+0, 3+2, 5+3, 10+0 and 15+10.
+- "Try again" starts the engine thread afresh when Stockfish could not be
+  started.
+
 ### Ninth round
 
 - Stockfish's "No such option" and "Unknown command" replies fail the
