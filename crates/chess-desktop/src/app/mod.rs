@@ -51,7 +51,8 @@ impl eframe::App for ChessApp {
 impl ChessApp {
     /// Arrow keys or Ctrl+Z and Ctrl+Y step through the history, Home and
     /// End jump to its ends, F flips the board, Ctrl+N starts a new game,
-    /// Ctrl+S saves it. Ignored while a text field has the keyboard.
+    /// Ctrl+S saves it, Escape drops the selection or the resign prompt.
+    /// Ignored while a text field has the keyboard.
     fn handle_shortcuts(&mut self, ctx: &egui::Context) {
         use egui::Key;
 
@@ -80,6 +81,11 @@ impl ChessApp {
         }
         if pressed(Key::F) {
             self.board_flip = !self.board_flip;
+        }
+        if pressed(Key::Escape) {
+            self.confirm_resign = false;
+            self.selected_square = None;
+            self.legal_moves_for_selected.clear();
         }
     }
 }

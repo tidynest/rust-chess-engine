@@ -1,11 +1,10 @@
 //! Settings that survive a restart, kept as `key = value` lines in the
 //! user's config directory. A dozen scalars do not need a serialiser.
 
-use chess::Color as ChessColor;
 use std::path::PathBuf;
 
 use super::engine_comm::EngineMode;
-use super::state::{CapturedPiecesStyle, ChessApp};
+use super::state::{CapturedPiecesStyle, ChessApp, ComputerSide};
 use crate::ui::theme::ThemeVariant;
 
 /// Everything the user can set that is not part of a game.
@@ -21,7 +20,7 @@ pub struct Settings {
     pub analysis_lines: u32,
     pub show_eval_bar: bool,
     pub captured_display_style: CapturedPiecesStyle,
-    pub computer_color: ChessColor,
+    pub computer_side: ComputerSide,
     pub clock_enabled: bool,
     pub clock_minutes: u32,
     pub clock_increment_s: u32,
@@ -64,7 +63,7 @@ impl Settings {
             analysis_lines: app.analysis_lines,
             show_eval_bar: app.show_eval_bar,
             captured_display_style: app.captured_display_style,
-            computer_color: app.computer_color,
+            computer_side: app.computer_side,
             clock_enabled: app.clock_enabled,
             clock_minutes: app.clock_minutes,
             clock_increment_s: app.clock_increment_s,
@@ -82,7 +81,7 @@ impl Settings {
         app.analysis_lines = self.analysis_lines;
         app.show_eval_bar = self.show_eval_bar;
         app.captured_display_style = self.captured_display_style;
-        app.computer_color = self.computer_color;
+        app.computer_side = self.computer_side;
         app.clock_enabled = self.clock_enabled;
         app.clock_minutes = self.clock_minutes;
         app.clock_increment_s = self.clock_increment_s;
@@ -149,8 +148,9 @@ impl Settings {
                     _ => {}
                 },
                 "computer_color" => match value {
-                    "white" => settings.computer_color = ChessColor::White,
-                    "black" => settings.computer_color = ChessColor::Black,
+                    "white" => settings.computer_side = ComputerSide::White,
+                    "black" => settings.computer_side = ComputerSide::Black,
+                    "both" => settings.computer_side = ComputerSide::Both,
                     _ => {}
                 },
                 "clock_enabled" => {
@@ -204,9 +204,10 @@ impl std::fmt::Display for Settings {
             CapturedPiecesStyle::ChessCom => "chesscom",
         };
         writeln!(f, "captured_style = {style}")?;
-        let color = match self.computer_color {
-            ChessColor::White => "white",
-            ChessColor::Black => "black",
+        let color = match self.computer_side {
+            ComputerSide::White => "white",
+            ComputerSide::Black => "black",
+            ComputerSide::Both => "both",
         };
         writeln!(f, "computer_color = {color}")?;
         writeln!(f, "clock_enabled = {}", self.clock_enabled)?;
@@ -262,7 +263,7 @@ mod tests {
             analysis_lines: 3,
             show_eval_bar: false,
             captured_display_style: CapturedPiecesStyle::ChessCom,
-            computer_color: ChessColor::White,
+            computer_side: ComputerSide::Both,
             clock_enabled: true,
             clock_minutes: 10,
             clock_increment_s: 5,

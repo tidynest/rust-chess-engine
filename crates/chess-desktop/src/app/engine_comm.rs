@@ -7,7 +7,7 @@ use chess_engine::{EngineResponse, SearchLimit};
 use std::time::{Duration, Instant};
 
 use super::engine_link::{EngineCommand, EngineEvent, EngineStatus, SearchRequest};
-use super::state::{ChessApp, EngineLine};
+use super::state::{ChessApp, ComputerSide, EngineLine};
 
 /// Engine operating mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -188,10 +188,12 @@ impl ChessApp {
         if self.is_game_over() {
             return;
         }
-        let loser = if self.play_vs_computer {
-            !self.computer_color
-        } else {
-            self.board().side_to_move()
+        let loser = match (self.play_vs_computer, self.computer_side) {
+            (false, _) => self.board().side_to_move(),
+            (true, ComputerSide::White) => ChessColor::Black,
+            (true, ComputerSide::Black) => ChessColor::White,
+            // Nobody to resign for.
+            (true, ComputerSide::Both) => return,
         };
         self.resigned = Some(loser);
         self.abort_search();
@@ -294,7 +296,9 @@ impl ChessApp {
     /// True in a game against the computer when it is the computer's turn.
     pub(crate) fn computer_to_move(&self) -> bool {
         self.play_vs_computer
-            && self.game_history.current_board().side_to_move() == self.computer_color
+            && self
+                .computer_side
+                .plays(self.game_history.current_board().side_to_move())
     }
 
     /// Take back one ply, or two against the computer so the human is to move again.
@@ -311,12 +315,14 @@ impl ChessApp {
         if !step(&mut self.game_history) {
             return;
         }
-        if self.computer_to_move() {
+        let self_play = self.play_vs_computer && self.computer_side == ComputerSide::Both;
+        if !self_play && self.computer_to_move() {
             step(&mut self.game_history);
         }
         self.position_changed();
-        // Still the computer's turn means we hit an end of the history; let it play.
-        self.disable_auto_request = false;
+        // Still the computer's turn means we hit an end of the history; let it
+        // play. In self-play the engine waits while the history is browsed.
+        self.disable_auto_request = self_play && self.game_history.can_redo();
         self.sync_clock();
 
         // Slide the piece of the last ply stepped; on undo, back to where it came from.
@@ -385,7 +391,7 @@ mod tests {
     fn test_undo_against_computer_lands_on_human_turn() {
         let mut app = ChessApp::headless();
         app.play_vs_computer = true;
-        app.computer_color = ChessColor::Black;
+        app.computer_side = ComputerSide::Black;
         play(&mut app, &["e2e4", "e7e5", "g1f3"]);
 
         // Nf3 has no reply yet, so only that ply comes back.
@@ -417,6 +423,24 @@ mod tests {
         let clock = app.clock.as_ref().unwrap();
         assert_eq!(clock.remaining(ChessColor::Black), Duration::from_secs(300));
         assert!(!clock.is_running());
+    }
+
+    #[test]
+    fn test_self_play_pauses_while_browsing() {
+        let mut app = ChessApp::headless();
+        app.play_vs_computer = true;
+        app.computer_side = ComputerSide::Both;
+        play(&mut app, &["e2e4", "e7e5"]);
+        assert!(app.computer_to_move());
+
+        app.undo();
+        assert_eq!(app.game_history.move_count(), 1, "one ply back, not two");
+        assert!(app.disable_auto_request, "the engine waits while browsing");
+        app.redo();
+        assert!(!app.disable_auto_request);
+
+        app.resign();
+        assert_eq!(app.resigned, None, "nobody to resign for");
     }
 
     #[test]
