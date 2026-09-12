@@ -4,6 +4,14 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+### Eleventh round
+
+- Computer plays: Both. Stockfish plays itself; browsing the history pauses
+  it, End resumes it. Resign is off in that mode.
+- The move list scrolls the current move into view when the position
+  changes.
+- Escape drops the selection and closes the resign prompt.
+
 ### Tenth round
 
 - Resign asks first.

@@ -42,7 +42,7 @@ The last one only checks that Stockfish answers over UCI.
   A pawn reaching the last rank asks which piece it becomes.
 - Undo, redo, and click any move in the history to jump to it. Against the
   computer, undo takes back your move and its reply together. Arrow keys,
-  Home, End and F work too.
+  Home, End, F and Escape work too.
 - Checkmate, stalemate, threefold repetition, the fifty-move rule,
   insufficient material, a flag fall or resigning end the game.
 - Optional clock with minutes and increment, or a preset from 1+0 to 15+10;
@@ -57,8 +57,8 @@ The last one only checks that Stockfish answers over UCI.
   time control are remembered between runs.
 - CLI: `e2e4` or SAN (`Nf3`, `O-O`), `play` to face Stockfish, `fen` to print
   or set a position, `undo`, `redo`, `pgn`.
-- Play Stockfish as White or Black, with a depth or time limit, at full
-  strength or held to an Elo from 1320 to 3190.
+- Play Stockfish as White or Black, or watch it play both sides, with a depth
+  or time limit, at full strength or held to an Elo from 1320 to 3190.
   The engine gets the full move list, so it sees repetitions and the 50-move rule.
 - Evaluation bar, depth, node count and principal variation while the engine thinks.
 - Captured pieces in Lichess or Chess.com style, and the opening's name and
