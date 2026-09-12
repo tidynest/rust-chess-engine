@@ -5,7 +5,7 @@ Desktop chess GUI and terminal CLI in Rust. Plays against a locally installed
 validation come from the `chess` crate. The project contains no search engine
 of its own.
 
-![A game against Stockfish with the clock running](docs/screenshot.png)
+![Analysing a Najdorf with three engine lines, the opening named on the left](docs/screenshot.png)
 
 ## Prerequisites
 
@@ -48,8 +48,8 @@ The last one only checks that Stockfish answers over UCI.
 - Optional clock with minutes and increment; the engine then manages its own
   time, and a takeback gives the time back.
 - Copy the FEN or the PGN, set up a position from a FEN, load a PGN, or save
-  the game and open a saved one, under Game. Saved games are PGN files under
-  `$XDG_DATA_HOME/rust-chess-engine/games/`.
+  the game (Ctrl+S) and open a saved one, under Game. Saved games are PGN
+  files under `$XDG_DATA_HOME/rust-chess-engine/games/`.
 - "Analyse position" evaluates the position on screen and draws up to five
   engine lines as arrows, the best one boldest, in a game or while browsing
   the history.
