@@ -4,6 +4,13 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+### Twelfth round
+
+- `chess-gui game.pgn` opens the game at start.
+- Position Info shows the move number, the side to play, the plies since the
+  last capture or pawn move, and a selectable FEN.
+- Eval bar label and curve tests; status notes on both audit documents.
+
 ### Eleventh round
 
 - Computer plays: Both. Stockfish plays itself; browsing the history pauses
