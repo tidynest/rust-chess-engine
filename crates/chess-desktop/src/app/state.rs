@@ -129,6 +129,9 @@ pub struct ChessApp {
     pub clock_minutes: u32,
     pub clock_increment_s: u32,
 
+    /// The window's size in points, kept up to date for the settings file.
+    pub window_size: [f32; 2],
+
     // UI theme
     pub theme: Theme,
     pub theme_variant: ThemeVariant,
@@ -208,6 +211,7 @@ impl ChessApp {
             engine_hash_mb: 128,
             show_eval_bar: true,
             captured_display_style: CapturedPiecesStyle::Lichess,
+            window_size: [900.0, 720.0],
             theme: Theme::default(),
             theme_variant: ThemeVariant::ClassicMonochrome,
         }

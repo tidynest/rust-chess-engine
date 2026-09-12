@@ -1,6 +1,6 @@
 //! GUI binary entry point
 
-use chess_desktop::ChessApp;
+use chess_desktop::{ChessApp, Settings};
 use eframe::egui;
 
 fn main() -> eframe::Result {
@@ -9,7 +9,7 @@ fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("Chess Engine - Rust Implementation")
-            .with_inner_size([900.0, 720.0])
+            .with_inner_size(Settings::load().window_size)
             .with_min_inner_size([800.0, 600.0])
             .with_icon(
                 eframe::icon_data::from_png_bytes(&include_bytes!("../assets/icon.png")[..])

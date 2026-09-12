@@ -8,4 +8,4 @@ pub mod ui;
 pub mod utils;
 
 // Re-export the main application struct for convenience
-pub use app::ChessApp;
+pub use app::{ChessApp, Settings};
