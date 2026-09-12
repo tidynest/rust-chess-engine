@@ -177,6 +177,9 @@ impl StockfishEngine {
                 if line == "readyok" {
                     return Ok(());
                 }
+                if is_refusal(&line) {
+                    return Err(anyhow::anyhow!("{line}"));
+                }
             }
             Err(anyhow::anyhow!("Engine did not respond with readyok"))
         })
@@ -237,6 +240,12 @@ impl StockfishEngine {
             .context("Timeout waiting for engine to quit")??;
         Ok(())
     }
+}
+
+/// Stockfish's answer to an option or command it does not know. It still
+/// says `readyok` afterwards, so the refusal would otherwise go unseen.
+fn is_refusal(line: &str) -> bool {
+    line.starts_with("No such option") || line.starts_with("Unknown command")
 }
 
 /// Parse one stdout line. `None` means the line carries nothing to report.
@@ -384,6 +393,18 @@ mod tests {
                 pv: vec!["d2d4".into()],
             })
         );
+    }
+
+    #[test]
+    fn test_refusals_are_recognised() {
+        assert!(is_refusal("No such option: UCI_Elo"));
+        assert!(is_refusal(
+            "Unknown command: 'go depht 3'. Type help for more information."
+        ));
+        assert!(!is_refusal(
+            "info string NNUE evaluation using nn-1c0000000000.nnue"
+        ));
+        assert!(!is_refusal("readyok"));
     }
 
     #[test]

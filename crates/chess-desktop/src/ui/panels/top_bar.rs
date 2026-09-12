@@ -3,7 +3,7 @@
 //! Contains game menu, view options, and turn indicator.
 
 use chess::Color as ChessColor;
-use chess_core::{GameHistory, PgnTags};
+use chess_core::GameHistory;
 use eframe::egui::{self, Context};
 
 use crate::app::engine_link::EngineCommand;
@@ -41,7 +41,7 @@ fn draw_game_menu(app: &mut ChessApp, ui: &mut egui::Ui) {
             ui.ctx().copy_text(app.board().to_string());
         }
         if ui.button("Copy PGN").clicked() {
-            ui.ctx().copy_text(pgn(app));
+            ui.ctx().copy_text(app.pgn());
         }
         if ui.button("Set up position...").clicked() {
             app.fen_input = Some(app.board().to_string());
@@ -55,14 +55,11 @@ fn draw_game_menu(app: &mut ChessApp, ui: &mut egui::Ui) {
         if ui
             .add_enabled(
                 app.game_history.move_count() > 0,
-                egui::Button::new("Save game"),
+                egui::Button::new("Save game").shortcut_text("Ctrl+S"),
             )
             .clicked()
         {
-            app.notice = Some(match games::save(&pgn(app)) {
-                Ok(path) => format!("Saved to {}", path.display()),
-                Err(e) => format!("Could not save the game: {e}"),
-            });
+            app.save_game();
         }
         ui.menu_button("Open game", |ui| draw_saved_games(app, ui));
 
@@ -73,22 +70,6 @@ fn draw_game_menu(app: &mut ChessApp, ui: &mut egui::Ui) {
             ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
         }
     });
-}
-
-/// The PGN of the game on screen: who plays which side, today, the result.
-fn pgn(app: &ChessApp) -> String {
-    let (white, black) = match (app.play_vs_computer, app.computer_color) {
-        (false, _) => ("?", "?"),
-        (true, ChessColor::White) => ("Stockfish", "Human"),
-        (true, ChessColor::Black) => ("Human", "Stockfish"),
-    };
-    let date = games::today();
-    let tags = PgnTags {
-        white,
-        black,
-        date: &date,
-    };
-    app.game_history.pgn_with_result(tags, app.result())
 }
 
 /// The saved games, newest first, named by their files. Picking one plays
