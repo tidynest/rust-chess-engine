@@ -177,5 +177,20 @@ fn draw_control_buttons(app: &mut ChessApp, ui: &mut egui::Ui, board_left_edge: 
         {
             app.redo();
         }
+
+        ui.add_space(app.theme.space_xs);
+        ui.separator();
+        ui.add_space(app.theme.space_xs);
+
+        // A move typed as e2e4 or Nf3; Enter plays it and keeps the focus.
+        let response = ui.add(
+            egui::TextEdit::singleline(&mut app.move_input)
+                .desired_width(72.0)
+                .hint_text("e4, Nf3"),
+        );
+        if response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
+            app.play_typed_move();
+            response.request_focus();
+        }
     });
 }

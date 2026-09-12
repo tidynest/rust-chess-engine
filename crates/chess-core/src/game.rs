@@ -70,6 +70,10 @@ impl GameHistory {
         for line in text.lines() {
             let trimmed = line.trim();
             if let Some(tag) = trimmed.strip_prefix('[').and_then(|t| t.strip_suffix(']')) {
+                // A tag after the moves opens the next game of a collection.
+                if !movetext.trim().is_empty() {
+                    break;
+                }
                 if let Some(value) = tag.strip_prefix("FEN ") {
                     fen = Some(value.trim().trim_matches('"').to_owned());
                 }
@@ -347,23 +351,25 @@ fn movetext_moves(text: &str) -> Vec<String> {
     }
     flush(&mut current, &mut tokens);
 
-    tokens
-        .into_iter()
-        .filter_map(|token| {
-            // "12." and "12..." stand alone or glue onto the move: "12.e4".
-            let san = match token.rfind('.') {
-                Some(dot) if token[..dot].chars().all(|c| c.is_ascii_digit() || c == '.') => {
-                    &token[dot + 1..]
-                }
-                _ => &token,
-            };
-            let san = san.trim_end_matches(['+', '#', '!', '?']);
-            let skip = san.is_empty()
-                || san.starts_with('$')
-                || matches!(san, "1-0" | "0-1" | "1/2-1/2" | "*");
-            (!skip).then(|| san.to_owned())
-        })
-        .collect()
+    let mut moves = Vec::new();
+    for token in &tokens {
+        // "12." and "12..." stand alone or glue onto the move: "12.e4".
+        let san = match token.rfind('.') {
+            Some(dot) if token[..dot].chars().all(|c| c.is_ascii_digit() || c == '.') => {
+                &token[dot + 1..]
+            }
+            _ => token,
+        };
+        let san = san.trim_end_matches(['+', '#', '!', '?']);
+        // The result ends the game; anything after it belongs to the next one.
+        if matches!(san, "1-0" | "0-1" | "1/2-1/2" | "*") {
+            break;
+        }
+        if !san.is_empty() && !san.starts_with('$') {
+            moves.push(san.to_owned());
+        }
+    }
+    moves
 }
 
 /// Neither side can force mate: bare kings, one minor piece, or bishops
@@ -777,6 +783,18 @@ mod tests {
             GameHistory::from_pgn("[FEN \"junk\"]\n\n1. e4").err(),
             Some(PgnError::InvalidFen)
         );
+    }
+
+    #[test]
+    fn test_pgn_collection_opens_its_first_game() {
+        let text = "[Event \"one\"]\n\n1. e4 e5 1/2-1/2\n\n[Event \"two\"]\n\n1. d4 d5 *\n";
+        let history = GameHistory::from_pgn(text).unwrap();
+        assert_eq!(history.move_count(), 2);
+        assert_eq!(history.san(0), Some("e4"));
+
+        // No blank line and no tags between the games: the result still ends it.
+        let history = GameHistory::from_pgn("1. e4 e5 * 1. d4 d5").unwrap();
+        assert_eq!(history.move_count(), 2);
     }
 
     #[test]

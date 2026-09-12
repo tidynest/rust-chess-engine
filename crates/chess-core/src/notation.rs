@@ -9,6 +9,11 @@ pub fn parse_uci(board: &chess::Board, uci: &str) -> Option<chess::ChessMove> {
     chess::MoveGen::new_legal(board).find(|mv| mv.to_string() == wanted)
 }
 
+/// The legal move written as `text` on `board`, in either notation.
+pub fn parse_move(board: &chess::Board, text: &str) -> Option<chess::ChessMove> {
+    parse_uci(board, text).or_else(|| parse_san(board, text))
+}
+
 /// The legal move written as `san` on `board`. Check marks and annotation
 /// glyphs are ignored, castling may use zeros, and `e8Q` is read as `e8=Q`.
 /// Matching against the formatter keeps the two in step, and covers en

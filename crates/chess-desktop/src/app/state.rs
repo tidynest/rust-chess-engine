@@ -66,6 +66,8 @@ pub struct ChessApp {
     pub fen_input: Option<String>,
     /// Text of the "Load PGN" window while it is open.
     pub pgn_input: Option<String>,
+    /// The move being typed in the box under the board.
+    pub move_input: String,
     /// The ply the move list last scrolled to, so it follows the position.
     pub history_scrolled_to: usize,
     /// A piece sliding along this move since this instant.
@@ -176,6 +178,7 @@ impl ChessApp {
             pending_promotion: None,
             fen_input: None,
             pgn_input: None,
+            move_input: String::new(),
             history_scrolled_to: 0,
             animation: None,
             notice: None,
@@ -255,6 +258,24 @@ impl ChessApp {
         match loaded {
             Ok(history) => self.start_game(history),
             Err(reason) => self.notice = Some(format!("{}: {reason}", path.display())),
+        }
+    }
+
+    /// Play the move typed in the box, in either notation, when the board
+    /// takes input; what will not parse is reported and left in the box.
+    pub fn play_typed_move(&mut self) {
+        if self.waiting_for_engine_move() || self.pending_promotion.is_some() || self.is_game_over()
+        {
+            return;
+        }
+        let text = self.move_input.trim().to_owned();
+        match chess_core::notation::parse_move(self.board(), &text) {
+            Some(mv) => {
+                self.move_input.clear();
+                self.play_move(mv);
+            }
+            None if text.is_empty() => {}
+            None => self.notice = Some(format!("No legal move written {text}")),
         }
     }
 
