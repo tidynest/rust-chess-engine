@@ -4,6 +4,12 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+### Thirteenth round
+
+- CI installs Stockfish and runs the engine-link test against it.
+- The window size is remembered between runs.
+- CI badge in the README.
+
 ### Twelfth round
 
 - `chess-gui game.pgn` opens the game at start.
