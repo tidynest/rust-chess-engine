@@ -1,5 +1,8 @@
 # Comprehensive Codebase Audit Report
 
+Superseded by `docs/AUDIT_2026-09-09.md`, which rechecked every item here
+against the September tree; kept for the record.
+
 **Project:** Chess Engine (Rust Desktop Application)
 **Date:** 2026-02-17
 **Scope:** Full codebase audit across 3 crates, 30+ source files, build system, and documentation

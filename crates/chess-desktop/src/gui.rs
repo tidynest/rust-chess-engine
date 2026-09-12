@@ -19,9 +19,17 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
 
+    // A PGN file named on the command line is the game to open.
+    let game = std::env::args().nth(1);
     eframe::run_native(
         "Chess Engine",
         options,
-        Box::new(|cc| Ok(Box::new(ChessApp::new(cc)))),
+        Box::new(move |cc| {
+            let mut app = ChessApp::new(cc);
+            if let Some(path) = game {
+                app.open_pgn_file(std::path::Path::new(&path));
+            }
+            Ok(Box::new(app))
+        }),
     )
 }

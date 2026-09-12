@@ -242,6 +242,18 @@ impl ChessApp {
         self.game_history.pgn_with_result(tags, self.result())
     }
 
+    /// Play through the PGN file at `path`; a file that will not read says so
+    /// in the status panel and leaves the game alone.
+    pub fn open_pgn_file(&mut self, path: &std::path::Path) {
+        let loaded = std::fs::read_to_string(path)
+            .map_err(|e| e.to_string())
+            .and_then(|text| GameHistory::from_pgn(&text).map_err(|e| e.to_string()));
+        match loaded {
+            Ok(history) => self.start_game(history),
+            Err(reason) => self.notice = Some(format!("{}: {reason}", path.display())),
+        }
+    }
+
     /// Write the game to the games directory and say where, or why not.
     pub fn save_game(&mut self) {
         if self.game_history.move_count() == 0 {

@@ -92,3 +92,22 @@ pub fn draw(app: &ChessApp, ui: &mut Ui) {
         color,
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn labels_and_shares() {
+        assert_eq!(label(Score::Cp(40)), "+0.4");
+        assert_eq!(label(Score::Cp(-120)), "-1.2");
+        assert_eq!(label(Score::Mate(3)), "M3");
+        assert_eq!(label(Score::Mate(-2)), "-M2");
+
+        assert!((white_share(Score::Cp(0)) - 0.5).abs() < 1e-6);
+        assert!((white_share(Score::Cp(100)) - 0.59).abs() < 0.01);
+        assert!(white_share(Score::Cp(1000)) > 0.96);
+        assert_eq!(white_share(Score::Mate(1)), 1.0);
+        assert_eq!(white_share(Score::Mate(-1)), 0.0);
+    }
+}
