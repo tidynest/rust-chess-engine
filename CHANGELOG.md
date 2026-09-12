@@ -4,6 +4,12 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+### Fifteenth round
+
+- "Play the best move" under the analysis lines.
+- Crate descriptions in the manifests; `docs/DECISIONS.md` lists the three
+  open owner decisions with their trade-offs.
+
 ### Fourteenth round
 
 - A box under the board takes a typed move, `e4`, `Nf3` or `e2e4`.

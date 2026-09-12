@@ -1,5 +1,6 @@
 [package]
 name = "chess-core"
+description = "Game history with undo, SAN and PGN, and opening names, on the chess crate"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
