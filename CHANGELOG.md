@@ -4,6 +4,10 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- A test feeds 5,000 randomly damaged FEN strings, PGN files and moves to
+  the parsers and checks that none of them panics. It uses a fixed seed,
+  so a failure reproduces.
+
 - In the CLI, a Stockfish that stops mid-game no longer ends the program
   and the game with it. The CLI prints why and carries on without an
   opponent; `play` starts a new engine.
