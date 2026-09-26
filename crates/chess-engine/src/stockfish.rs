@@ -89,8 +89,14 @@ pub enum EngineResponse {
 pub struct StockfishEngine {
     child: Child,
     stdin_tx: mpsc::UnboundedSender<String>,
-    stdout_rx: mpsc::UnboundedReceiver<String>,
+    stdout_rx: mpsc::Receiver<String>,
 }
+
+/// Engine lines held between the pipe and the caller. When the caller falls
+/// behind, the reader stops and the pipe fills, so Stockfish waits instead of
+/// this process buffering without limit. Commands stay unbounded: only this
+/// crate's caller writes them, a few per search.
+const STDOUT_BUFFER: usize = 256;
 
 impl StockfishEngine {
     /// Create a new Stockfish engine instance
@@ -109,7 +115,7 @@ impl StockfishEngine {
 
         // Create channels for async communication
         let (stdin_tx, mut stdin_rx) = mpsc::unbounded_channel::<String>();
-        let (stdout_tx, stdout_rx) = mpsc::unbounded_channel::<String>();
+        let (stdout_tx, stdout_rx) = mpsc::channel::<String>(STDOUT_BUFFER);
 
         // Spawn writer task - writes commands to stdin
         tokio::spawn(async move {
@@ -127,7 +133,7 @@ impl StockfishEngine {
         tokio::spawn(async move {
             let mut reader = BufReader::new(stdout).lines();
             while let Ok(Some(line)) = reader.next_line().await {
-                if stdout_tx.send(line).is_err() {
+                if stdout_tx.send(line).await.is_err() {
                     break;
                 }
             }
@@ -234,6 +240,9 @@ impl StockfishEngine {
 
     /// Quit the engine gracefully
     pub async fn quit(mut self) -> Result<()> {
+        // Nobody reads the output from here on; closing the channel ends the
+        // reader, so an engine still printing cannot stall on a full pipe.
+        self.stdout_rx.close();
         self.send_command("quit").await?;
         timeout(Duration::from_secs(3), self.child.wait())
             .await
