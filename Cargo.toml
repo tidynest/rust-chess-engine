@@ -26,6 +26,9 @@ tokio = { version = "1.52.0", features = ["rt", "process", "io-util", "sync", "t
 
 env_logger = "0.11.10"
 
+# Playback only: the cues are synthesised, so no decoder is needed.
+rodio = { version = "0.22.2", default-features = false, features = ["playback"] }
+
 [workspace.lints.rust]
 unsafe_code = "forbid"
 dead_code = "warn"

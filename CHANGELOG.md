@@ -14,6 +14,12 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
   no longer needs a workaround. Castling, which cozy-chess writes as the king
   taking its own rook, is turned into the king's landing square in one place,
   `chess_core::moves`, for UCI, SAN and the board.
+- Sound: a click per move, a lower pair for a capture, a ping for check, a
+  falling three-note end, and a tick per second under ten on the clock.
+  Synthesised with rodio's playback feature alone; View > Sound switches it,
+  and the choice is remembered.
+- The CI workflow runs with read-only repository permissions, which clears
+  the three CodeQL alerts that asked for it.
 
 ### Fifteenth round
 

@@ -7,6 +7,7 @@ use cozy_chess::{Color as ChessColor, Move};
 use std::time::{Duration, Instant};
 
 use super::engine_link::{EngineCommand, EngineEvent, EngineStatus, SearchRequest};
+use super::sound::Cue;
 use super::state::{ChessApp, ComputerSide, EngineLine};
 
 /// Engine operating mode
@@ -197,6 +198,7 @@ impl ChessApp {
         };
         self.resigned = Some(loser);
         self.abort_search();
+        self.cue(Cue::GameOver);
     }
 
     /// The result for the PGN, including a loss on time or by resignation.
@@ -223,10 +225,18 @@ impl ChessApp {
         }
         let flagged = clock.tick(side, Instant::now());
         let running = clock.is_running();
+        let remaining = clock.remaining(side);
         if flagged {
             self.timeout = Some(side);
             self.abort_search();
+            self.cue(Cue::GameOver);
         } else if running {
+            // A tick on each new second under ten.
+            let second = remaining.as_secs();
+            if remaining < Duration::from_secs(10) && self.low_time_second != Some(second) {
+                self.low_time_second = Some(second);
+                self.cue(Cue::LowTime);
+            }
             ctx.request_repaint_after(Duration::from_millis(100));
         }
     }
@@ -264,7 +274,19 @@ impl ChessApp {
     pub(crate) fn play_move(&mut self, mv: Move) {
         let mover = self.board().side_to_move();
         let landing = moves::destination(self.board(), mv);
+        let captures = self.board().color_on(mv.to) == Some(!mover)
+            || (self.board().piece_on(mv.from) == Some(cozy_chess::Piece::Pawn)
+                && mv.from.file() != mv.to.file());
         self.game_history.make_move(mv);
+        self.cue(if self.game_history.is_over() {
+            Cue::GameOver
+        } else if !self.board().checkers().is_empty() {
+            Cue::Check
+        } else if captures {
+            Cue::Capture
+        } else {
+            Cue::Move
+        });
         let now = Instant::now();
         if let Some(clock) = &mut self.clock {
             clock.press(mover, now, self.game_history.move_count());

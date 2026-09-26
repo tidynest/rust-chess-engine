@@ -5,6 +5,10 @@ on:
     branches: [master]
   pull_request:
 
+# Every job only reads the repository.
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -16,7 +20,7 @@ jobs:
       - run: >
           sudo apt-get update && sudo apt-get install -y
           libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
-          libxkbcommon-dev libssl-dev stockfish
+          libxkbcommon-dev libssl-dev libasound2-dev stockfish
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy

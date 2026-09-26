@@ -17,6 +17,7 @@ use super::engine_comm::{EngineMode, SearchKind};
 use super::engine_link::{self, EngineCommand, EngineEvent, EngineStatus};
 use super::games;
 use super::settings::Settings;
+use super::sound::{Cue, Sound};
 
 /// Style for displaying captured pieces
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -133,6 +134,11 @@ pub struct ChessApp {
 
     /// The window's size in points, kept up to date for the settings file.
     pub window_size: [f32; 2],
+    /// Cues play; the device is opened the first time one is needed.
+    pub sound_enabled: bool,
+    pub sound: Option<Sound>,
+    /// The last whole second announced by the low-time tick.
+    pub low_time_second: Option<u64>,
 
     // UI theme
     pub theme: Theme,
@@ -215,6 +221,9 @@ impl ChessApp {
             show_eval_bar: true,
             captured_display_style: CapturedPiecesStyle::Lichess,
             window_size: [900.0, 720.0],
+            sound_enabled: true,
+            sound: None,
+            low_time_second: None,
             theme: Theme::default(),
             theme_variant: ThemeVariant::ClassicMonochrome,
         }
@@ -229,6 +238,13 @@ impl ChessApp {
     pub fn last_move(&self) -> Option<(ChessSquare, ChessSquare)> {
         let (board, mv) = self.game_history.played().last()?;
         Some((mv.from, chess_core::moves::destination(board, mv)))
+    }
+
+    /// Play a cue if sound is on, opening the device on first use.
+    pub fn cue(&mut self, cue: Cue) {
+        if self.sound_enabled {
+            self.sound.get_or_insert_with(Sound::open).play(cue);
+        }
     }
 
     /// The PGN of the game on screen: who plays which side, today, the result.

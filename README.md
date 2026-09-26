@@ -16,8 +16,8 @@ engine of its own.
   limit (older versions clamp it to their own range). Arch: `pacman -S stockfish`.
   Debian and Ubuntu: `apt install stockfish`. macOS: `brew install stockfish`.
   Windows: download from stockfishchess.org and put `stockfish.exe` on `PATH`.
-- Linux build dependencies for eframe (Debian names):
-  `libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev`.
+- Linux build dependencies for eframe and the sound (Debian names):
+  `libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev libasound2-dev`.
 
 ## Build and run
 
@@ -64,8 +64,12 @@ The last one only checks that Stockfish answers over UCI.
 - "Analyse position" evaluates the position on screen and draws up to five
   engine lines as arrows, the best one boldest, in a game or while browsing
   the history.
+- Sound: a click per move, a lower one for a capture, a ping for check, a
+  three-note end and a tick per second under ten on the clock. Tones are
+  synthesised, so there are no sample files; View > Sound switches it off.
 - Three themes under View > Theme. Settings, engine threads and hash, the
-  time control and the window size are remembered between runs.
+  time control, the sound switch and the window size are remembered between
+  runs.
 - CLI: `e2e4` or SAN (`Nf3`, `O-O`), `play` to face Stockfish, `fen` to print
   or set a position, `undo`, `redo`, `pgn`.
 - Play Stockfish as White or Black, or watch it play both sides, with a depth

@@ -7,6 +7,7 @@ pub mod engine_comm;
 pub mod engine_link;
 pub mod games;
 pub mod settings;
+pub mod sound;
 pub mod state;
 
 pub use engine_comm::{EngineMode, SearchKind};

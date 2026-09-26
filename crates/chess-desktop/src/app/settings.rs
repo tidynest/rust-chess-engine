@@ -25,6 +25,7 @@ pub struct Settings {
     pub clock_minutes: u32,
     pub clock_increment_s: u32,
     pub window_size: [f32; 2],
+    pub sound: bool,
 }
 
 impl Settings {
@@ -69,6 +70,7 @@ impl Settings {
             clock_minutes: app.clock_minutes,
             clock_increment_s: app.clock_increment_s,
             window_size: app.window_size,
+            sound: app.sound_enabled,
         }
     }
 
@@ -88,6 +90,7 @@ impl Settings {
         app.clock_minutes = self.clock_minutes;
         app.clock_increment_s = self.clock_increment_s;
         app.window_size = self.window_size;
+        app.sound_enabled = self.sound;
     }
 
     /// Read `key = value` lines; unknown keys and unreadable values keep
@@ -166,6 +169,11 @@ impl Settings {
                         settings.clock_minutes = minutes.clamp(1, 180);
                     }
                 }
+                "sound" => {
+                    if let Ok(on) = value.parse() {
+                        settings.sound = on;
+                    }
+                }
                 "window_width" => {
                     if let Ok(width) = value.parse::<f32>() {
                         settings.window_size[0] = width.clamp(400.0, 8000.0);
@@ -226,6 +234,7 @@ impl std::fmt::Display for Settings {
         writeln!(f, "clock_enabled = {}", self.clock_enabled)?;
         writeln!(f, "clock_minutes = {}", self.clock_minutes)?;
         writeln!(f, "clock_increment_s = {}", self.clock_increment_s)?;
+        writeln!(f, "sound = {}", self.sound)?;
         writeln!(f, "window_width = {:.0}", self.window_size[0])?;
         writeln!(f, "window_height = {:.0}", self.window_size[1])
     }
@@ -283,6 +292,7 @@ mod tests {
             clock_minutes: 10,
             clock_increment_s: 5,
             window_size: [1280.0, 800.0],
+            sound: false,
         };
         assert_eq!(Settings::parse(&settings.to_string()), settings);
     }

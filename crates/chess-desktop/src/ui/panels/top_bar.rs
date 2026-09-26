@@ -197,6 +197,16 @@ fn draw_view_menu(app: &mut ChessApp, ui: &mut egui::Ui) {
 
         ui.separator();
 
+        ui.checkbox(&mut app.sound_enabled, "Sound");
+        if app.sound_enabled {
+            let sound = app.sound.get_or_insert_with(crate::app::sound::Sound::open);
+            if !sound.is_available() {
+                ui.label(egui::RichText::new("No audio device").weak());
+            }
+        }
+
+        ui.separator();
+
         ui.label("Captured Pieces Style:");
         ui.radio_value(
             &mut app.captured_display_style,

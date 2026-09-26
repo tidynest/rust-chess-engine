@@ -28,10 +28,18 @@ shakmaty removes the most code.
 
 ## 2. Sound
 
-A move click and a low-time tick need an audio dependency. `rodio` 0.22 or
-`kira` 0.12 (both MIT or Apache-2.0); either pulls `cpal` and a few
-platform crates. Off by default behind a setting, one short sample compiled
-in. Nothing in the code waits on this.
+Decided 2026-09-26: rodio 0.22 with only its `playback` feature. The cues
+are sine tones built in `app/sound.rs`, so no decoder and no sample files
+ship; that leaves rodio, cpal and a handful of small crates. kira is a game
+audio engine with mixing tracks and tweening, far more than five short
+tones need. Sound is on by default, as on Lichess, and View > Sound turns
+it off. A machine without an audio device plays nothing and says so in the
+menu. Linux builds need `libasound2-dev`.
+
+What was weighed:
+
+`rodio` 0.22 or `kira` 0.12 (both MIT or Apache-2.0); either pulls `cpal`
+and a few platform crates.
 
 ## 3. First release
 
