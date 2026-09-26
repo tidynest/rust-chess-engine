@@ -1,0 +1,86 @@
+name: Release
+
+# A pushed version tag builds both binaries on three systems and attaches
+# them to that tag's GitHub release. Run it by hand to rebuild the assets of
+# a tag that already exists.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build, e.g. v0.1.0"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The oldest Ubuntu runner, so the binary runs on glibc 2.35 and up.
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - os: macos-15
+            target: aarch64-apple-darwin
+          - os: windows-2025
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+      - if: runner.os == 'Linux'
+        run: >
+          sudo apt-get update && sudo apt-get install -y
+          libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+          libxkbcommon-dev libssl-dev libasound2-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --locked --bins
+      - name: Package
+        shell: bash
+        run: |
+          name="rust-chess-engine-$TAG-${{ matrix.target }}"
+          mkdir "$name"
+          exe=""; [ "$RUNNER_OS" = Windows ] && exe=".exe"
+          cp "target/release/chess-gui$exe" "target/release/chess-cli$exe" \
+             README.md LICENSE CHANGELOG.md "$name/"
+          if [ "$RUNNER_OS" = Windows ]; then
+            7z a "$name.zip" "$name" > /dev/null
+          else
+            tar czf "$name.tar.gz" "$name"
+          fi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.target }}
+          path: |
+            rust-chess-engine-*.tar.gz
+            rust-chess-engine-*.zip
+          if-no-files-found: error
+
+  # Only this job can write, and it runs no code from the repository.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          merge-multiple: true
+      - name: Checksums and upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          sha256sum rust-chess-engine-* > SHA256SUMS
+          gh release view "$TAG" > /dev/null 2>&1 \
+            || gh release create "$TAG" --verify-tag --notes-from-tag
+          gh release upload "$TAG" rust-chess-engine-* SHA256SUMS --clobber

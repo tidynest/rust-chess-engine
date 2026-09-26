@@ -2,6 +2,13 @@
 
 Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
+## Unreleased
+
+- A release workflow builds `chess-gui` and `chess-cli` for Linux, macOS and
+  Windows when a version tag is pushed and attaches them, with checksums, to
+  the GitHub release. The Linux build comes from Ubuntu 22.04 so it runs on
+  older distributions. On Windows the release GUI opens no console window.
+
 ## 0.1.0 - 2026-09-26
 
 The first tagged release.

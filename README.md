@@ -9,6 +9,15 @@ engine of its own.
 
 ![Analysing a Najdorf with three engine lines, the opening named on the left](docs/screenshot.png)
 
+## Download
+
+Each [release](https://github.com/tidynest/rust-chess-engine/releases) has
+`chess-gui` and `chess-cli` built for Linux x86_64 (glibc 2.35 or newer),
+macOS on Apple silicon and Windows x86_64, with a `SHA256SUMS` file. Stockfish
+is still needed, see below. The macOS build is not signed, so Gatekeeper
+blocks it until you run `xattr -d com.apple.quarantine chess-gui chess-cli`
+in the unpacked folder.
+
 ## Prerequisites
 
 - Rust 1.88 or newer (`rustup update stable`).

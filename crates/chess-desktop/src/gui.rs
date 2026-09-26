@@ -1,4 +1,6 @@
 //! GUI binary entry point
+// A release build on Windows opens no console window next to the board.
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 use chess_desktop::{ChessApp, Settings};
 use eframe::egui;
