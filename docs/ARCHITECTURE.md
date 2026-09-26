@@ -30,11 +30,16 @@ turns that into the king's landing square for UCI, SAN and the board.
 
 ## chess-engine
 
-`StockfishEngine` spawns the binary with piped stdin and stdout and runs a
-writer task and a reader task on tokio. It knows nothing about the GUI. Its
-parser turns stdout lines into `EngineResponse`: search info with an exact
-`Score` (centipawns or mate distance, from the side to move) and the line's
-number under MultiPV, a best move, or nothing for lines that carry no score.
+`StockfishEngine` spawns the binary with all three pipes and runs a writer
+task and one reader task per output pipe on tokio. Each reader holds at
+most 256 lines, so a caller that falls behind makes Stockfish wait rather
+than this process grow. It knows nothing about the GUI. Its parser turns
+stdout lines into `EngineResponse`: search info with an exact `Score`
+(centipawns or mate distance, from the side to move) and the line's number
+under MultiPV, a best move, or nothing for lines that carry no score.
+Stderr is not protocol. The engine keeps the first stderr line or
+`info string ERROR` it sees, and `closed_error` quotes it once stdout
+closes, which is how both front ends explain a dead engine.
 
 ## chess-desktop
 
