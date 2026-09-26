@@ -2,6 +2,11 @@
 
 Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
+## Unreleased
+
+- `master` on GitHub is protected: pull requests need the CI jobs to pass,
+  and nobody can force-push to it or delete it.
+
 ## 0.1.3 - 2026-09-27
 
 - A test feeds 5,000 randomly damaged FEN strings, PGN files and moves to
