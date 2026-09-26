@@ -1,1 +1,6 @@
 /target
+
+# RustRover: only the shared dictionary and inspection profile are tracked.
+/.idea/*
+!/.idea/dictionaries/
+!/.idea/inspectionProfiles/

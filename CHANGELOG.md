@@ -4,6 +4,10 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- The repository tracks only RustRover's shared spelling dictionary and
+  inspection profile from `.idea/`. The module file and the rest were one
+  machine's settings and pointed at folders that no longer exist.
+
 - The minimum Rust version is 1.95, not 1.88. egui 0.36 needs 1.95, so
   older compilers already failed, with an error about a dependency. A new
   CI job builds with the version `Cargo.toml` names.
