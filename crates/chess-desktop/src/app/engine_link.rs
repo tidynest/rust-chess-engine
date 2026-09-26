@@ -119,7 +119,7 @@ async fn run(mut commands: UnboundedReceiver<EngineCommand>, emit: &dyn Fn(Engin
             },
             response = engine.recv_response() => match response {
                 None => {
-                    emit(EngineEvent::Failed("engine closed its output".to_owned()));
+                    emit(EngineEvent::Failed(format!("{:#}", engine.closed_error())));
                     return;
                 }
                 Some(response) => forward(&mut current, response, emit),

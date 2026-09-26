@@ -4,6 +4,12 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- When Stockfish stops, the engine panel says why when the engine said so.
+  The app now reads its stderr, which used to be thrown away, and keeps the
+  first error line from either stream. A Stockfish that cannot find its
+  network file used to leave "engine closed its output"; it now shows the
+  engine's own "Network evaluation parameters ... must be available".
+
 - The app holds at most 256 unread lines from Stockfish. If it falls
   behind, Stockfish waits for it instead of the app's memory growing, and
   quitting no longer waits on an engine stuck writing to a full pipe.

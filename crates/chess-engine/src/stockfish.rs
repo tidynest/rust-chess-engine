@@ -4,7 +4,7 @@
 use anyhow::{Context, Result};
 use std::process::Stdio;
 use std::str::SplitWhitespace;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::mpsc;
 use tokio::time::{Duration, timeout};
@@ -89,33 +89,41 @@ pub enum EngineResponse {
 pub struct StockfishEngine {
     child: Child,
     stdin_tx: mpsc::UnboundedSender<String>,
-    stdout_rx: mpsc::Receiver<String>,
+    /// Lines from both pipes: stdout as `Ok`, stderr as `Err`.
+    lines: mpsc::Receiver<Result<String, String>>,
+    /// The first line on stderr or `info string ERROR`, kept to explain why
+    /// the engine closed its output.
+    first_complaint: Option<String>,
 }
 
-/// Engine lines held between the pipe and the caller. When the caller falls
+/// Engine lines held between the pipes and the caller. When the caller falls
 /// behind, the reader stops and the pipe fills, so Stockfish waits instead of
 /// this process buffering without limit. Commands stay unbounded: only this
 /// crate's caller writes them, a few per search.
-const STDOUT_BUFFER: usize = 256;
+const LINE_BUFFER: usize = 256;
 
 impl StockfishEngine {
     /// Create a new Stockfish engine instance
     pub async fn new(path: &str) -> Result<Self> {
-        // Spawn the Stockfish process
-        let mut child = Command::new(path)
+        Self::spawn(Command::new(path))
+    }
+
+    fn spawn(mut command: Command) -> Result<Self> {
+        let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .kill_on_drop(true) // Ensure cleanup
             .spawn()
             .context("Failed to spawn stockfish process")?;
 
         let mut stdin = child.stdin.take().context("Failed to get stdin")?;
         let stdout = child.stdout.take().context("Failed to get stdout")?;
+        let stderr = child.stderr.take().context("Failed to get stderr")?;
 
         // Create channels for async communication
         let (stdin_tx, mut stdin_rx) = mpsc::unbounded_channel::<String>();
-        let (stdout_tx, stdout_rx) = mpsc::channel::<String>(STDOUT_BUFFER);
+        let (lines_tx, lines) = mpsc::channel(LINE_BUFFER);
 
         // Spawn writer task - writes commands to stdin
         tokio::spawn(async move {
@@ -129,21 +137,45 @@ impl StockfishEngine {
             }
         });
 
-        // Spawn reader task - reads responses from stdout
-        tokio::spawn(async move {
-            let mut reader = BufReader::new(stdout).lines();
-            while let Ok(Some(line)) = reader.next_line().await {
-                if stdout_tx.send(line).await.is_err() {
-                    break;
-                }
-            }
-        });
+        forward_lines(stdout, lines_tx.clone(), Ok);
+        forward_lines(stderr, lines_tx, Err);
 
         Ok(Self {
             child,
             stdin_tx,
-            stdout_rx,
+            lines,
+            first_complaint: None,
         })
+    }
+
+    /// Next stdout line, or `None` once both pipes have closed. Stderr lines
+    /// are not protocol; they only feed `first_complaint`.
+    async fn next_line(&mut self) -> Option<String> {
+        loop {
+            match self.lines.recv().await? {
+                Ok(line) => {
+                    if let Some(error) = line
+                        .strip_prefix("info string ")
+                        .filter(|text| text.starts_with("ERROR"))
+                    {
+                        self.first_complaint.get_or_insert_with(|| error.to_owned());
+                    }
+                    return Some(line);
+                }
+                Err(line) => {
+                    self.first_complaint.get_or_insert(line);
+                }
+            }
+        }
+    }
+
+    /// The error for an engine that has closed its output, naming its first
+    /// complaint when it made one.
+    pub fn closed_error(&self) -> anyhow::Error {
+        match &self.first_complaint {
+            Some(complaint) => anyhow::anyhow!("engine closed its output: {complaint}"),
+            None => anyhow::anyhow!("engine closed its output"),
+        }
     }
 
     /// Initialise the engine and wait for it to be ready
@@ -153,12 +185,12 @@ impl StockfishEngine {
 
         // Wait for uciok
         timeout(Duration::from_secs(5), async {
-            while let Some(line) = self.stdout_rx.recv().await {
+            while let Some(line) = self.next_line().await {
                 if line == "uciok" {
                     return Ok(());
                 }
             }
-            Err(anyhow::anyhow!("Engine did not respond with uciok"))
+            Err(self.closed_error().context("waiting for uciok"))
         })
         .await
         .context("Timeout waiting for engine initialisation")??;
@@ -179,7 +211,7 @@ impl StockfishEngine {
         self.send_command("isready").await?;
 
         timeout(Duration::from_secs(5), async {
-            while let Some(line) = self.stdout_rx.recv().await {
+            while let Some(line) = self.next_line().await {
                 if line == "readyok" {
                     return Ok(());
                 }
@@ -187,7 +219,7 @@ impl StockfishEngine {
                     return Err(anyhow::anyhow!("{line}"));
                 }
             }
-            Err(anyhow::anyhow!("Engine did not respond with readyok"))
+            Err(self.closed_error().context("waiting for readyok"))
         })
         .await
         .context("Timeout waiting for engine ready")??;
@@ -231,7 +263,7 @@ impl StockfishEngine {
     /// `None` once the engine has closed its stdout.
     pub async fn recv_response(&mut self) -> Option<EngineResponse> {
         loop {
-            let line = self.stdout_rx.recv().await?;
+            let line = self.next_line().await?;
             if let Some(response) = parse_engine_line(&line) {
                 return Some(response);
             }
@@ -242,13 +274,30 @@ impl StockfishEngine {
     pub async fn quit(mut self) -> Result<()> {
         // Nobody reads the output from here on; closing the channel ends the
         // reader, so an engine still printing cannot stall on a full pipe.
-        self.stdout_rx.close();
+        self.lines.close();
         self.send_command("quit").await?;
         timeout(Duration::from_secs(3), self.child.wait())
             .await
             .context("Timeout waiting for engine to quit")??;
         Ok(())
     }
+}
+
+/// Send every line of `pipe`, wrapped by `tag`, until the pipe or the
+/// receiver closes.
+fn forward_lines(
+    pipe: impl AsyncRead + Unpin + Send + 'static,
+    tx: mpsc::Sender<Result<String, String>>,
+    tag: fn(String) -> Result<String, String>,
+) {
+    tokio::spawn(async move {
+        let mut lines = BufReader::new(pipe).lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            if tx.send(tag(line)).await.is_err() {
+                break;
+            }
+        }
+    });
 }
 
 /// Stockfish's answer to an option or command it does not know. It still
@@ -414,6 +463,57 @@ mod tests {
             "info string NNUE evaluation using nn-1c0000000000.nnue"
         ));
         assert!(!is_refusal("readyok"));
+    }
+
+    /// A stand-in engine: a shell loop that answers `uci` and `isready` and
+    /// runs `on_go` when asked to search.
+    #[cfg(unix)]
+    fn fake_engine(on_go: &str) -> StockfishEngine {
+        let mut command = Command::new("sh");
+        command.arg("-c").arg(format!(
+            "while read cmd; do case $cmd in \
+             uci) echo uciok;; isready) echo readyok;; go*) {on_go};; \
+             esac; done"
+        ));
+        StockfishEngine::spawn(command).unwrap()
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_a_dead_engine_is_explained_by_its_first_complaint() {
+        for (on_go, expected) in [
+            (
+                "echo 'info string ERROR: no network'; \
+                 echo 'info string ERROR: terminated'; exit 1",
+                "engine closed its output: ERROR: no network",
+            ),
+            (
+                "echo 'segfault' >&2; exit 1",
+                "engine closed its output: segfault",
+            ),
+            ("exit 1", "engine closed its output"),
+        ] {
+            let mut engine = fake_engine(on_go);
+            engine.initialise().await.unwrap();
+            engine.go(SearchLimit::Depth(1)).await.unwrap();
+            assert_eq!(engine.recv_response().await, None, "{on_go}");
+            assert_eq!(engine.closed_error().to_string(), expected);
+        }
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_a_program_that_is_not_an_engine_says_why() {
+        let mut command = Command::new("sh");
+        command
+            .arg("-c")
+            .arg("echo 'usage: not-an-engine FILE' >&2");
+        let mut engine = StockfishEngine::spawn(command).unwrap();
+        let error = engine.initialise().await.unwrap_err();
+        assert_eq!(
+            format!("{error:#}"),
+            "waiting for uciok: engine closed its output: usage: not-an-engine FILE"
+        );
     }
 
     #[test]
