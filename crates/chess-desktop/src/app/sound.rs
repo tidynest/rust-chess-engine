@@ -39,26 +39,31 @@ impl Sound {
             return;
         };
         let tone = |hz: f32, ms: u64, gain: f32, after_ms: u64| {
+            let length = Duration::from_millis(ms);
+            // A quieter octave on top rounds off the bare sine; the short
+            // fade-in stops the first sample from clicking.
             SineWave::new(hz)
-                .take_duration(Duration::from_millis(ms))
-                .fade_out(Duration::from_millis(ms))
+                .mix(SineWave::new(hz * 2.0).amplify(0.3))
+                .take_duration(length)
+                .fade_in(Duration::from_millis(4))
+                .fade_out(length)
                 .amplify(gain)
                 .delay(Duration::from_millis(after_ms))
         };
         let mixer = sink.mixer();
         match cue {
-            Cue::Move => mixer.add(tone(880.0, 60, 0.25, 0)),
+            Cue::Move => mixer.add(tone(523.0, 50, 0.2, 0)),
             Cue::Capture => {
-                mixer.add(tone(660.0, 70, 0.3, 0));
-                mixer.add(tone(440.0, 90, 0.3, 60));
+                mixer.add(tone(523.0, 60, 0.22, 0));
+                mixer.add(tone(392.0, 80, 0.22, 50));
             }
-            Cue::Check => mixer.add(tone(1100.0, 120, 0.3, 0)),
+            Cue::Check => mixer.add(tone(784.0, 140, 0.22, 0)),
             Cue::GameOver => {
-                mixer.add(tone(660.0, 150, 0.3, 0));
-                mixer.add(tone(550.0, 150, 0.3, 150));
-                mixer.add(tone(440.0, 300, 0.3, 300));
+                mixer.add(tone(523.0, 150, 0.22, 0));
+                mixer.add(tone(440.0, 150, 0.22, 150));
+                mixer.add(tone(349.0, 300, 0.22, 300));
             }
-            Cue::LowTime => mixer.add(tone(1500.0, 30, 0.2, 0)),
+            Cue::LowTime => mixer.add(tone(1000.0, 25, 0.12, 0)),
         }
     }
 }

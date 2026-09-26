@@ -8,6 +8,10 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
   Windows when a version tag is pushed and attaches them, with checksums, to
   the GitHub release. The Linux build comes from Ubuntu 22.04 so it runs on
   older distributions. On Windows the release GUI opens no console window.
+- Softer sound cues. Each tone fades in over 4 ms so it no longer clicks,
+  carries a quieter octave above it, and sits lower: moves on C5 instead of
+  880 Hz, check on G5 instead of 1100 Hz, and a quieter low-time tick at
+  1000 Hz instead of 1500 Hz.
 
 ## 0.1.0 - 2026-09-26
 
