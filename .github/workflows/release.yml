@@ -81,7 +81,13 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           sha256sum rust-chess-engine-* > SHA256SUMS
-          gh release view "$TAG" > /dev/null 2>&1 \
-            || gh release create "$TAG" --verify-tag --notes-from-tag \
-              --title "${TAG#v}"
+          # No checkout here, so the tag message comes from the API. The
+          # notes drop its subject line, which the title already carries.
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            sha=$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" -q .object.sha)
+            msg=$(gh api "repos/$GH_REPO/git/tags/$sha" -q .message)
+            printf '%s\n' "$msg" | tail -n +3 > notes.md
+            gh release create "$TAG" --verify-tag --title "${TAG#v}" \
+              --notes-file notes.md
+          fi
           gh release upload "$TAG" rust-chess-engine-* SHA256SUMS --clobber

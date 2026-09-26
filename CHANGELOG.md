@@ -2,6 +2,13 @@
 
 Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
+## Unreleased
+
+- The release workflow can create a release on its own. It used to fail at
+  that step because the publish job has no copy of the tag to read notes
+  from; it now reads the tag message from GitHub and leaves out the subject
+  line, which is already the title.
+
 ## 0.1.2 - 2026-09-27
 
 - When the release workflow has to create the GitHub release itself, it
