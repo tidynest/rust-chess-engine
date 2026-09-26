@@ -2,7 +2,7 @@
 
 Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
-## Unreleased
+## 0.1.2 - 2026-09-27
 
 - When the release workflow has to create the GitHub release itself, it
   titles it with the bare version, `0.1.2` rather than `v0.1.2`, like the
