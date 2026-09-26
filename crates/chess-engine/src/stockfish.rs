@@ -89,18 +89,22 @@ pub enum EngineResponse {
 pub struct StockfishEngine {
     child: Child,
     stdin_tx: mpsc::UnboundedSender<String>,
-    /// Lines from both pipes: stdout as `Ok`, stderr as `Err`.
-    lines: mpsc::Receiver<Result<String, String>>,
+    stdout: mpsc::Receiver<String>,
+    stderr: mpsc::Receiver<String>,
     /// The first line on stderr or `info string ERROR`, kept to explain why
     /// the engine closed its output.
     first_complaint: Option<String>,
 }
 
-/// Engine lines held between the pipes and the caller. When the caller falls
+/// Engine lines held between each pipe and the caller. When the caller falls
 /// behind, the reader stops and the pipe fills, so Stockfish waits instead of
 /// this process buffering without limit. Commands stay unbounded: only this
 /// crate's caller writes them, a few per search.
 const LINE_BUFFER: usize = 256;
+
+/// How long stderr may stay open after stdout has closed. A process the
+/// engine left behind can hold it open indefinitely.
+const STDERR_GRACE: Duration = Duration::from_millis(100);
 
 impl StockfishEngine {
     /// Create a new Stockfish engine instance
@@ -123,7 +127,6 @@ impl StockfishEngine {
 
         // Create channels for async communication
         let (stdin_tx, mut stdin_rx) = mpsc::unbounded_channel::<String>();
-        let (lines_tx, lines) = mpsc::channel(LINE_BUFFER);
 
         // Spawn writer task - writes commands to stdin
         tokio::spawn(async move {
@@ -137,23 +140,25 @@ impl StockfishEngine {
             }
         });
 
-        forward_lines(stdout, lines_tx.clone(), Ok);
-        forward_lines(stderr, lines_tx, Err);
-
         Ok(Self {
             child,
             stdin_tx,
-            lines,
+            stdout: read_lines(stdout),
+            stderr: read_lines(stderr),
             first_complaint: None,
         })
     }
 
-    /// Next stdout line, or `None` once both pipes have closed. Stderr lines
-    /// are not protocol; they only feed `first_complaint`.
+    /// Next stdout line, or `None` once stdout has closed. Stderr is read
+    /// alongside and only feeds `first_complaint`.
     async fn next_line(&mut self) -> Option<String> {
         loop {
-            match self.lines.recv().await? {
-                Ok(line) => {
+            tokio::select! {
+                line = self.stdout.recv() => {
+                    let Some(line) = line else {
+                        self.drain_stderr().await;
+                        return None;
+                    };
                     if let Some(error) = line
                         .strip_prefix("info string ")
                         .filter(|text| text.starts_with("ERROR"))
@@ -162,11 +167,23 @@ impl StockfishEngine {
                     }
                     return Some(line);
                 }
-                Err(line) => {
+                Some(line) = self.stderr.recv() => {
                     self.first_complaint.get_or_insert(line);
                 }
             }
         }
+    }
+
+    /// Take what the engine wrote to stderr before it closed stdout, then
+    /// stop reading stderr.
+    async fn drain_stderr(&mut self) {
+        let _ = timeout(STDERR_GRACE, async {
+            while let Some(line) = self.stderr.recv().await {
+                self.first_complaint.get_or_insert(line);
+            }
+        })
+        .await;
+        self.stderr.close();
     }
 
     /// The error for an engine that has closed its output, naming its first
@@ -274,7 +291,8 @@ impl StockfishEngine {
     pub async fn quit(mut self) -> Result<()> {
         // Nobody reads the output from here on; closing the channel ends the
         // reader, so an engine still printing cannot stall on a full pipe.
-        self.lines.close();
+        self.stdout.close();
+        self.stderr.close();
         self.send_command("quit").await?;
         timeout(Duration::from_secs(3), self.child.wait())
             .await
@@ -283,21 +301,18 @@ impl StockfishEngine {
     }
 }
 
-/// Send every line of `pipe`, wrapped by `tag`, until the pipe or the
-/// receiver closes.
-fn forward_lines(
-    pipe: impl AsyncRead + Unpin + Send + 'static,
-    tx: mpsc::Sender<Result<String, String>>,
-    tag: fn(String) -> Result<String, String>,
-) {
+/// Read `pipe` line by line into a channel that closes with the pipe.
+fn read_lines(pipe: impl AsyncRead + Unpin + Send + 'static) -> mpsc::Receiver<String> {
+    let (tx, rx) = mpsc::channel(LINE_BUFFER);
     tokio::spawn(async move {
         let mut lines = BufReader::new(pipe).lines();
         while let Ok(Some(line)) = lines.next_line().await {
-            if tx.send(tag(line)).await.is_err() {
+            if tx.send(line).await.is_err() {
                 break;
             }
         }
     });
+    rx
 }
 
 /// Stockfish's answer to an option or command it does not know. It still
@@ -499,6 +514,16 @@ mod tests {
             assert_eq!(engine.recv_response().await, None, "{on_go}");
             assert_eq!(engine.closed_error().to_string(), expected);
         }
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_a_leftover_process_holding_stderr_does_not_hang_the_caller() {
+        let mut engine = fake_engine("sleep 5 >/dev/null & exit 1");
+        engine.initialise().await.unwrap();
+        engine.go(SearchLimit::Depth(1)).await.unwrap();
+        let response = timeout(Duration::from_secs(2), engine.recv_response()).await;
+        assert_eq!(response.ok(), Some(None));
     }
 
     #[cfg(unix)]
