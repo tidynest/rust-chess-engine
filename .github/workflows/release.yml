@@ -82,5 +82,6 @@ jobs:
         run: |
           sha256sum rust-chess-engine-* > SHA256SUMS
           gh release view "$TAG" > /dev/null 2>&1 \
-            || gh release create "$TAG" --verify-tag --notes-from-tag
+            || gh release create "$TAG" --verify-tag --notes-from-tag \
+              --title "${TAG#v}"
           gh release upload "$TAG" rust-chess-engine-* SHA256SUMS --clobber
