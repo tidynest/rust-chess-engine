@@ -2,7 +2,9 @@
 
 Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
-## Unreleased
+## 0.1.0 - 2026-09-26
+
+The first tagged release.
 
 ### Sixteenth round
 

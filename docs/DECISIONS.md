@@ -1,4 +1,6 @@
-# Decisions waiting on the owner
+# Decisions
+
+All three were made on 2026-09-26; each section below keeps what was weighed.
 
 Everything else from `docs/AUDIT_2026-09-09.md` is done. These three change
 the licence, the dependency list or what is published, so they were not made
@@ -43,7 +45,8 @@ and a few platform crates.
 
 ## 3. First release
 
-Nothing has been tagged. To cut v0.1.0:
+Done 2026-09-26: v0.1.0 is tagged on both remotes and published as a GitHub
+release without binaries. The steps, for the next one:
 
 1. Rename `## Unreleased` in `CHANGELOG.md` to `## 0.1.0 - <date>`.
 2. `git tag -a v0.1.0 -m "First release"` and push the tag to both remotes.
