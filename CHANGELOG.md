@@ -4,6 +4,10 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- The minimum Rust version is 1.95, not 1.88. egui 0.36 needs 1.95, so
+  older compilers already failed, with an error about a dependency. A new
+  CI job builds with the version `Cargo.toml` names.
+
 - Linux builds need only `libasound2-dev` and `pkg-config`. The xcb,
   xkbcommon and OpenSSL headers listed in the README and installed by CI
   and the release workflow were left over from older dependencies; nothing

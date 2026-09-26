@@ -20,7 +20,7 @@ in the unpacked folder.
 
 ## Prerequisites
 
-- Rust 1.88 or newer (`rustup update stable`).
+- Rust 1.95 or newer (`rustup update stable`).
 - Stockfish on `PATH` for the computer opponent, 16 or newer for the Elo
   limit (older versions clamp it to their own range). Arch: `pacman -S stockfish`.
   Debian and Ubuntu: `apt install stockfish`. macOS: `brew install stockfish`.

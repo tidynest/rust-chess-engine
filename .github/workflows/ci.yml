@@ -32,6 +32,17 @@ jobs:
       # The engine link against the Stockfish the package installs.
       - run: cargo test -p chess-desktop -- --ignored
 
+  # Builds with the oldest Rust that Cargo.toml claims to support.
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+      - run: |
+          msrv=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
+          rustup toolchain install "$msrv" --profile minimal
+          cargo "+$msrv" check --workspace --all-targets --locked
+
   audit:
     runs-on: ubuntu-latest
     steps:
