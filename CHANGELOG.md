@@ -4,6 +4,11 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- Linux builds need only `libasound2-dev` and `pkg-config`. The xcb,
+  xkbcommon and OpenSSL headers listed in the README and installed by CI
+  and the release workflow were left over from older dependencies; nothing
+  in the build links them.
+
 - When Stockfish stops, the engine panel says why when the engine said so.
   The app now reads its stderr, which used to be thrown away, and keeps the
   first error line from either stream. A Stockfish that cannot find its

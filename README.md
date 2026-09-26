@@ -25,8 +25,10 @@ in the unpacked folder.
   limit (older versions clamp it to their own range). Arch: `pacman -S stockfish`.
   Debian and Ubuntu: `apt install stockfish`. macOS: `brew install stockfish`.
   Windows: download from stockfishchess.org and put `stockfish.exe` on `PATH`.
-- Linux build dependencies for eframe and the sound (Debian names):
-  `libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev libasound2-dev`.
+- On Linux, the ALSA headers for sound and `pkg-config` to find them.
+  Debian and Ubuntu: `apt install libasound2-dev pkg-config`. The window
+  libraries (X11, Wayland, xkbcommon) are loaded at run time, so a desktop
+  already has them.
 
 ## Build and run
 

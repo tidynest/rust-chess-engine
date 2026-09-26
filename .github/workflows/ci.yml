@@ -17,10 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # ALSA is the only system library the build links; eframe loads the
+      # window libraries at run time.
       - run: >
           sudo apt-get update && sudo apt-get install -y
-          libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
-          libxkbcommon-dev libssl-dev libasound2-dev stockfish
+          libasound2-dev stockfish
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
