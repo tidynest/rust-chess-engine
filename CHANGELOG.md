@@ -2,7 +2,7 @@
 
 Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
-## Unreleased
+## 0.1.1 - 2026-09-26
 
 - A release workflow builds `chess-gui` and `chess-cli` for Linux, macOS and
   Windows when a version tag is pushed and attaches them, with checksums, to
