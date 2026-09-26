@@ -4,6 +4,10 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- In the CLI, a Stockfish that stops mid-game no longer ends the program
+  and the game with it. The CLI prints why and carries on without an
+  opponent; `play` starts a new engine.
+
 - The repository tracks only RustRover's shared spelling dictionary and
   inspection profile from `.idea/`. The module file and the rest were one
   machine's settings and pointed at folders that no longer exist.

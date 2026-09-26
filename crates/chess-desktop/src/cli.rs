@@ -169,7 +169,15 @@ fn main() -> Result<()> {
                 if let Some(stockfish) = &mut opponent
                     && !game.is_over()
                 {
-                    let reply = stockfish.best_move(&game.uci_position())?;
+                    // The game outlives the engine; `play` starts a new one.
+                    let reply = match stockfish.best_move(&game.uci_position()) {
+                        Ok(reply) => reply,
+                        Err(e) => {
+                            println!("Stockfish stopped: {e:#}");
+                            opponent = None;
+                            continue;
+                        }
+                    };
                     let mv = notation::parse_uci(game.current_board(), &reply)
                         .with_context(|| format!("engine sent {reply:?}"))?;
                     game.make_move(mv);
