@@ -2,8 +2,8 @@
 //!
 //! Contains game menu, view options, and turn indicator.
 
-use chess::Color as ChessColor;
 use chess_core::GameHistory;
+use cozy_chess::Color as ChessColor;
 use eframe::egui::{self, Context};
 
 use crate::app::engine_link::EngineCommand;

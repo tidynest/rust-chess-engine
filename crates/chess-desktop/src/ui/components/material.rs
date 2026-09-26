@@ -2,7 +2,7 @@
 //!
 //! Shows captured pieces in either Lichess or Chess.com style.
 
-use chess::{Board, ChessMove, Color as ChessColor, Piece};
+use cozy_chess::{Board, Color as ChessColor, Move, Piece};
 use eframe::egui::{Sense, Ui, Vec2};
 use std::collections::HashMap;
 
@@ -43,12 +43,9 @@ pub fn draw_material_count(app: &ChessApp, ui: &mut Ui) {
 fn calculate_material(app: &ChessApp) -> (i32, i32, Captured, Captured) {
     let board = app.board();
     let material = |color| {
-        chess::ALL_PIECES
+        Piece::ALL
             .iter()
-            .map(|&piece| {
-                let count = (board.pieces(piece) & board.color_combined(color)).popcnt();
-                piece_value(piece) * count as i32
-            })
+            .map(|&piece| piece_value(piece) * board.colored_pieces(color, piece).len() as i32)
             .sum::<i32>()
     };
 
@@ -73,12 +70,16 @@ fn calculate_material(app: &ChessApp) -> (i32, i32, Captured, Captured) {
     )
 }
 
-/// The piece `mv` takes on `board`, counting en passant.
-fn captured_piece(board: &Board, mv: ChessMove) -> Option<Piece> {
-    let (from, to) = (mv.get_source(), mv.get_dest());
+/// The piece `mv` takes on `board`, counting en passant. Castling lands the
+/// king on its own rook, which is no capture.
+fn captured_piece(board: &Board, mv: Move) -> Option<Piece> {
+    let (from, to) = (mv.from, mv.to);
+    if board.color_on(to) == Some(board.side_to_move()) {
+        return None;
+    }
     board.piece_on(to).or_else(|| {
         let is_pawn = board.piece_on(from) == Some(Piece::Pawn);
-        (is_pawn && from.get_file() != to.get_file()).then_some(Piece::Pawn)
+        (is_pawn && from.file() != to.file()).then_some(Piece::Pawn)
     })
 }
 
@@ -181,27 +182,34 @@ fn draw_captured_row(ui: &mut Ui, captured: &Captured, color: ChessColor) -> boo
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chess::Square;
-    use std::str::FromStr;
+    use cozy_chess::Square;
 
     #[test]
     fn test_captured_piece_sees_en_passant() {
-        let board =
-            Board::from_str("rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3")
-                .unwrap();
-        let en_passant = ChessMove::new(Square::E5, Square::F6, None);
+        let board = "rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3"
+            .parse::<Board>()
+            .unwrap();
+        let en_passant = Move {
+            from: Square::E5,
+            to: Square::F6,
+            promotion: None,
+        };
         assert_eq!(captured_piece(&board, en_passant), Some(Piece::Pawn));
 
-        let push = ChessMove::new(Square::E5, Square::E6, None);
+        let push = Move {
+            from: Square::E5,
+            to: Square::E6,
+            promotion: None,
+        };
         assert_eq!(captured_piece(&board, push), None);
     }
 
     #[test]
     fn test_promotion_is_not_a_capture() {
         let mut app = ChessApp::headless();
-        let board = Board::from_str("4k3/P7/8/8/8/8/8/4K3 w - - 0 1").unwrap();
-        app.game_history = chess_core::GameHistory::from_board(board);
+        let board = "4k3/P7/8/8/8/8/8/4K3 w - - 0 1".parse::<Board>().unwrap();
         let mv = chess_core::notation::parse_uci(&board, "a7a8q").unwrap();
+        app.game_history = chess_core::GameHistory::from_board(board);
         app.play_move(mv);
 
         let (white, black, white_captured, black_captured) = calculate_material(&app);

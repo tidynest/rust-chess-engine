@@ -1,6 +1,6 @@
 //! A pair of chess clocks with a Fischer increment.
 
-use chess::Color;
+use cozy_chess::Color;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone)]
@@ -28,7 +28,7 @@ impl Clock {
     }
 
     pub fn remaining(&self, color: Color) -> Duration {
-        self.remaining[color.to_index()]
+        self.remaining[color as usize]
     }
 
     pub fn increment(&self) -> Duration {
@@ -46,7 +46,7 @@ impl Clock {
             return false;
         }
         if let Some(last) = self.last_tick {
-            let slot = &mut self.remaining[side.to_index()];
+            let slot = &mut self.remaining[side as usize];
             *slot = slot.saturating_sub(now.duration_since(last));
         }
         self.last_tick = Some(now);
@@ -64,7 +64,7 @@ impl Clock {
         self.tick(mover, now);
         self.started = true;
         self.last_tick = Some(now);
-        self.remaining[mover.to_index()] += self.increment;
+        self.remaining[mover as usize] += self.increment;
         self.snapshots.truncate(ply);
         self.snapshots.push(self.remaining);
     }

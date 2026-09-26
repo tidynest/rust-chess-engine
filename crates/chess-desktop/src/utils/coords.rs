@@ -2,7 +2,7 @@
 //!
 //! Handles conversion between screen positions and chess board squares.
 
-use chess::{File, Rank, Square as ChessSquare};
+use cozy_chess::{File, Rank, Square as ChessSquare};
 use eframe::egui::{Pos2, Rect};
 
 /// Convert screen position to chess square
@@ -27,9 +27,9 @@ pub fn get_square_from_pos(
     let display_rank = if board_flip { rank } else { 7 - rank };
     let display_file = if board_flip { 7 - file } else { file };
 
-    Some(ChessSquare::make_square(
-        Rank::from_index(display_rank),
-        File::from_index(display_file),
+    Some(ChessSquare::new(
+        File::index(display_file),
+        Rank::index(display_rank),
     ))
 }
 
@@ -42,8 +42,8 @@ mod tests {
     fn every_square_maps_back_from_its_centre() {
         let rect = Rect::from_min_size(Pos2::new(10.0, 20.0), Vec2::splat(400.0));
         for flip in [false, true] {
-            for square in chess::ALL_SQUARES {
-                let (rank, file) = (square.get_rank().to_index(), square.get_file().to_index());
+            for square in ChessSquare::ALL {
+                let (rank, file) = ((square.rank() as usize), (square.file() as usize));
                 let row = if flip { rank } else { 7 - rank };
                 let col = if flip { 7 - file } else { file };
                 let centre = rect.min + Vec2::new(col as f32 + 0.5, row as f32 + 0.5) * 50.0;

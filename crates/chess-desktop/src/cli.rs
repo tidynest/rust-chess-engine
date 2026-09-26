@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use chess_core::{GameHistory, PgnTags, display, notation, openings};
+use chess_core::{GameHistory, PgnTags, display, moves, notation, openings};
 use chess_engine::{EngineResponse, SearchLimit, StockfishEngine};
 use std::io::{self, Write};
 
@@ -57,13 +57,14 @@ fn print_help() {
     println!();
 }
 
-fn show_legal_moves(board: &chess::Board) {
-    let mut moves: Vec<String> = chess::MoveGen::new_legal(board)
-        .map(|mv| mv.to_string())
+fn show_legal_moves(board: &cozy_chess::Board) {
+    let mut listed: Vec<String> = moves::legal_moves(board)
+        .into_iter()
+        .map(|mv| moves::to_uci(board, mv))
         .collect();
-    moves.sort();
-    println!("\nLegal moves ({} total):", moves.len());
-    for chunk in moves.chunks(10) {
+    listed.sort();
+    println!("\nLegal moves ({} total):", listed.len());
+    for chunk in listed.chunks(10) {
         println!("  {}", chunk.join("  "));
     }
 }

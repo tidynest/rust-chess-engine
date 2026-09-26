@@ -1,10 +1,15 @@
 # Decisions waiting on the owner
 
 Everything else from `docs/AUDIT_2026-09-09.md` is done. These three change
-the licence, the dependency list or what is published, so they are not made
-by an autonomous session.
+the licence, the dependency list or what is published, so they were not made
+by an autonomous session until the owner said so on 2026-09-26.
 
 ## 1. Replace the `chess` crate
+
+Decided 2026-09-26: cozy-chess 0.3.4. It keeps the MIT licence, has no
+`unsafe` and no third-party dependencies, and generates moves about as fast
+as shakmaty. Its one quirk, castling written as the king taking its rook, is
+handled in `chess_core::moves`. What was weighed:
 
 `chess` 3.2.0 is unmaintained and pulls `failure` (RUSTSEC-2019-0036,
 RUSTSEC-2020-0036) and a build-only `rand` 0.7. `cargo audit` and

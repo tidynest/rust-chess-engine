@@ -57,7 +57,7 @@ pub fn draw(app: &ChessApp, ui: &mut egui::Ui) {
             ui.label(format!(
                 "Move {}, {} to play",
                 ply / 2 + 1,
-                if board.side_to_move() == chess::Color::White {
+                if board.side_to_move() == cozy_chess::Color::White {
                     "White"
                 } else {
                     "Black"

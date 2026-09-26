@@ -19,7 +19,7 @@ path = "src/gui.rs"
 chess-core = { path = "../chess-core" }
 chess-engine = { path = "../chess-engine" }
 
-chess = { workspace = true }
+cozy-chess = { workspace = true }
 anyhow = { workspace = true }
 tokio = { workspace = true }
 

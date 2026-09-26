@@ -1,9 +1,9 @@
 //! Game state management with undo/redo support
 
+use crate::moves::{after, is_checkmate, is_stalemate, to_uci};
 use crate::notation::{format_move_san, parse_san};
-use chess::{BitBoard, Board, BoardStatus, ChessMove, Color, Piece};
+use cozy_chess::{BitBoard, Board, Color, FenParseError, Move, Piece};
 use std::fmt::Write;
-use std::str::FromStr;
 use thiserror::Error;
 
 /// Why a PGN could not be read.
@@ -39,11 +39,9 @@ impl DrawReason {
 /// computed once, when it is played.
 pub struct GameHistory {
     positions: Vec<Board>,
-    moves: Vec<ChessMove>,
+    moves: Vec<Move>,
     sans: Vec<String>,
     current_index: usize,
-    /// Halfmove clock of the start position; the `chess` crate drops it.
-    start_halfmove_clock: u32,
 }
 
 impl GameHistory {
@@ -57,7 +55,6 @@ impl GameHistory {
             moves: Vec::new(),
             sans: Vec::new(),
             current_index: 0,
-            start_halfmove_clock: 0,
         }
     }
 
@@ -97,15 +94,9 @@ impl GameHistory {
         Ok(history)
     }
 
-    /// Start from a FEN, keeping its halfmove clock for the fifty-move rule.
-    pub fn from_fen(fen: &str) -> Result<Self, chess::Error> {
-        let mut history = Self::from_board(Board::from_str(fen)?);
-        history.start_halfmove_clock = fen
-            .split_whitespace()
-            .nth(4)
-            .and_then(|clock| clock.parse().ok())
-            .unwrap_or(0);
-        Ok(history)
+    /// Start from a FEN; its clocks come along.
+    pub fn from_fen(fen: &str) -> Result<Self, FenParseError> {
+        Ok(Self::from_board(fen.parse()?))
     }
 
     pub fn current_board(&self) -> &Board {
@@ -118,7 +109,7 @@ impl GameHistory {
     }
 
     /// The moves played so far, each paired with the board it was played on.
-    pub fn played(&self) -> impl DoubleEndedIterator<Item = (&Board, ChessMove)> {
+    pub fn played(&self) -> impl DoubleEndedIterator<Item = (&Board, Move)> {
         self.positions
             .iter()
             .zip(self.current_moves().iter().copied())
@@ -126,37 +117,25 @@ impl GameHistory {
 
     /// Plies since the last capture or pawn move.
     pub fn halfmove_clock(&self) -> u32 {
-        let quiet = self
-            .played()
-            .rev()
-            .take_while(|(board, mv)| {
-                board.piece_on(mv.get_source()) != Some(Piece::Pawn)
-                    && board.piece_on(mv.get_dest()).is_none()
-            })
-            .count();
-        let clock = quiet as u32;
-        if quiet == self.current_index {
-            clock + self.start_halfmove_clock
-        } else {
-            clock
-        }
+        u32::from(self.current_board().halfmove_clock())
     }
 
     /// Why the current position is a draw, if it is one. Repetition and the
     /// fifty-move rule are treated as automatic rather than claimable.
     pub fn draw_reason(&self) -> Option<DrawReason> {
         let board = self.current_board();
-        match board.status() {
-            BoardStatus::Checkmate => return None,
-            BoardStatus::Stalemate => return Some(DrawReason::Stalemate),
-            BoardStatus::Ongoing => {}
+        if is_checkmate(board) {
+            return None;
+        }
+        if is_stalemate(board) {
+            return Some(DrawReason::Stalemate);
         }
         if insufficient_material(board) {
             return Some(DrawReason::InsufficientMaterial);
         }
         let seen = self.positions[..=self.current_index]
             .iter()
-            .filter(|position| *position == board)
+            .filter(|position| position.same_position(board))
             .count();
         if seen >= 3 {
             return Some(DrawReason::ThreefoldRepetition);
@@ -169,13 +148,13 @@ impl GameHistory {
 
     /// True once the game cannot continue.
     pub fn is_over(&self) -> bool {
-        self.current_board().status() == BoardStatus::Checkmate || self.draw_reason().is_some()
+        is_checkmate(self.current_board()) || self.draw_reason().is_some()
     }
 
     /// The result in PGN form: `1-0`, `0-1`, `1/2-1/2` or `*` while unfinished.
     pub fn result(&self) -> &'static str {
         let board = self.current_board();
-        if board.status() == BoardStatus::Checkmate {
+        if is_checkmate(board) {
             match board.side_to_move() {
                 Color::White => "0-1",
                 Color::Black => "1-0",
@@ -202,16 +181,15 @@ impl GameHistory {
              [White \"{white}\"]\n[Black \"{black}\"]\n[Result \"{result}\"]\n"
         );
         if *start != Board::default() {
-            // ponytail: the chess crate drops the move counters, so a FEN start
-            // is numbered from move 1.
             let _ = writeln!(pgn, "[SetUp \"1\"]\n[FEN \"{start}\"]");
         }
         pgn.push('\n');
 
         let black_starts = start.side_to_move() == Color::Black;
+        let first_number = usize::from(start.fullmove_number());
         for (index, san) in self.sans[..self.current_index].iter().enumerate() {
             let ply = index + usize::from(black_starts);
-            let number = ply / 2 + 1;
+            let number = first_number + ply / 2;
             if ply.is_multiple_of(2) {
                 let _ = write!(pgn, "{number}. ");
             } else if index == 0 {
@@ -224,15 +202,14 @@ impl GameHistory {
         pgn
     }
 
-    pub fn make_move(&mut self, mv: ChessMove) {
-        // Truncate future history when making a new move
+    /// Play a legal move, dropping any undone moves.
+    pub fn make_move(&mut self, mv: Move) {
         self.positions.truncate(self.current_index + 1);
         self.moves.truncate(self.current_index);
         self.sans.truncate(self.current_index);
-
-        let board = *self.current_board();
+        let board = self.current_board().clone();
         self.sans.push(format_move_san(&mv, &board));
-        self.positions.push(board.make_move_new(mv));
+        self.positions.push(after(&board, mv));
         self.moves.push(mv);
         self.current_index += 1;
     }
@@ -267,7 +244,7 @@ impl GameHistory {
         self.current_index
     }
 
-    pub fn get_move(&self, index: usize) -> Option<&ChessMove> {
+    pub fn get_move(&self, index: usize) -> Option<&Move> {
         self.moves.get(index)
     }
 
@@ -277,8 +254,7 @@ impl GameHistory {
     }
 
     /// The `position` argument for the current line: the start position and
-    /// every move played, so an engine can see repetitions and the 50-move
-    /// clock, which a bare FEN from the `chess` crate does not carry.
+    /// every move played, so an engine can see repetitions.
     pub fn uci_position(&self) -> String {
         let start = self.start_board();
         let mut position = if *start == Board::default() {
@@ -286,18 +262,17 @@ impl GameHistory {
         } else {
             format!("fen {start}")
         };
-        let moves = self.current_moves();
-        if !moves.is_empty() {
+        if self.current_index > 0 {
             position.push_str(" moves");
-            for mv in moves {
+            for (board, mv) in self.played() {
                 position.push(' ');
-                position.push_str(&mv.to_string());
+                position.push_str(&to_uci(board, mv));
             }
         }
         position
     }
 
-    pub fn current_moves(&self) -> &[ChessMove] {
+    pub fn current_moves(&self) -> &[Move] {
         &self.moves[..self.current_index]
     }
 
@@ -378,14 +353,14 @@ fn insufficient_material(board: &Board) -> bool {
     const LIGHT_SQUARES: BitBoard = BitBoard(0x55AA_55AA_55AA_55AA);
 
     let heavy = board.pieces(Piece::Pawn) | board.pieces(Piece::Rook) | board.pieces(Piece::Queen);
-    if heavy.popcnt() > 0 {
+    if !heavy.is_empty() {
         return false;
     }
-    let knights = board.pieces(Piece::Knight).popcnt();
-    let bishops = *board.pieces(Piece::Bishop);
-    match (knights, bishops.popcnt()) {
+    let knights = board.pieces(Piece::Knight).len();
+    let bishops = board.pieces(Piece::Bishop);
+    match (knights, bishops.len()) {
         (0, 0) | (1, 0) | (0, 1) => true,
-        (0, _) => (bishops & LIGHT_SQUARES) == bishops || (bishops & LIGHT_SQUARES).popcnt() == 0,
+        (0, _) => (bishops & LIGHT_SQUARES) == bishops || (bishops & LIGHT_SQUARES).is_empty(),
         _ => false,
     }
 }
@@ -413,11 +388,14 @@ impl Default for PgnTags<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chess::{ChessMove, Square};
-    use std::str::FromStr;
+    use cozy_chess::Square;
 
-    fn create_move(from: Square, to: Square) -> ChessMove {
-        ChessMove::new(from, to, None)
+    fn create_move(from: Square, to: Square) -> Move {
+        Move {
+            from,
+            to,
+            promotion: None,
+        }
     }
 
     #[test]
@@ -449,7 +427,7 @@ mod tests {
     #[test]
     fn test_undo_single_move() {
         let mut history = GameHistory::new();
-        let initial_board = *history.current_board();
+        let initial_board = history.current_board().clone();
         let e2e4 = create_move(Square::E2, Square::E4);
 
         history.make_move(e2e4);
@@ -472,7 +450,7 @@ mod tests {
         let e2e4 = create_move(Square::E2, Square::E4);
 
         history.make_move(e2e4);
-        let board_after_move = *history.current_board();
+        let board_after_move = history.current_board().clone();
         history.undo();
         let result = history.redo();
 
@@ -524,7 +502,7 @@ mod tests {
     #[test]
     fn test_multiple_undos() {
         let mut history = GameHistory::new();
-        let initial_board = *history.current_board();
+        let initial_board = history.current_board().clone();
 
         history.make_move(create_move(Square::E2, Square::E4));
         history.make_move(create_move(Square::E7, Square::E5));
@@ -556,7 +534,7 @@ mod tests {
         history.make_move(create_move(Square::E2, Square::E4));
         history.make_move(create_move(Square::E7, Square::E5));
         history.make_move(create_move(Square::G1, Square::F3));
-        let final_board = *history.current_board();
+        let final_board = history.current_board().clone();
 
         history.undo();
         history.undo();
@@ -590,7 +568,7 @@ mod tests {
         assert_eq!(history.move_count(), 1, "Should have 1 move");
         assert!(history.can_redo(), "Should be able to redo");
 
-        history.make_move(create_move(Square::D2, Square::D4));
+        history.make_move(create_move(Square::C7, Square::C5));
 
         assert_eq!(history.move_count(), 2, "Should have 2 moves");
         assert!(history.can_undo(), "Should be able to undo");
@@ -604,7 +582,7 @@ mod tests {
         let mut history = GameHistory::new();
 
         history.make_move(create_move(Square::E2, Square::E4));
-        let board_after_e4 = *history.current_board();
+        let board_after_e4 = history.current_board().clone();
         history.make_move(create_move(Square::E7, Square::E5));
         history.make_move(create_move(Square::G1, Square::F3));
 
@@ -727,7 +705,11 @@ mod tests {
 
         let fen = "4k3/P7/8/8/8/8/8/4K3 w - - 0 1";
         let mut history = GameHistory::from_fen(fen).unwrap();
-        history.make_move(ChessMove::new(Square::A7, Square::A8, Some(Piece::Knight)));
+        history.make_move(Move {
+            from: Square::A7,
+            to: Square::A8,
+            promotion: Some(Piece::Knight),
+        });
         assert_eq!(history.uci_position(), format!("fen {fen} moves a7a8n"));
     }
 
@@ -881,7 +863,7 @@ mod tests {
         let mut history = GameHistory::new();
 
         history.make_move(create_move(Square::E2, Square::E4));
-        let board_after_e4 = *history.current_board();
+        let board_after_e4 = history.current_board().clone();
 
         for _ in 0..5 {
             history.undo();
@@ -966,18 +948,19 @@ mod tests {
     #[test]
     fn test_undo_redo_with_promotions() {
         let fen = "k7/4P3/8/8/8/8/8/K7 w - - 0 1";
-        let board = Board::from_str(fen).expect("Valid fen");
+        let mut history = GameHistory::from_fen(fen).expect("Valid fen");
 
-        let mut history = GameHistory::new();
-        history.positions[0] = board;
-
-        let promotion = ChessMove::new(Square::E7, Square::E8, Some(chess::Piece::Queen));
+        let promotion = Move {
+            from: Square::E7,
+            to: Square::E8,
+            promotion: Some(Piece::Queen),
+        };
 
         history.make_move(promotion);
         assert_eq!(history.move_count(), 1);
 
         if let Some(stored_move) = history.get_move(0) {
-            assert_eq!(stored_move.get_promotion(), Some(chess::Piece::Queen));
+            assert_eq!(stored_move.promotion, Some(Piece::Queen));
         } else {
             panic!("Move should be retrievable");
         }
@@ -989,7 +972,7 @@ mod tests {
         assert_eq!(history.move_count(), 1);
 
         if let Some(stored_move) = history.get_move(0) {
-            assert_eq!(stored_move.get_promotion(), Some(chess::Piece::Queen));
+            assert_eq!(stored_move.promotion, Some(Piece::Queen));
         }
     }
 

@@ -4,6 +4,17 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+### Sixteenth round
+
+- The `chess` crate is gone; move generation, legality and every board type
+  now come from `cozy-chess` 0.3.4 (MIT, no `unsafe`, no dependencies). That
+  closes the last three advisories, `failure` and the build-only `rand` 0.7,
+  and drops their ignores. cozy-chess keeps the halfmove clock and the move
+  number, so a FEN start numbers its moves correctly and the fifty-move rule
+  no longer needs a workaround. Castling, which cozy-chess writes as the king
+  taking its own rook, is turned into the king's landing square in one place,
+  `chess_core::moves`, for UCI, SAN and the board.
+
 ### Fifteenth round
 
 - "Play the best move" under the analysis lines.

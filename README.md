@@ -4,8 +4,8 @@
 
 Desktop chess GUI and terminal CLI in Rust. Plays against a locally installed
 [Stockfish](https://stockfishchess.org/) over UCI. Move generation and
-validation come from the `chess` crate. The project contains no search engine
-of its own.
+validation come from the `cozy-chess` crate. The project contains no search
+engine of its own.
 
 ![Analysing a Najdorf with three engine lines, the opening named on the left](docs/screenshot.png)
 

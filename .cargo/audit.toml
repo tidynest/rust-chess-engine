@@ -1,10 +1,5 @@
 [advisories]
 ignore = [
-    # failure 0.1.8 via chess 3.2.0, unmaintained since 2021. Only fix is replacing chess.
-    "RUSTSEC-2019-0036",
-    "RUSTSEC-2020-0036",
-    # rand 0.7.3 is a build-dependency of chess; no patched 0.7 exists.
-    "RUSTSEC-2026-0097",
     # ttf-parser 0.25.1 is the latest release and ab_glyph (via egui) requires it.
     "RUSTSEC-2026-0192",
 ]

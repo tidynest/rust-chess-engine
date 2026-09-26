@@ -3,43 +3,34 @@
 //
 // Standard test positions from: https://www.chessprogramming.org/Perft_Results
 
-use chess::{Board, MoveGen};
-use std::str::FromStr;
+use chess_core::moves::{after, legal_moves};
+use cozy_chess::Board;
 
 /// Core perft function - recursively counts legal positions
 fn perft(board: &Board, depth: u8) -> u64 {
     if depth == 0 {
         return 1;
     }
-
-    let mut nodes = 0;
-    let movegen = MoveGen::new_legal(board);
-
-    for chess_move in movegen {
-        let new_board = board.make_move_new(chess_move);
-        nodes += perft(&new_board, depth - 1);
-    }
-
-    nodes
+    legal_moves(board)
+        .into_iter()
+        .map(|mv| perft(&after(board, mv), depth - 1))
+        .sum()
 }
 
 /// Perft with move breakdown (useful for debugging)
 #[allow(dead_code)]
 fn perft_divide(board: &Board, depth: u8) -> Vec<(String, u64)> {
-    let mut results = Vec::new();
-    let movegen = MoveGen::new_legal(board);
-
-    for chess_move in movegen {
-        let new_board = board.make_move_new(chess_move);
-        let nodes = if depth > 1 {
-            perft(&new_board, depth - 1)
-        } else {
-            1
-        };
-        results.push((format!("{}", chess_move), nodes));
-    }
-
-    results
+    legal_moves(board)
+        .into_iter()
+        .map(|mv| {
+            let nodes = if depth > 1 {
+                perft(&after(board, mv), depth - 1)
+            } else {
+                1
+            };
+            (mv.to_string(), nodes)
+        })
+        .collect()
 }
 
 #[test]
@@ -95,39 +86,41 @@ fn perft_initial_position_depth_5() {
 
 #[test]
 fn perft_kiwipete_depth_1() {
-    let board =
-        Board::from_str("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1")
-            .expect("Valid FEN");
+    let board = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
+        .parse::<Board>()
+        .expect("Valid FEN");
     assert_eq!(perft(&board, 1), 48, "Kiwipete depth 1");
 }
 
 #[test]
 fn perft_kiwipete_depth_2() {
-    let board =
-        Board::from_str("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1")
-            .expect("Valid FEN");
+    let board = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
+        .parse::<Board>()
+        .expect("Valid FEN");
     assert_eq!(perft(&board, 2), 2_039, "Kiwipete depth 2");
 }
 
 #[test]
 fn perft_kiwipete_depth_3() {
-    let board =
-        Board::from_str("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1")
-            .expect("Valid FEN");
+    let board = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
+        .parse::<Board>()
+        .expect("Valid FEN");
     assert_eq!(perft(&board, 3), 97_862, "Kiwipete depth 3");
 }
 
 #[test]
 fn perft_kiwipete_depth_4() {
-    let board =
-        Board::from_str("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1")
-            .expect("Valid FEN");
+    let board = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
+        .parse::<Board>()
+        .expect("Valid FEN");
     assert_eq!(perft(&board, 4), 4_085_603, "Kiwipete depth 4");
 }
 
 #[test]
 fn perft_endgame_position() {
-    let board = Board::from_str("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1").expect("Valid FEN");
+    let board = "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1"
+        .parse::<Board>()
+        .expect("Valid FEN");
     assert_eq!(perft(&board, 1), 14, "Endgame position depth 1");
     assert_eq!(perft(&board, 2), 191, "Endgame position depth 2");
     assert_eq!(perft(&board, 3), 2_812, "Endgame position depth 3");
@@ -135,7 +128,8 @@ fn perft_endgame_position() {
 
 #[test]
 fn perft_position_4() {
-    let board = Board::from_str("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1")
+    let board = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1"
+        .parse::<Board>()
         .expect("Valid FEN");
     assert_eq!(perft(&board, 1), 6, "Position 4 depth 1");
     assert_eq!(perft(&board, 2), 264, "Position 4 depth 2");
@@ -144,7 +138,8 @@ fn perft_position_4() {
 
 #[test]
 fn perft_position_5() {
-    let board = Board::from_str("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8")
+    let board = "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"
+        .parse::<Board>()
         .expect("Valid FEN");
     assert_eq!(perft(&board, 1), 44, "Position 5 depth 1");
     assert_eq!(perft(&board, 2), 1_486, "Position 5 depth 2");
@@ -153,9 +148,9 @@ fn perft_position_5() {
 
 #[test]
 fn perft_position_6() {
-    let board =
-        Board::from_str("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10")
-            .expect("Valid FEN");
+    let board = "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10"
+        .parse::<Board>()
+        .expect("Valid FEN");
     assert_eq!(perft(&board, 1), 46, "Position 6 depth 1");
     assert_eq!(perft(&board, 2), 2_079, "Position 6 depth 2");
     assert_eq!(perft(&board, 3), 89_890, "Position 6 depth 3");

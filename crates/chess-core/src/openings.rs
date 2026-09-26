@@ -1,7 +1,7 @@
 //! Opening names from the Lichess table in `data/openings.tsv`, found by
 //! the longest row a game's moves begin with.
 
-use chess::Board;
+use cozy_chess::Board;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
@@ -68,7 +68,6 @@ pub fn of(history: &GameHistory) -> Option<Opening> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::str::FromStr;
 
     #[test]
     fn longest_prefix_wins_and_survives_leaving_the_book() {
@@ -101,14 +100,15 @@ mod tests {
 
     #[test]
     fn positions_set_up_from_a_fen_have_no_opening() {
-        let board =
-            Board::from_str("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1").unwrap();
+        let board: Board = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+            .parse()
+            .unwrap();
         let mut history = GameHistory::from_board(board);
-        history.make_move(chess::ChessMove::new(
-            chess::Square::C7,
-            chess::Square::C5,
-            None,
-        ));
+        history.make_move(cozy_chess::Move {
+            from: cozy_chess::Square::C7,
+            to: cozy_chess::Square::C5,
+            promotion: None,
+        });
         assert_eq!(of(&history), None);
     }
 

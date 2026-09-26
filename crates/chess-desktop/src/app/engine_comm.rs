@@ -1,9 +1,9 @@
 //! The UI side of the engine link, plus the move and history operations
 //! that have to keep it informed.
 
-use chess::{ChessMove, Color as ChessColor};
-use chess_core::{GameHistory, notation};
+use chess_core::{GameHistory, moves, notation};
 use chess_engine::{EngineResponse, SearchLimit};
+use cozy_chess::{Color as ChessColor, Move};
 use std::time::{Duration, Instant};
 
 use super::engine_link::{EngineCommand, EngineEvent, EngineStatus, SearchRequest};
@@ -261,14 +261,15 @@ impl ChessApp {
     }
 
     /// Play a legal move on the current position, whoever chose it.
-    pub(crate) fn play_move(&mut self, mv: ChessMove) {
+    pub(crate) fn play_move(&mut self, mv: Move) {
         let mover = self.board().side_to_move();
+        let landing = moves::destination(self.board(), mv);
         self.game_history.make_move(mv);
         let now = Instant::now();
         if let Some(clock) = &mut self.clock {
             clock.press(mover, now, self.game_history.move_count());
         }
-        self.animation = Some((mv, now));
+        self.animation = Some((mv.from, landing, now));
         self.disable_auto_request = false;
         self.position_changed();
     }
@@ -329,26 +330,30 @@ impl ChessApp {
         let ply = self.game_history.move_count();
         let history = &self.game_history;
         let stepped = if forward {
-            ply.checked_sub(1)
-                .and_then(|index| history.get_move(index).copied())
+            history
+                .played()
+                .last()
+                .map(|(board, mv)| (mv.from, moves::destination(board, mv)))
         } else {
+            // The board on screen is the one the undone move was played on.
+            let board = history.current_board();
             history
                 .get_move(ply)
-                .map(|mv| ChessMove::new(mv.get_dest(), mv.get_source(), None))
+                .map(|&mv| (moves::destination(board, mv), mv.from))
         };
-        self.animation = stepped.map(|mv| (mv, Instant::now()));
+        self.animation = stepped.map(|(from, to)| (from, to, Instant::now()));
     }
 
     /// Format principal variation in SAN notation
     pub fn format_pv_san(&self, pv: &[String]) -> Vec<String> {
         let mut formatted = Vec::new();
-        let mut temp_board = *self.game_history.current_board();
+        let mut temp_board = self.game_history.current_board().clone();
 
         for move_str in pv.iter().take(6) {
             if let Some(chess_move) = notation::parse_uci(&temp_board, move_str) {
                 let san = notation::format_move_san(&chess_move, &temp_board);
                 formatted.push(san);
-                temp_board = temp_board.make_move_new(chess_move);
+                temp_board = moves::after(&temp_board, chess_move);
             } else {
                 break;
             }
@@ -376,9 +381,8 @@ impl ChessApp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chess::Board;
     use chess_core::GameHistory;
-    use std::str::FromStr;
+    use cozy_chess::Board;
 
     fn play(app: &mut ChessApp, moves: &[&str]) {
         for mv in moves {
@@ -533,9 +537,9 @@ mod tests {
     #[test]
     fn test_format_pv_san_with_capture() {
         let mut app = ChessApp::headless();
-        let board =
-            Board::from_str("r1bqkbnr/ppp2ppp/2n5/3pp3/3PP3/5N2/PPP2PPP/RNBQKB1R w KQkq d6 0 4")
-                .unwrap();
+        let board = "r1bqkbnr/ppp2ppp/2n5/3pp3/3PP3/5N2/PPP2PPP/RNBQKB1R w KQkq d6 0 4"
+            .parse::<Board>()
+            .unwrap();
         app.game_history = GameHistory::from_board(board);
         assert_eq!(app.format_pv_san(&["e4d5".to_string()]), vec!["exd5"]);
     }

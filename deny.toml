@@ -1,13 +1,10 @@
 # cargo-deny configuration. Run with `cargo deny check`.
 #
-# Shorter than .cargo/audit.toml on purpose: cargo-deny does not report
-# unsound-only advisories (failure, rand 0.7) and resolves the graph for the
-# host target, so macOS-only crates such as paste never appear on Linux CI.
-# Listing those here only earns "advisory was not encountered" warnings.
+# cargo-deny does not report unsound-only advisories and resolves the graph
+# for the host target, so this list is only what it can match on Linux CI.
 
 [advisories]
 ignore = [
-    { id = "RUSTSEC-2020-0036", reason = "failure is unmaintained; same root cause as RUSTSEC-2019-0036" },
     { id = "RUSTSEC-2026-0192", reason = "ttf-parser 0.25.1 is the latest release and ab_glyph, via egui, requires it" },
 ]
 

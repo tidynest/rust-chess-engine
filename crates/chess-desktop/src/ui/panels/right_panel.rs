@@ -2,7 +2,7 @@
 //!
 //! Contains game status, engine controls, and move history.
 
-use chess::Color as ChessColor;
+use cozy_chess::Color as ChessColor;
 use eframe::egui;
 
 use crate::app::engine_comm::{EngineMode, SearchKind};

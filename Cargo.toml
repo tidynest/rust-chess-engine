@@ -15,7 +15,7 @@ repository = "https://github.com/tidynest/rust-chess-engine"
 
 [workspace.dependencies]
 anyhow = "1.0.102"
-chess = "3.2.0"
+cozy-chess = "0.3.4"
 thiserror = "2.0.18"
 
 egui = "0.36.2"

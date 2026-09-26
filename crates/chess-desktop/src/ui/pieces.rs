@@ -3,7 +3,7 @@
 //! 45-unit box in the Staunton style, triangulated once, plus a few detail
 //! lines drawn on top.
 
-use chess::{Color as ChessColor, Piece};
+use cozy_chess::{Color as ChessColor, Piece};
 use eframe::egui::epaint::{Mesh, TextureId, Vertex, WHITE_UV};
 use eframe::egui::{Color32, Painter, Pos2, Shape, Stroke, Vec2};
 use std::sync::LazyLock;
@@ -17,7 +17,7 @@ type Point = (f32, f32);
 
 /// Draw `piece` centred on `center` in a square of `square_size` pixels.
 pub fn draw(painter: &Painter, center: Pos2, square_size: f32, piece: Piece, color: ChessColor) {
-    let design = &DESIGNS[piece.to_index()];
+    let design = &DESIGNS[piece as usize];
     let scale = square_size / BOX;
     let origin = center - Vec2::splat(square_size / 2.0);
     let map = |(x, y): Point| origin + Vec2::new(x, y) * scale;

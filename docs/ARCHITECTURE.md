@@ -24,7 +24,9 @@ algebraic moves by matching against the legal moves. `openings` names the
 opening from the Lichess table compiled into the crate, by the longest row
 a game's SAN begins with. `display` draws a board as text for the CLI,
 which keeps a `GameHistory` of its own. Move generation, legality and every
-domain type come from the `chess` crate; chess-core adds none.
+domain type come from `cozy-chess`; chess-core adds none. cozy-chess writes
+castling as the king taking its own rook, so `moves` holds the one place that
+turns that into the king's landing square for UCI, SAN and the board.
 
 ## chess-engine
 

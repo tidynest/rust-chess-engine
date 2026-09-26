@@ -2,9 +2,9 @@
 //!
 //! Contains the ChessApp struct and all game state.
 
-use chess::{Board, ChessMove, Color as ChessColor, Piece as ChessPiece, Square as ChessSquare};
 use chess_core::{GameHistory, PgnTags};
 use chess_engine::Score;
+use cozy_chess::{Board, Color as ChessColor, Move, Piece as ChessPiece, Square as ChessSquare};
 use eframe::egui::{Context, Pos2};
 use std::sync::mpsc::{Receiver, channel};
 use std::time::Instant;
@@ -59,7 +59,7 @@ pub struct ChessApp {
     // Game state
     pub game_history: GameHistory,
     pub selected_square: Option<ChessSquare>,
-    pub legal_moves_for_selected: Vec<ChessMove>,
+    pub legal_moves_for_selected: Vec<Move>,
     /// A pawn move waiting for the player to choose the promotion piece.
     pub pending_promotion: Option<(ChessSquare, ChessSquare)>,
     /// Text of the "Set up position" window while it is open.
@@ -70,8 +70,8 @@ pub struct ChessApp {
     pub move_input: String,
     /// The ply the move list last scrolled to, so it follows the position.
     pub history_scrolled_to: usize,
-    /// A piece sliding along this move since this instant.
-    pub animation: Option<(ChessMove, Instant)>,
+    /// A piece sliding from one square to another since this instant.
+    pub animation: Option<(ChessSquare, ChessSquare, Instant)>,
     /// A line for the status panel: where a game was saved, or why not.
     pub notice: Option<String>,
 
@@ -227,9 +227,8 @@ impl ChessApp {
 
     /// The squares of the move that made the position on screen.
     pub fn last_move(&self) -> Option<(ChessSquare, ChessSquare)> {
-        let index = self.game_history.move_count().checked_sub(1)?;
-        let mv = self.game_history.get_move(index)?;
-        Some((mv.get_source(), mv.get_dest()))
+        let (board, mv) = self.game_history.played().last()?;
+        Some((mv.from, chess_core::moves::destination(board, mv)))
     }
 
     /// The PGN of the game on screen: who plays which side, today, the result.

@@ -2,15 +2,15 @@
 //!
 //! Handles board drawing, piece rendering, drag-and-drop, and square selection.
 
-use chess::{
-    ChessMove, Color as ChessColor, File, Piece as ChessPiece, Rank, Square as ChessSquare,
+use cozy_chess::{
+    Color as ChessColor, File, Move, Piece as ChessPiece, Rank, Square as ChessSquare,
 };
 use eframe::egui::{self, Context, CornerRadius, Rect, Response, Ui, Vec2};
 use std::time::Duration;
 
 use crate::app::state::ChessApp;
 use crate::ui::pieces;
-use chess_core::notation;
+use chess_core::{moves, notation};
 
 /// How long a piece takes to slide to its square.
 const SLIDE_TIME: Duration = Duration::from_millis(150);
@@ -35,12 +35,12 @@ impl ChessApp {
         let hover = self.dragging_piece.and(self.drag_pos).and_then(square_at);
         let checked_king = {
             let board = self.board();
-            (board.checkers().popcnt() > 0).then(|| board.king_square(board.side_to_move()))
+            (!board.checkers().is_empty()).then(|| board.king(board.side_to_move()))
         };
         // A piece still on its way is drawn between squares, not on one.
-        let sliding = self.animation.and_then(|(mv, started)| {
+        let sliding = self.animation.and_then(|(from, to, started)| {
             let t = started.elapsed().as_secs_f32() / SLIDE_TIME.as_secs_f32();
-            (t < 1.0).then_some((mv, t))
+            (t < 1.0).then_some((from, to, t))
         });
         if sliding.is_some() {
             ui.ctx().request_repaint();
@@ -48,7 +48,7 @@ impl ChessApp {
         let hidden = self
             .dragging_piece
             .map(|(square, _, _)| square)
-            .or(sliding.map(|(mv, _)| mv.get_dest()));
+            .or(sliding.map(|(_, to, _)| to));
 
         // Draw all squares and pieces
         for rank in 0..8 {
@@ -56,10 +56,7 @@ impl ChessApp {
                 let display_rank = if self.board_flip { rank } else { 7 - rank };
                 let display_file = if self.board_flip { 7 - file } else { file };
 
-                let square = ChessSquare::make_square(
-                    Rank::from_index(display_rank),
-                    File::from_index(display_file),
-                );
+                let square = ChessSquare::new(File::index(display_file), Rank::index(display_rank));
 
                 let square_rect = Rect::from_min_size(
                     board_rect.min
@@ -93,11 +90,11 @@ impl ChessApp {
             }
         }
 
-        if let Some((mv, t)) = sliding
-            && let Some((piece, color)) = self.piece_at(mv.get_dest())
+        if let Some((from, to, t)) = sliding
+            && let Some((piece, color)) = self.piece_at(to)
         {
-            let from = self.square_center(mv.get_source(), board_rect, square_size);
-            let to = self.square_center(mv.get_dest(), board_rect, square_size);
+            let from = self.square_center(from, board_rect, square_size);
+            let to = self.square_center(to, board_rect, square_size);
             // Ease out: quick off the square, settling on arrival.
             let eased = 1.0 - (1.0 - t) * (1.0 - t);
             pieces::draw(&painter, from.lerp(to, eased), square_size, piece, color);
@@ -164,7 +161,7 @@ impl ChessApp {
         if self
             .legal_moves_for_selected
             .iter()
-            .any(|m| m.get_dest() == square)
+            .any(|&m| moves::destination(self.board(), m) == square)
         {
             let center = square_rect.center();
             let radius = square_size * 0.15;
@@ -216,7 +213,7 @@ impl ChessApp {
 
     /// Screen centre of `square`, honouring the board flip.
     fn square_center(&self, square: ChessSquare, board_rect: Rect, square_size: f32) -> egui::Pos2 {
-        let (rank, file) = (square.get_rank().to_index(), square.get_file().to_index());
+        let (rank, file) = ((square.rank() as usize), (square.file() as usize));
         let row = if self.board_flip { rank } else { 7 - rank };
         let col = if self.board_flip { 7 - file } else { file };
         board_rect.min + Vec2::new(col as f32 + 0.5, row as f32 + 0.5) * square_size
@@ -236,8 +233,12 @@ impl ChessApp {
             else {
                 continue;
             };
-            let from = self.square_center(mv.get_source(), board_rect, square_size);
-            let to = self.square_center(mv.get_dest(), board_rect, square_size);
+            let from = self.square_center(mv.from, board_rect, square_size);
+            let to = self.square_center(
+                moves::destination(self.board(), mv),
+                board_rect,
+                square_size,
+            );
             let alpha = if index == 0 { 0.7 } else { 0.35 };
             let stroke =
                 egui::Stroke::new(square_size * 0.12, self.theme.accent.gamma_multiply(alpha));
@@ -342,11 +343,13 @@ impl ChessApp {
     /// Play the legal move between two squares, ask for the piece if it is a
     /// promotion, or move the selection when there is no such move.
     fn try_make_move(&mut self, from: ChessSquare, to: ChessSquare) {
-        let legal = chess::MoveGen::new_legal(self.game_history.current_board())
-            .find(|m| m.get_source() == from && m.get_dest() == to);
+        let board = self.game_history.current_board();
+        let legal = moves::legal_moves(board)
+            .into_iter()
+            .find(|&m| m.from == from && moves::destination(board, m) == to);
 
         match legal {
-            Some(mv) if mv.get_promotion().is_none() => return self.play_move(mv),
+            Some(mv) if mv.promotion.is_none() => return self.play_move(mv),
             Some(_) => {
                 self.pending_promotion = Some((from, to));
                 return;
@@ -399,7 +402,11 @@ impl ChessApp {
             });
 
         if let Some(piece) = choice {
-            self.play_move(ChessMove::new(from, to, Some(piece)));
+            self.play_move(Move {
+                from,
+                to,
+                promotion: Some(piece),
+            });
         } else if !open {
             self.position_changed();
         }
@@ -410,7 +417,9 @@ impl ChessApp {
         self.legal_moves_for_selected.clear();
         if let Some(square) = self.selected_square {
             self.legal_moves_for_selected.extend(
-                chess::MoveGen::new_legal(self.board()).filter(|mv| mv.get_source() == square),
+                moves::legal_moves(self.board())
+                    .into_iter()
+                    .filter(|mv| mv.from == square),
             );
         }
     }

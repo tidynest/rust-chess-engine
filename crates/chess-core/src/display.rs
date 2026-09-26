@@ -1,8 +1,9 @@
 //! The board and the state of the game as text, for the CLI.
 
-use chess::{Board, BoardStatus, Color, File, Rank, Square};
+use cozy_chess::{Board, Color, File, Rank, Square};
 
 use crate::GameHistory;
+use crate::moves::is_checkmate;
 
 /// The board with White at the bottom, pieces as letters, empty squares as
 /// dots.
@@ -11,9 +12,10 @@ pub fn board(board: &Board) -> String {
     for rank in (0..8).rev() {
         out.push_str(&format!("{} ", rank + 1));
         for file in 0..8 {
-            let square = Square::make_square(Rank::from_index(rank), File::from_index(file));
+            let square = Square::new(File::index(file), Rank::index(rank));
             let glyph = match (board.piece_on(square), board.color_on(square)) {
-                (Some(piece), Some(color)) => piece.to_string(color),
+                (Some(piece), Some(Color::White)) => piece.to_string().to_ascii_uppercase(),
+                (Some(piece), Some(Color::Black)) => piece.to_string(),
                 _ if (rank + file).is_multiple_of(2) => ".".to_owned(),
                 _ => "\u{b7}".to_owned(),
             };
@@ -33,11 +35,11 @@ pub fn status(history: &GameHistory) -> String {
         Color::Black => "Black",
     };
     let to_move = board.side_to_move();
-    if board.status() == BoardStatus::Checkmate {
+    if is_checkmate(board) {
         format!("Checkmate! {} wins!", name(!to_move))
     } else if let Some(reason) = history.draw_reason() {
         format!("Draw by {}.", reason.describe())
-    } else if board.checkers().popcnt() > 0 {
+    } else if !board.checkers().is_empty() {
         format!("{} is in check!", name(to_move))
     } else {
         format!("{} to move", name(to_move))
