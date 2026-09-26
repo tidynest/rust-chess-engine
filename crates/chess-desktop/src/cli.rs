@@ -34,7 +34,7 @@ impl Opponent {
                     return mv.context("the engine has no legal move");
                 }
             }
-            anyhow::bail!("the engine closed its output")
+            Err(engine.closed_error())
         })
     }
 }
