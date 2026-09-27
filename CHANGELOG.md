@@ -4,6 +4,11 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- The strength options go to the engine only when the strength changes,
+  not before every search. An engine without `UCI_LimitStrength`, such as
+  Stockfish before version 11, now plays at full strength instead of
+  refusing every move.
+
 - After the engine refused an option, the next option it refused went
   unreported: the check for the second one read the first one's "ready"
   reply and passed. Each refusal is now reported with its own command.

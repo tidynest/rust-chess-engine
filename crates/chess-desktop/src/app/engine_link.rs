@@ -101,6 +101,8 @@ async fn run(
 
     // Id of the search Stockfish is working on, if any.
     let mut current: Option<u64> = None;
+    // The Elo the engine is held to; it starts at full strength.
+    let mut strength: Option<u32> = None;
 
     loop {
         tokio::select! {
@@ -121,7 +123,7 @@ async fn run(
                 }
                 Some(EngineCommand::Search(request)) => {
                     finish_search(&mut engine, &mut current, emit).await;
-                    if let Err(e) = start_search(&mut engine, &request).await {
+                    if let Err(e) = start_search(&mut engine, &request, &mut strength).await {
                         emit(EngineEvent::SearchFailed {
                             id: request.id,
                             message: format!("{e:#}"),
@@ -172,20 +174,29 @@ async fn start() -> anyhow::Result<StockfishEngine> {
     Err(last_error.unwrap_or_else(|| anyhow::anyhow!("no engine path to try")))
 }
 
-async fn start_search(engine: &mut StockfishEngine, request: &SearchRequest) -> anyhow::Result<()> {
-    // Stockfish clamps the Elo to its own range, 1320 to 3190 since version 16.
-    engine
-        .send_command(&format!(
-            "setoption name UCI_LimitStrength value {}",
-            request.elo.is_some()
-        ))
-        .await?;
-    if let Some(elo) = request.elo {
+/// Set the strength if it changed, then search. Only a change sends the
+/// options, so an engine without them still plays at full strength.
+async fn start_search(
+    engine: &mut StockfishEngine,
+    request: &SearchRequest,
+    strength: &mut Option<u32>,
+) -> anyhow::Result<()> {
+    if request.elo != *strength {
+        // Stockfish clamps the Elo to its own range, 1320 to 3190 since version 16.
         engine
-            .send_command(&format!("setoption name UCI_Elo value {elo}"))
+            .send_command(&format!(
+                "setoption name UCI_LimitStrength value {}",
+                request.elo.is_some()
+            ))
             .await?;
+        if let Some(elo) = request.elo {
+            engine
+                .send_command(&format!("setoption name UCI_Elo value {elo}"))
+                .await?;
+        }
+        engine.wait_ready().await?;
+        *strength = request.elo;
     }
-    engine.wait_ready().await?;
     engine.set_position(&request.position).await?;
     engine.go(request.limit).await
 }
@@ -225,12 +236,12 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
-    fn search(id: u64, position: &str, depth: u32) -> EngineCommand {
+    fn search(id: u64, position: &str, depth: u32, elo: Option<u32>) -> EngineCommand {
         EngineCommand::Search(SearchRequest {
             id,
             position: position.to_owned(),
             limit: SearchLimit::Depth(depth),
-            elo: None,
+            elo,
         })
     }
 
@@ -257,11 +268,8 @@ mod tests {
         .await;
         let (tx, commands) = tokio::sync::mpsc::unbounded_channel();
         let (events, rx) = std::sync::mpsc::channel();
-        let mut limited = search(1, "startpos", 1);
-        if let EngineCommand::Search(request) = &mut limited {
-            request.elo = Some(1500);
-        }
-        tx.send(limited).unwrap();
+        tx.send(search(1, "startpos", 1, Some(1500))).unwrap();
+        tx.send(search(2, "startpos", 1, None)).unwrap();
         // NewGame waits out any running search, so every reply is in by the end.
         tx.send(EngineCommand::NewGame).unwrap();
         drop(tx);
@@ -279,6 +287,27 @@ mod tests {
             )),
             "{events:?}"
         );
+        // Full strength is the engine's default, so it needs no option.
+        assert!(
+            events.iter().any(|event| matches!(
+                event,
+                EngineEvent::Search {
+                    id: 2,
+                    response: EngineResponse::BestMove { mv: Some(_), .. }
+                }
+            )),
+            "{events:?}"
+        );
+        assert!(
+            !events.iter().any(|event| matches!(
+                event,
+                EngineEvent::Search {
+                    id: 2,
+                    response: EngineResponse::Error(_)
+                }
+            )),
+            "{events:?}"
+        );
     }
 
     #[test]
@@ -292,8 +321,9 @@ mod tests {
         assert!(matches!(recv(), EngineEvent::Ready));
 
         // Depth 40 would take minutes; the second request must cut it short.
-        tx.send(search(1, "startpos", 40)).unwrap();
-        tx.send(search(2, "startpos moves e2e4", 4)).unwrap();
+        tx.send(search(1, "startpos", 40, None)).unwrap();
+        tx.send(search(2, "startpos moves e2e4", 4, Some(1500)))
+            .unwrap();
 
         let mut finished = Vec::new();
         while finished.len() < 2 {

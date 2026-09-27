@@ -76,6 +76,8 @@ directory, written and listed by `app/games.rs`.
 3. On the next frame `auto_request` sees it is the computer's turn on the
    live line and sends a search with a fresh id and the full move list.
 4. The engine thread stops any previous search, waits for its bestmove,
-   sets the position and starts the new search, forwarding tagged replies.
+   sets the strength if it changed, sets the position and starts the new
+   search, forwarding tagged replies. A search the engine refuses comes
+   back as `SearchFailed` with its id, which frees the board.
 5. `poll_engine_responses` updates the evaluation from info lines and, on
    bestmove with the current id, returns the move, which `play_move` plays.
