@@ -114,13 +114,14 @@ impl Settings {
                     _ => {}
                 },
                 "engine_depth" => {
-                    if let Ok(depth) = value.parse() {
-                        settings.engine_depth = depth;
+                    // Stockfish reads 0 as no limit, so the slider's range holds.
+                    if let Ok(depth) = value.parse::<u32>() {
+                        settings.engine_depth = depth.clamp(5, 30);
                     }
                 }
                 "engine_movetime" => {
-                    if let Ok(ms) = value.parse() {
-                        settings.engine_movetime = ms;
+                    if let Ok(ms) = value.parse::<u64>() {
+                        settings.engine_movetime = ms.clamp(100, 10_000);
                     }
                 }
                 "engine_elo" => match value.parse::<u32>() {
@@ -175,12 +176,16 @@ impl Settings {
                     }
                 }
                 "window_width" => {
-                    if let Ok(width) = value.parse::<f32>() {
+                    if let Ok(width) = value.parse::<f32>()
+                        && width.is_finite()
+                    {
                         settings.window_size[0] = width.clamp(400.0, 8000.0);
                     }
                 }
                 "window_height" => {
-                    if let Ok(height) = value.parse::<f32>() {
+                    if let Ok(height) = value.parse::<f32>()
+                        && height.is_finite()
+                    {
                         settings.window_size[1] = height.clamp(300.0, 8000.0);
                     }
                 }
@@ -310,5 +315,17 @@ mod tests {
         );
         assert_eq!(Settings::parse("engine_elo = full\n").engine_elo, None);
         assert_eq!(Settings::parse("engine_elo = strong\n").engine_elo, None);
+    }
+
+    #[test]
+    fn limits_stay_inside_the_sliders() {
+        // Stockfish reads depth 0 and movetime 0 as no limit and never stops.
+        let parsed = Settings::parse("engine_depth = 0\nengine_movetime = 0\n");
+        assert_eq!((parsed.engine_depth, parsed.engine_movetime), (5, 100));
+        let parsed = Settings::parse("engine_depth = 99\nengine_movetime = 99999999\n");
+        assert_eq!((parsed.engine_depth, parsed.engine_movetime), (30, 10_000));
+
+        let parsed = Settings::parse("window_width = nan\nwindow_height = inf\n");
+        assert_eq!(parsed.window_size, Settings::default().window_size);
     }
 }

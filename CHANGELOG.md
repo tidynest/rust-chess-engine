@@ -4,6 +4,11 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- The settings file can no longer set a depth or time limit outside the
+  sliders' ranges. Stockfish reads `go depth 0` and `go movetime 0` as no
+  limit, so a hand-edited `0` left the computer thinking for good. A
+  window size of `nan` or `inf` falls back to the default.
+
 - Under ten seconds the clock cuts the tenths instead of rounding them. It
   used to read `0:10.0` between 9.95 and 10 seconds, and could show a
   tenth more than was left.
