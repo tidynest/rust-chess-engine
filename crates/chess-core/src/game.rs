@@ -185,12 +185,9 @@ impl GameHistory {
         }
         pgn.push('\n');
 
-        let black_starts = start.side_to_move() == Color::Black;
-        let first_number = usize::from(start.fullmove_number());
         for (index, san) in self.sans[..self.current_index].iter().enumerate() {
-            let ply = index + usize::from(black_starts);
-            let number = first_number + ply / 2;
-            if ply.is_multiple_of(2) {
+            let (number, white) = self.move_number(index);
+            if white {
                 let _ = write!(pgn, "{number}. ");
             } else if index == 0 {
                 let _ = write!(pgn, "{number}... ");
@@ -242,6 +239,17 @@ impl GameHistory {
 
     pub fn move_count(&self) -> usize {
         self.current_index
+    }
+
+    /// The move number of the move at `index`, counted on from the start
+    /// position's FEN, and whether White plays it.
+    pub fn move_number(&self, index: usize) -> (usize, bool) {
+        let start = self.start_board();
+        let ply = index + usize::from(start.side_to_move() == Color::Black);
+        (
+            usize::from(start.fullmove_number()) + ply / 2,
+            ply.is_multiple_of(2),
+        )
     }
 
     pub fn get_move(&self, index: usize) -> Option<&Move> {
@@ -788,6 +796,20 @@ mod tests {
         let pgn = history.pgn(PgnTags::default());
         assert!(pgn.contains("[SetUp \"1\"]\n[FEN \""), "{pgn}");
         assert!(pgn.ends_with("1... e5 2. Nf3 *"), "{pgn}");
+    }
+
+    #[test]
+    fn test_move_numbers_follow_the_start_position() {
+        let history = GameHistory::new();
+        assert_eq!(history.move_number(0), (1, true));
+        assert_eq!(history.move_number(1), (1, false));
+        assert_eq!(history.move_number(2), (2, true));
+
+        let fen = "4k3/8/8/8/8/8/8/4K3 b - - 0 20";
+        let history = GameHistory::from_fen(fen).unwrap();
+        assert_eq!(history.move_number(0), (20, false));
+        assert_eq!(history.move_number(1), (21, true));
+        assert_eq!(history.move_number(2), (21, false));
     }
 
     #[test]

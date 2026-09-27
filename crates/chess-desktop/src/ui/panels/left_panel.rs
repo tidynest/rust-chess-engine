@@ -53,10 +53,9 @@ pub fn draw(app: &ChessApp, ui: &mut egui::Ui) {
             ui.add_space(theme.space_xs);
             let history = &app.game_history;
             let board = history.current_board();
-            let ply = history.move_count();
             ui.label(format!(
                 "Move {}, {} to play",
-                ply / 2 + 1,
+                board.fullmove_number(),
                 if board.side_to_move() == cozy_chess::Color::White {
                     "White"
                 } else {

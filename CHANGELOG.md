@@ -4,6 +4,11 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- A game set up from a FEN, or opened from a PGN with one, numbers its
+  moves from the FEN's move number in the move list and the Position
+  panel. Both used to count from 1, and with Black to move the move list
+  paired each Black move with the White move after it.
+
 - Two games saved in the same second both keep their files. The second
   save used to overwrite the first; it is now named with a `_2` suffix.
 

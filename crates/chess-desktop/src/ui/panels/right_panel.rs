@@ -351,14 +351,21 @@ fn draw_move_history(app: &mut ChessApp, ui: &mut egui::Ui, max_height: f32) {
             }
 
             let theme = &app.theme;
-            for white_index in (0..total).step_by(2) {
+            // One row per move number; a game set up with Black to move
+            // opens with a row that holds Black's move alone.
+            let mut row_start = 0;
+            while row_start < total {
+                let (number, white) = app.game_history.move_number(row_start);
+                let row_end = (row_start + if white { 2 } else { 1 }).min(total);
                 ui.horizontal(|ui| {
-                    ui.label(
-                        egui::RichText::new(format!("{}.", white_index / 2 + 1))
-                            .color(theme.text_secondary),
-                    );
+                    let number = if white {
+                        format!("{number}.")
+                    } else {
+                        format!("{number}...")
+                    };
+                    ui.label(egui::RichText::new(number).color(theme.text_secondary));
 
-                    for index in white_index..(white_index + 2).min(total) {
+                    for index in row_start..row_end {
                         let san = app.game_history.san(index).unwrap_or("?");
                         let mut text = egui::RichText::new(san);
                         if index + 1 == current {
@@ -376,6 +383,7 @@ fn draw_move_history(app: &mut ChessApp, ui: &mut egui::Ui, max_height: f32) {
                         }
                     }
                 });
+                row_start = row_end;
             }
         });
 
