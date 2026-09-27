@@ -348,6 +348,8 @@ impl ChessApp {
             .then(|| Clock::new(self.clock_minutes, self.clock_increment_s, ply));
         self.timeout = None;
         self.resigned = None;
+        self.confirm_resign = false;
+        self.low_time_second = None;
         self.position_changed();
         self.send(EngineCommand::NewGame);
         self.engine_nodes = 0;

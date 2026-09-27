@@ -2,6 +2,14 @@
 
 Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
+## Unreleased
+
+- A flag fall or a resignation closes the promotion picker and drops the
+  selected piece. Picking a piece after the flag fell used to play the
+  move anyway, after the game had ended. The resign prompt closes too,
+  and a new game closes it, where before it stayed up and offered to
+  resign the game just started.
+
 ## 0.1.4 - 2026-09-27
 
 - Save game, Copy PGN and the CLI's `pgn` write the whole game, with its

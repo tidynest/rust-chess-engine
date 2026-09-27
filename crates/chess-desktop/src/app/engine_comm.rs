@@ -221,7 +221,17 @@ impl ChessApp {
             (true, ComputerSide::Both) => return,
         };
         self.resigned = Some(loser);
+        self.end_game();
+    }
+
+    /// The game stopped off the board, on time or by resignation: drop the
+    /// search and any move half made.
+    fn end_game(&mut self) {
         self.abort_search();
+        self.selected_square = None;
+        self.legal_moves_for_selected.clear();
+        self.pending_promotion = None;
+        self.confirm_resign = false;
         self.cue(Cue::GameOver);
     }
 
@@ -253,8 +263,7 @@ impl ChessApp {
         let remaining = clock.remaining(side);
         if flagged {
             self.timeout = Some(side);
-            self.abort_search();
-            self.cue(Cue::GameOver);
+            self.end_game();
         } else if running {
             // A tick on each new second under ten.
             let second = remaining.as_secs();
@@ -548,6 +557,37 @@ mod tests {
         app.new_game();
         assert_eq!(app.timeout, None);
         assert!(!app.is_game_over());
+    }
+
+    #[test]
+    fn test_a_flag_fall_drops_the_move_half_made() {
+        use crate::app::clock::Clock;
+
+        let mut app = ChessApp::headless();
+        app.game_history = GameHistory::from_fen("4k3/P7/8/8/8/8/8/4K3 b - - 0 1").unwrap();
+        app.clock = Some(Clock::new(1, 0, 0));
+        play(&mut app, &["e8d7"]);
+        app.selected_square = Some(cozy_chess::Square::A7);
+        app.pending_promotion = Some((cozy_chess::Square::A7, cozy_chess::Square::A8));
+        let clock = app.clock.as_mut().unwrap();
+        assert!(clock.tick(ChessColor::White, Instant::now() + Duration::from_secs(61)));
+        app.tick_clock(&egui::Context::default());
+
+        assert_eq!(app.timeout, Some(ChessColor::White));
+        assert_eq!(
+            app.pending_promotion, None,
+            "no piece to pick after the flag"
+        );
+        assert_eq!(app.selected_square, None);
+    }
+
+    #[test]
+    fn test_a_new_game_closes_the_resign_prompt() {
+        let mut app = ChessApp::headless();
+        play(&mut app, &["e2e4"]);
+        app.confirm_resign = true;
+        app.new_game();
+        assert!(!app.confirm_resign, "it would resign the new game");
     }
 
     #[test]
