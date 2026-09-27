@@ -245,9 +245,7 @@ impl ChessApp {
     /// search and any move half made.
     fn end_game(&mut self) {
         self.abort_search();
-        self.selected_square = None;
-        self.legal_moves_for_selected.clear();
-        self.pending_promotion = None;
+        self.drop_half_made_move();
         self.confirm_resign = false;
         self.cue(Cue::GameOver);
     }
@@ -350,12 +348,20 @@ impl ChessApp {
     /// Drop any selection made on the old position and any search still
     /// running on it.
     pub(crate) fn position_changed(&mut self) {
-        self.selected_square = None;
-        self.legal_moves_for_selected.clear();
-        self.pending_promotion = None;
+        self.drop_half_made_move();
         self.analysis_complete = false;
         self.notice = None;
         self.abort_search();
+    }
+
+    /// Forget a piece picked up, dragged, or waiting for its promotion piece.
+    /// A drag in flight would otherwise outlive the board taking input.
+    fn drop_half_made_move(&mut self) {
+        self.selected_square = None;
+        self.legal_moves_for_selected.clear();
+        self.pending_promotion = None;
+        self.dragging_piece = None;
+        self.drag_pos = None;
     }
 
     /// Put the clock back to where it stood at the current ply, after the
@@ -586,6 +592,12 @@ mod tests {
         play(&mut app, &["e8d7"]);
         app.selected_square = Some(cozy_chess::Square::A7);
         app.pending_promotion = Some((cozy_chess::Square::A7, cozy_chess::Square::A8));
+        app.dragging_piece = Some((
+            cozy_chess::Square::A7,
+            cozy_chess::Piece::Pawn,
+            ChessColor::White,
+        ));
+        app.drag_pos = Some(egui::Pos2::ZERO);
         let clock = app.clock.as_mut().unwrap();
         assert!(clock.tick(ChessColor::White, Instant::now() + Duration::from_secs(61)));
         app.tick_clock(&egui::Context::default());
@@ -596,6 +608,8 @@ mod tests {
             "no piece to pick after the flag"
         );
         assert_eq!(app.selected_square, None);
+        assert_eq!(app.dragging_piece, None, "the board takes no drop now");
+        assert_eq!(app.drag_pos, None);
     }
 
     #[test]

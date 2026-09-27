@@ -4,6 +4,11 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- A piece being dragged when the flag falls, or when a takeback or an
+  engine move changes the position, is let go. After a flag fall it used
+  to stay stuck where the pointer was, with its own square empty, into the
+  next game.
+
 - The settings file can no longer set a depth or time limit outside the
   sliders' ranges. Stockfish reads `go depth 0` and `go movetime 0` as no
   limit, so a hand-edited `0` left the computer thinking for good. A
