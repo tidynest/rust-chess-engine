@@ -4,6 +4,9 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- Two games saved in the same second both keep their files. The second
+  save used to overwrite the first; it is now named with a `_2` suffix.
+
 - The eval bar is greyed out until a search reports a score. When the
   engine refused every search, the bar sat at an even split with no
   number, which looked like an equal position.

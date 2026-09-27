@@ -1,7 +1,7 @@
 //! Games saved as PGN files in the user's data directory, named by the
 //! moment they were saved.
 
-use std::io;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -12,7 +12,8 @@ pub fn dir() -> Option<PathBuf> {
     Some(app_dir("XDG_DATA_HOME", "LOCALAPPDATA", ".local/share")?.join("games"))
 }
 
-/// Write `pgn` as `YYYY-MM-DD_HHMMSS.pgn` in the games directory.
+/// Write `pgn` as `YYYY-MM-DD_HHMMSS.pgn` in the games directory, never
+/// over an existing file.
 pub fn save(pgn: &str) -> io::Result<PathBuf> {
     let dir = dir().ok_or_else(|| io::Error::other("no home directory"))?;
     save_in(&dir, pgn)
@@ -32,11 +33,24 @@ pub fn today() -> String {
 fn save_in(dir: &Path, pgn: &str) -> io::Result<PathBuf> {
     std::fs::create_dir_all(dir)?;
     let (year, month, day, hour, minute, second) = utc_now();
-    let path = dir.join(format!(
-        "{year:04}-{month:02}-{day:02}_{hour:02}{minute:02}{second:02}.pgn"
-    ));
-    std::fs::write(&path, pgn)?;
-    Ok(path)
+    let stem = format!("{year:04}-{month:02}-{day:02}_{hour:02}{minute:02}{second:02}");
+    // A second save in the same second gets `_2`, then `_3`: `.` sorts
+    // before `_`, so the later save still lists first.
+    for n in 1.. {
+        let path = match n {
+            1 => dir.join(format!("{stem}.pgn")),
+            _ => dir.join(format!("{stem}_{n}.pgn")),
+        };
+        match std::fs::File::create_new(&path) {
+            Ok(mut file) => {
+                file.write_all(pgn.as_bytes())?;
+                return Ok(path);
+            }
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {}
+            Err(e) => return Err(e),
+        }
+    }
+    unreachable!("a directory cannot hold a file for every number")
 }
 
 fn list_in(dir: &Path, limit: usize) -> Vec<PathBuf> {
@@ -118,7 +132,13 @@ mod tests {
         assert_eq!(listed.len(), 3);
         assert_eq!(listed[0], saved);
         assert!(listed[2].ends_with("2026-01-01_000000.pgn"));
-        assert_eq!(list_in(&dir, 1), vec![saved]);
+        assert_eq!(list_in(&dir, 1), vec![saved.clone()]);
+
+        // A second save in the same second must not overwrite the first.
+        let again = save_in(&dir, "1. d4 *").unwrap();
+        assert_ne!(again, saved);
+        assert_eq!(std::fs::read_to_string(&saved).unwrap(), "1. e4 *");
+        assert_eq!(list_in(&dir, 1), vec![again]);
 
         std::fs::remove_dir_all(&dir).unwrap();
         assert!(list_in(&dir, 10).is_empty());
