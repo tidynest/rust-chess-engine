@@ -44,7 +44,13 @@ impl ChessApp {
                     self.engine_thinking = false;
                     self.play_vs_computer = false;
                 }
-                EngineEvent::Error(message) => self.notice = Some(format!("Engine: {message}")),
+                // A line the engine was not expected to print is about the
+                // engine, not the position, so even a stale search shows it.
+                EngineEvent::Error(message)
+                | EngineEvent::Search {
+                    response: EngineResponse::Error(message),
+                    ..
+                } => self.notice = Some(format!("Engine: {message}")),
                 // A reply to a position the user has already left.
                 EngineEvent::Search { id, .. } if id != self.search_id => {}
                 EngineEvent::Search {
@@ -529,6 +535,29 @@ mod tests {
         tx.send(best(7)).unwrap();
         assert_eq!(app.poll_engine_responses(), Some("e2e4".to_owned()));
         assert!(!app.engine_thinking);
+    }
+
+    #[test]
+    fn test_engine_errors_during_a_search_reach_the_notice_bar() {
+        let mut app = ChessApp::headless();
+        let (tx, rx) = std::sync::mpsc::channel();
+        app.engine_rx = Some(rx);
+        app.search_id = 7;
+        let error = |id, line: &str| EngineEvent::Search {
+            id,
+            response: EngineResponse::Error(line.to_owned()),
+        };
+
+        tx.send(error(7, "Unknown command: 'go depht 3'")).unwrap();
+        app.poll_engine_responses();
+        assert_eq!(
+            app.notice.as_deref(),
+            Some("Engine: Unknown command: 'go depht 3'")
+        );
+
+        tx.send(error(6, "No such option: Hash")).unwrap();
+        app.poll_engine_responses();
+        assert_eq!(app.notice.as_deref(), Some("Engine: No such option: Hash"));
     }
 
     #[test]

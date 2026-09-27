@@ -4,6 +4,10 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- A line Stockfish prints during a search that the app does not expect,
+  such as a refused command, now appears in the notice bar. It used to be
+  dropped without a word. Normal searches print none of these.
+
 - The eval bar only shows while Stockfish is running. When the engine
   failed during analysis, the bar used to stay up at an even split with no
   number, which looked like an equal position. It also stays hidden while
