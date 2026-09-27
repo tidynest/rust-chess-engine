@@ -296,7 +296,7 @@ impl ChessApp {
 
     /// Write the game to the games directory and say where, or why not.
     pub fn save_game(&mut self) {
-        if self.game_history.move_count() == 0 {
+        if self.game_history.total_moves() == 0 {
             return;
         }
         self.notice = Some(match games::save(&self.pgn()) {

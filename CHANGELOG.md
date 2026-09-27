@@ -4,6 +4,12 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- Save game, Copy PGN and the CLI's `pgn` write the whole game, with its
+  real result, whichever move is on screen. After stepping back they used
+  to stop at the move shown, so a saved game could lose its last moves,
+  and a resigned game kept its result on a shortened list. Save also works
+  while the start position is on screen.
+
 - The CLI exits when its input ends, by Ctrl+D or at the end of piped
   commands. It used to redraw the board in an endless loop.
 

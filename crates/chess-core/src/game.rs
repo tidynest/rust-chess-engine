@@ -37,6 +37,7 @@ impl DrawReason {
 
 /// Game state with full move history for undo/redo. Each move's SAN is
 /// computed once, when it is played.
+#[derive(Clone)]
 pub struct GameHistory {
     positions: Vec<Board>,
     moves: Vec<Move>,
@@ -167,9 +168,19 @@ impl GameHistory {
     }
 
     /// The game as PGN: the seven-tag roster, a FEN tag when the game did not
-    /// start from the initial position, then the moves up to the current one.
+    /// start from the initial position, then every move, including those
+    /// stepped back past. A record of the game should not depend on which
+    /// move is on screen.
     pub fn pgn(&self, tags: PgnTags<'_>) -> String {
-        self.pgn_with_result(tags, self.result())
+        self.pgn_with_result(tags, self.at_end().result())
+    }
+
+    /// This game moved on to its last move.
+    pub fn at_end(&self) -> Self {
+        Self {
+            current_index: self.moves.len(),
+            ..self.clone()
+        }
     }
 
     /// `pgn` with a result the board cannot know, such as a loss on time.
@@ -185,7 +196,7 @@ impl GameHistory {
         }
         pgn.push('\n');
 
-        for (index, san) in self.sans[..self.current_index].iter().enumerate() {
+        for (index, san) in self.sans.iter().enumerate() {
             let (number, white) = self.move_number(index);
             if white {
                 let _ = write!(pgn, "{number}. ");
@@ -743,12 +754,13 @@ mod tests {
         assert!(pgn.ends_with("1. f3 e5 2. g4 Qh4# 0-1"), "{pgn}");
         assert!(!pgn.contains("[FEN"));
 
+        // Stepping back changes the view, not the record.
         history.undo();
-        assert!(
-            history
-                .pgn(PgnTags::default())
-                .ends_with("1. f3 e5 2. g4 *")
-        );
+        history.undo();
+        let pgn = history.pgn(PgnTags::default());
+        assert!(pgn.contains("[Result \"0-1\"]"), "{pgn}");
+        assert!(pgn.ends_with("1. f3 e5 2. g4 Qh4# 0-1"), "{pgn}");
+        assert_eq!(history.move_count(), 2);
     }
 
     #[test]

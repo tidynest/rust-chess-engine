@@ -54,7 +54,7 @@ fn draw_game_menu(app: &mut ChessApp, ui: &mut egui::Ui) {
 
         if ui
             .add_enabled(
-                app.game_history.move_count() > 0,
+                app.game_history.total_moves() > 0,
                 egui::Button::new("Save game").shortcut_text("Ctrl+S"),
             )
             .clicked()

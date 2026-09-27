@@ -226,11 +226,12 @@ impl ChessApp {
     }
 
     /// The result for the PGN, including a loss on time or by resignation.
+    /// It is the whole game's, whichever move is on screen.
     pub(crate) fn result(&self) -> &'static str {
         match self.timeout.or(self.resigned) {
             Some(ChessColor::White) => "0-1",
             Some(ChessColor::Black) => "1-0",
-            None => self.game_history.result(),
+            None => self.game_history.at_end().result(),
         }
     }
 
