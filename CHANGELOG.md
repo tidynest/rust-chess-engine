@@ -4,6 +4,10 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- In the CLI, an engine that answers with an illegal move no longer ends
+  the program. The CLI says what it sent and carries on without an
+  opponent, as it already did for an engine that stops.
+
 - In the CLI, `undo` against Stockfish takes back its reply and your move
   together, and `redo` replays both. It used to take back only the reply,
   so your next move was made for Stockfish's side and it answered for

@@ -182,18 +182,20 @@ fn main() -> Result<()> {
                     && !game.is_over()
                 {
                     // The game outlives the engine; `play` starts a new one.
-                    let reply = match stockfish.best_move(&game.uci_position()) {
-                        Ok(reply) => reply,
+                    let reply = stockfish.best_move(&game.uci_position()).and_then(|reply| {
+                        notation::parse_uci(game.current_board(), &reply)
+                            .with_context(|| format!("it sent {reply}, which is not legal here"))
+                    });
+                    match reply {
+                        Ok(mv) => {
+                            game.make_move(mv);
+                            announce(&game, "Stockfish played");
+                        }
                         Err(e) => {
                             println!("Stockfish stopped: {e:#}");
                             opponent = None;
-                            continue;
                         }
-                    };
-                    let mv = notation::parse_uci(game.current_board(), &reply)
-                        .with_context(|| format!("engine sent {reply:?}"))?;
-                    game.make_move(mv);
-                    announce(&game, "Stockfish played");
+                    }
                 }
             }
         }
