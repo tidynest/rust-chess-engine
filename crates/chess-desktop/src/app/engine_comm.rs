@@ -37,6 +37,8 @@ impl ChessApp {
             match event {
                 EngineEvent::Ready => {
                     self.engine_status = EngineStatus::Ready;
+                    // A new process starts with one line, whatever the last one had.
+                    self.engine_multipv = 1;
                     self.send_engine_options();
                 }
                 EngineEvent::Failed(message) => {
@@ -733,6 +735,30 @@ mod tests {
         assert_eq!(app.engine_lines.len(), 1, "only the first line survives");
         app.start_search(SearchKind::Play);
         assert_eq!(app.engine_multipv, 1);
+    }
+
+    #[test]
+    fn test_a_restarted_engine_is_sent_the_lines_again() {
+        let mut app = ChessApp::headless();
+        let (tx, rx) = std::sync::mpsc::channel();
+        app.engine_rx = Some(rx);
+        let (commands, mut engine_side) = tokio::sync::mpsc::unbounded_channel();
+        app.engine_tx = Some(commands);
+        app.analysis_lines = 3;
+        app.engine_multipv = 3;
+
+        // "Try again" starts a new process, which has MultiPV at its default.
+        tx.send(EngineEvent::Ready).unwrap();
+        app.poll_engine_responses();
+        app.start_search(SearchKind::Analyse);
+        let sent: Vec<EngineCommand> = std::iter::from_fn(|| engine_side.try_recv().ok()).collect();
+        assert!(
+            sent.iter().any(|command| matches!(
+                command,
+                EngineCommand::SetOption { name, value } if name == "MultiPV" && value == "3"
+            )),
+            "{sent:?}"
+        );
     }
 
     #[test]

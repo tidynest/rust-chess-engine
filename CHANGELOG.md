@@ -4,6 +4,10 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- After "Try again" restarts Stockfish, analysis asks the new engine for
+  the number of lines again. It used to go on assuming the old engine's
+  setting, so with three lines chosen the new one showed only one.
+
 - A piece being dragged when the flag falls, or when a takeback or an
   engine move changes the position, is let go. After a flag fall it used
   to stay stuck where the pointer was, with its own square empty, into the
