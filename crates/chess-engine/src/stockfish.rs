@@ -112,7 +112,9 @@ impl StockfishEngine {
         Self::spawn(Command::new(path))
     }
 
-    fn spawn(mut command: Command) -> Result<Self> {
+    /// Start the engine `command` runs, for an engine that needs arguments
+    /// or a stand-in in tests.
+    pub fn spawn(mut command: Command) -> Result<Self> {
         let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

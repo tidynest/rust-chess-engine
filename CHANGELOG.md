@@ -4,6 +4,11 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- When the engine refuses a search, for instance because it has no
+  `UCI_Elo` option, the notice bar says so and the board takes moves
+  again. The board used to wait for a reply that never came, and in a game
+  against the computer nothing could be played.
+
 - A game clock started on an opened PGN now follows takebacks. It used to
   lose track of the moves: undo left the time as it was, and a look back
   at the start stopped the clock for the side to move until they moved.

@@ -51,6 +51,18 @@ impl ChessApp {
                     response: EngineResponse::Error(message),
                     ..
                 } => self.notice = Some(format!("Engine: {message}")),
+                EngineEvent::SearchFailed { id, message } => {
+                    self.notice = Some(format!("Engine: {message}"));
+                    if id == self.search_id {
+                        self.engine_thinking = false;
+                        // Asking again at once would fail the same way on
+                        // every frame; the next move or position tries again.
+                        match self.search_kind {
+                            SearchKind::Play => self.disable_auto_request = true,
+                            SearchKind::Analyse => self.analysis_complete = true,
+                        }
+                    }
+                }
                 // A reply to a position the user has already left.
                 EngineEvent::Search { id, .. } if id != self.search_id => {}
                 EngineEvent::Search {
@@ -582,6 +594,38 @@ mod tests {
         tx.send(error(6, "No such option: Hash")).unwrap();
         app.poll_engine_responses();
         assert_eq!(app.notice.as_deref(), Some("Engine: No such option: Hash"));
+    }
+
+    #[test]
+    fn test_a_search_that_cannot_start_frees_the_board() {
+        let mut app = ChessApp::headless();
+        let (tx, rx) = std::sync::mpsc::channel();
+        app.engine_rx = Some(rx);
+        let (commands, _engine_side) = tokio::sync::mpsc::unbounded_channel();
+        app.engine_tx = Some(commands);
+        app.engine_status = EngineStatus::Ready;
+        app.play_vs_computer = true;
+        app.computer_side = ComputerSide::White;
+
+        app.auto_request();
+        assert!(app.waiting_for_engine_move());
+        tx.send(EngineEvent::SearchFailed {
+            id: app.search_id,
+            message: "No such option: UCI_Elo".to_owned(),
+        })
+        .unwrap();
+        app.poll_engine_responses();
+        assert!(!app.waiting_for_engine_move());
+        assert_eq!(
+            app.notice.as_deref(),
+            Some("Engine: No such option: UCI_Elo")
+        );
+
+        app.auto_request();
+        assert!(!app.engine_thinking, "no retry until the position changes");
+        play(&mut app, &["e2e4", "e7e5"]);
+        app.auto_request();
+        assert!(app.waiting_for_engine_move());
     }
 
     #[test]

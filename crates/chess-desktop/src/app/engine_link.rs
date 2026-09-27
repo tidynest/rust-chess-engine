@@ -47,6 +47,11 @@ pub enum EngineEvent {
     },
     /// A command the engine refused; the thread carries on.
     Error(String),
+    /// The search with this id could not start, so no reply to it follows.
+    SearchFailed {
+        id: u64,
+        message: String,
+    },
     /// The process could not be started or went away. Nothing follows.
     Failed(String),
 }
@@ -75,17 +80,23 @@ pub fn spawn(
             ctx.request_repaint();
         };
         match runtime {
-            Ok(runtime) => runtime.block_on(run(commands, &emit)),
+            Ok(runtime) => runtime.block_on(async {
+                match start().await {
+                    Ok(engine) => run(engine, commands, &emit).await,
+                    Err(e) => emit(EngineEvent::Failed(format!("{e:#}"))),
+                }
+            }),
             Err(e) => emit(EngineEvent::Failed(format!("engine runtime: {e}"))),
         }
     });
 }
 
-async fn run(mut commands: UnboundedReceiver<EngineCommand>, emit: &dyn Fn(EngineEvent)) {
-    let mut engine = match start().await {
-        Ok(engine) => engine,
-        Err(e) => return emit(EngineEvent::Failed(format!("{e:#}"))),
-    };
+/// Serve `commands` with a started engine until they end or `Quit` arrives.
+async fn run(
+    mut engine: StockfishEngine,
+    mut commands: UnboundedReceiver<EngineCommand>,
+    emit: &dyn Fn(EngineEvent),
+) {
     emit(EngineEvent::Ready);
 
     // Id of the search Stockfish is working on, if any.
@@ -111,7 +122,10 @@ async fn run(mut commands: UnboundedReceiver<EngineCommand>, emit: &dyn Fn(Engin
                 Some(EngineCommand::Search(request)) => {
                     finish_search(&mut engine, &mut current, emit).await;
                     if let Err(e) = start_search(&mut engine, &request).await {
-                        emit(EngineEvent::Error(format!("search: {e:#}")));
+                        emit(EngineEvent::SearchFailed {
+                            id: request.id,
+                            message: format!("{e:#}"),
+                        });
                         continue;
                     }
                     current = Some(request.id);
@@ -218,6 +232,53 @@ mod tests {
             limit: SearchLimit::Depth(depth),
             elo: None,
         })
+    }
+
+    /// Replies to each command the thread sends, as `sh` case arms.
+    #[cfg(unix)]
+    async fn fake_engine(arms: &str) -> StockfishEngine {
+        let mut command = tokio::process::Command::new("sh");
+        command.arg("-c").arg(format!(
+            "while read cmd; do case $cmd in \
+             uci) echo uciok;; isready) echo readyok;; quit) exit;; {arms} esac; done"
+        ));
+        let mut engine = StockfishEngine::spawn(command).unwrap();
+        engine.initialise().await.unwrap();
+        engine
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_search_the_engine_refuses_is_reported_by_id() {
+        let engine = fake_engine(
+            "*UCI_LimitStrength*) echo 'No such option: UCI_LimitStrength';; \
+             go*) echo 'bestmove e2e4';;",
+        )
+        .await;
+        let (tx, commands) = tokio::sync::mpsc::unbounded_channel();
+        let (events, rx) = std::sync::mpsc::channel();
+        let mut limited = search(1, "startpos", 1);
+        if let EngineCommand::Search(request) = &mut limited {
+            request.elo = Some(1500);
+        }
+        tx.send(limited).unwrap();
+        // NewGame waits out any running search, so every reply is in by the end.
+        tx.send(EngineCommand::NewGame).unwrap();
+        drop(tx);
+        run(engine, commands, &|event| {
+            let _ = events.send(event);
+        })
+        .await;
+
+        let events: Vec<EngineEvent> = rx.try_iter().collect();
+        assert!(
+            events.iter().any(|event| matches!(
+                event,
+                EngineEvent::SearchFailed { id: 1, message }
+                    if message == "No such option: UCI_LimitStrength"
+            )),
+            "{events:?}"
+        );
     }
 
     #[test]
