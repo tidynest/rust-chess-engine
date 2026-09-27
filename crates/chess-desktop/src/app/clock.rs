@@ -11,19 +11,25 @@ pub struct Clock {
     started: bool,
     /// When the running side was last charged; `None` while paused.
     last_tick: Option<Instant>,
-    /// Both times after each ply, so a takeback can put them back.
+    /// Both times after each ply, so a takeback can put them back. Plies
+    /// played before the clock existed, as in a loaded game, keep the
+    /// starting times.
     snapshots: Vec<[Duration; 2]>,
+    /// The ply the first timed move was played from.
+    first_ply: usize,
 }
 
 impl Clock {
-    pub fn new(minutes: u32, increment_seconds: u32) -> Self {
+    /// A clock for a game that stands at `ply` moves; those moves are untimed.
+    pub fn new(minutes: u32, increment_seconds: u32, ply: usize) -> Self {
         let remaining = [Duration::from_secs(u64::from(minutes) * 60); 2];
         Self {
             remaining,
             increment: Duration::from_secs(u64::from(increment_seconds)),
             started: false,
             last_tick: None,
-            snapshots: vec![remaining],
+            snapshots: vec![remaining; ply + 1],
+            first_ply: ply,
         }
     }
 
@@ -65,6 +71,7 @@ impl Clock {
         self.started = true;
         self.last_tick = Some(now);
         self.remaining[mover as usize] += self.increment;
+        self.first_ply = self.first_ply.min(ply.saturating_sub(1));
         self.snapshots.truncate(ply);
         self.snapshots.push(self.remaining);
     }
@@ -75,7 +82,7 @@ impl Clock {
     pub fn restore(&mut self, ply: usize) {
         if let Some(&remaining) = self.snapshots.get(ply) {
             self.remaining = remaining;
-            self.started = ply > 0;
+            self.started = ply > self.first_ply;
             self.last_tick = None;
         }
     }
@@ -98,7 +105,7 @@ mod tests {
 
     #[test]
     fn first_move_is_free_and_increment_is_added() {
-        let mut clock = Clock::new(1, 2);
+        let mut clock = Clock::new(1, 2, 0);
         let t0 = Instant::now();
         assert!(!clock.tick(Color::White, t0 + Duration::from_secs(30)));
         assert_eq!(clock.remaining(Color::White), Duration::from_secs(60));
@@ -113,7 +120,7 @@ mod tests {
 
     #[test]
     fn pause_skips_the_gap() {
-        let mut clock = Clock::new(1, 0);
+        let mut clock = Clock::new(1, 0, 0);
         let t0 = Instant::now();
         clock.press(Color::White, t0, 1);
         clock.pause();
@@ -123,7 +130,7 @@ mod tests {
 
     #[test]
     fn takeback_restores_both_clocks() {
-        let mut clock = Clock::new(1, 0);
+        let mut clock = Clock::new(1, 0, 0);
         let t0 = Instant::now();
         clock.press(Color::White, t0, 1);
         clock.press(Color::Black, t0 + Duration::from_secs(20), 2);
@@ -145,6 +152,25 @@ mod tests {
         clock.press(Color::Black, t0 + Duration::from_secs(25), 2);
         clock.restore(2);
         assert_eq!(clock.remaining(Color::Black), Duration::from_secs(60));
+    }
+
+    #[test]
+    fn a_game_loaded_mid_way_times_only_new_moves() {
+        let mut clock = Clock::new(1, 0, 4);
+        let t0 = Instant::now();
+        clock.restore(2);
+        assert!(!clock.tick(Color::White, t0));
+        assert_eq!(clock.remaining(Color::White), Duration::from_secs(60));
+
+        // A move from inside the loaded moves starts the clock from there.
+        clock.press(Color::White, t0, 3);
+        clock.restore(3);
+        clock.tick(Color::Black, t0);
+        clock.tick(Color::Black, t0 + Duration::from_secs(10));
+        assert_eq!(clock.remaining(Color::Black), Duration::from_secs(50));
+        clock.restore(2);
+        assert!(!clock.tick(Color::White, t0 + Duration::from_secs(20)));
+        assert_eq!(clock.remaining(Color::White), Duration::from_secs(60));
     }
 
     #[test]

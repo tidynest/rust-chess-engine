@@ -4,6 +4,10 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- A game clock started on an opened PGN now follows takebacks. It used to
+  lose track of the moves: undo left the time as it was, and a look back
+  at the start stopped the clock for the side to move until they moved.
+
 - A line Stockfish prints during a search that the app does not expect,
   such as a refused command, now appears in the notice bar. It used to be
   dropped without a word. Normal searches print none of these.

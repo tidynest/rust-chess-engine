@@ -462,7 +462,7 @@ mod tests {
         use crate::app::clock::Clock;
 
         let mut app = ChessApp::headless();
-        app.clock = Some(Clock::new(5, 0));
+        app.clock = Some(Clock::new(5, 0, 0));
         play(&mut app, &["e2e4"]);
         let clock = app.clock.as_mut().unwrap();
         clock.tick(ChessColor::Black, Instant::now() + Duration::from_secs(30));
@@ -472,6 +472,30 @@ mod tests {
         let clock = app.clock.as_ref().unwrap();
         assert_eq!(clock.remaining(ChessColor::Black), Duration::from_secs(300));
         assert!(!clock.is_running());
+    }
+
+    #[test]
+    fn test_clock_on_a_loaded_game_follows_takebacks() {
+        let mut app = ChessApp::headless();
+        app.clock_enabled = true;
+        app.clock_increment_s = 0;
+        app.start_game(GameHistory::from_pgn("1. e4 e5").unwrap());
+        play(&mut app, &["g1f3"]);
+        let clock = app.clock.as_mut().unwrap();
+        clock.tick(ChessColor::Black, Instant::now() + Duration::from_secs(30));
+
+        app.undo();
+        let clock = app.clock.as_ref().unwrap();
+        assert_eq!(clock.remaining(ChessColor::Black), Duration::from_secs(300));
+
+        // Back at the live end after a look at the start, Black's clock runs.
+        app.jump_to_ply(0);
+        app.jump_to_ply(3);
+        let clock = app.clock.as_mut().unwrap();
+        let t0 = Instant::now();
+        clock.tick(ChessColor::Black, t0);
+        clock.tick(ChessColor::Black, t0 + Duration::from_secs(10));
+        assert_eq!(clock.remaining(ChessColor::Black), Duration::from_secs(290));
     }
 
     #[test]
@@ -497,7 +521,7 @@ mod tests {
         use crate::app::clock::Clock;
 
         let mut app = ChessApp::headless();
-        app.clock = Some(Clock::new(1, 0));
+        app.clock = Some(Clock::new(1, 0, 0));
         play(&mut app, &["e2e4"]);
         // Black is on the clock; charge it past zero, then let a frame notice.
         let clock = app.clock.as_mut().unwrap();

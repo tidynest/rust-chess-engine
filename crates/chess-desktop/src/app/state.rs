@@ -341,10 +341,11 @@ impl ChessApp {
 
     /// Replace the game with `history` and tell the engine to forget the old one.
     pub fn start_game(&mut self, history: GameHistory) {
+        let ply = history.move_count();
         self.game_history = history;
         self.clock = self
             .clock_enabled
-            .then(|| Clock::new(self.clock_minutes, self.clock_increment_s));
+            .then(|| Clock::new(self.clock_minutes, self.clock_increment_s, ply));
         self.timeout = None;
         self.resigned = None;
         self.position_changed();
