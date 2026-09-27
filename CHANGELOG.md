@@ -4,6 +4,11 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- The eval bar only shows while Stockfish is running. When the engine
+  failed during analysis, the bar used to stay up at an even split with no
+  number, which looked like an equal position. It also stays hidden while
+  the engine is still starting.
+
 - `master` on GitHub is protected: pull requests need the CI jobs to pass,
   and nobody can force-push to it or delete it.
 

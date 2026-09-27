@@ -174,9 +174,15 @@ impl ChessApp {
         self.engine_thinking && self.search_kind == SearchKind::Play
     }
 
-    /// True when the engine panel and the eval bar have something to show.
+    /// True when the engine panel has something to show.
     pub(crate) fn engine_in_use(&self) -> bool {
         self.play_vs_computer || self.analysis
+    }
+
+    /// True when the eval bar is on screen. Without a running engine it
+    /// would sit at an even split, which reads as "the position is equal".
+    pub(crate) fn shows_eval_bar(&self) -> bool {
+        self.show_eval_bar && self.engine_in_use() && self.engine_status == EngineStatus::Ready
     }
 
     /// Mate, a draw, a flag fall or a resignation.
@@ -411,6 +417,17 @@ mod tests {
             let mv = notation::parse_uci(app.game_history.current_board(), mv).unwrap();
             app.play_move(mv);
         }
+    }
+
+    #[test]
+    fn test_eval_bar_shows_only_while_the_engine_runs() {
+        let mut app = ChessApp::headless();
+        app.analysis = true;
+        assert!(!app.shows_eval_bar(), "still starting");
+        app.engine_status = EngineStatus::Ready;
+        assert!(app.shows_eval_bar());
+        app.engine_status = EngineStatus::Failed("gone".to_owned());
+        assert!(!app.shows_eval_bar());
     }
 
     #[test]

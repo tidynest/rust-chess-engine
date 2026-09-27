@@ -63,7 +63,7 @@ fn calculate_board_dimensions(app: &ChessApp, ui: &egui::Ui) -> (f32, f32, f32) 
     let spacing = app.theme.space_xs;
 
     // Board size: as large as the panel allows, within limits
-    let max_board_size = if app.engine_in_use() && app.show_eval_bar {
+    let max_board_size = if app.shows_eval_bar() {
         // Reserve space for the eval bar and its spacing
         let available_width = available.x - eval_bar_width - spacing - 20.0;
         available_width.min(available.y - 100.0).clamp(240.0, 900.0)
@@ -89,7 +89,7 @@ fn draw_board_and_eval_bar(
 
     ui.horizontal(|ui| {
         // Calculate total width needed
-        let total_width = if app.engine_in_use() && app.show_eval_bar {
+        let total_width = if app.shows_eval_bar() {
             max_board_size + eval_bar_width + spacing
         } else {
             max_board_size
@@ -114,7 +114,7 @@ fn draw_board_and_eval_bar(
         });
 
         // Draw eval bar if enabled
-        if app.engine_in_use() && app.show_eval_bar {
+        if app.shows_eval_bar() {
             ui.add_space(spacing);
             ui.allocate_ui_with_layout(
                 Vec2::new(eval_bar_width, max_board_size),
