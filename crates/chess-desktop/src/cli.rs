@@ -48,8 +48,8 @@ fn print_help() {
     println!("    quit      - Exit the game");
     println!("    new       - Start a new game");
     println!("    moves     - Show all legal moves");
-    println!("    undo      - Take back the last move");
-    println!("    redo      - Replay a move taken back");
+    println!("    undo      - Take back the last move, and Stockfish's reply");
+    println!("    redo      - Replay what undo took back");
     println!("    pgn       - Print the game as PGN");
     println!("    fen       - Print the position as FEN");
     println!("    fen <fen> - Set up a position");
@@ -67,6 +67,16 @@ fn show_legal_moves(board: &cozy_chess::Board) {
     for chunk in listed.chunks(10) {
         println!("  {}", chunk.join("  "));
     }
+}
+
+/// Take `one` step through the history `plies` times; false when no step
+/// was possible.
+fn step(game: &mut GameHistory, one: fn(&mut GameHistory) -> bool, plies: usize) -> bool {
+    let mut moved = false;
+    for _ in 0..plies {
+        moved |= one(game);
+    }
+    moved
 }
 
 /// Say what the last move of the history was.
@@ -115,6 +125,8 @@ fn main() -> Result<()> {
         io::stdin().read_line(&mut input)?;
         let input = input.trim();
 
+        // Against Stockfish a takeback includes its reply, so you keep your side.
+        let plies = 1 + usize::from(opponent.is_some());
         match input.to_lowercase().as_str() {
             "" => {}
             "quit" | "exit" | "q" => {
@@ -128,12 +140,12 @@ fn main() -> Result<()> {
             }
             "moves" | "m" => show_legal_moves(game.current_board()),
             "undo" | "u" => {
-                if !game.undo() {
+                if !step(&mut game, GameHistory::undo, plies) {
                     println!("Nothing to undo");
                 }
             }
             "redo" | "r" => {
-                if !game.redo() {
+                if !step(&mut game, GameHistory::redo, plies) {
                     println!("Nothing to redo");
                 }
             }

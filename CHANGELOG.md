@@ -4,6 +4,11 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- In the CLI, `undo` against Stockfish takes back its reply and your move
+  together, and `redo` replays both. It used to take back only the reply,
+  so your next move was made for Stockfish's side and it answered for
+  yours.
+
 - The strength options go to the engine only when the strength changes,
   not before every search. An engine without `UCI_LimitStrength`, such as
   Stockfish before version 11, now plays at full strength instead of
