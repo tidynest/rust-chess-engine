@@ -2,7 +2,7 @@
 
 Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
-## Unreleased
+## 0.1.4 - 2026-09-27
 
 - Save game, Copy PGN and the CLI's `pgn` write the whole game, with its
   real result, whichever move is on screen. After stepping back they used
