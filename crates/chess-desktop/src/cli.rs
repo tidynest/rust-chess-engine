@@ -79,6 +79,15 @@ fn step(game: &mut GameHistory, one: fn(&mut GameHistory) -> bool, plies: usize)
     moved
 }
 
+/// Print `text` and read a line; `None` once input has ended, by Ctrl+D or
+/// the end of a pipe.
+fn prompt(text: &str) -> io::Result<Option<String>> {
+    print!("{text}");
+    io::stdout().flush()?;
+    let mut line = String::new();
+    Ok((io::stdin().read_line(&mut line)? > 0).then_some(line))
+}
+
 /// Say what the last move of the history was.
 fn announce(game: &GameHistory, who: &str) {
     let san = game
@@ -105,24 +114,18 @@ fn main() -> Result<()> {
 
         if game.is_over() {
             println!("\nGame Over!");
-            print!("Play again? (y/n): ");
-            io::stdout().flush()?;
-
-            let mut input = String::new();
-            io::stdin().read_line(&mut input)?;
-
-            if input.trim().eq_ignore_ascii_case("y") {
+            let again = prompt("Play again? (y/n): ")?;
+            if again.is_some_and(|answer| answer.trim().eq_ignore_ascii_case("y")) {
                 game = GameHistory::new();
                 continue;
             }
             break;
         }
 
-        print!("\nEnter move: ");
-        io::stdout().flush()?;
-
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
+        let Some(input) = prompt("\nEnter move: ")? else {
+            println!();
+            break;
+        };
         let input = input.trim();
 
         // Against Stockfish a takeback includes its reply, so you keep your side.

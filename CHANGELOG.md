@@ -4,6 +4,9 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- The CLI exits when its input ends, by Ctrl+D or at the end of piped
+  commands. It used to redraw the board in an endless loop.
+
 - A game set up from a FEN, or opened from a PGN with one, numbers its
   moves from the FEN's move number in the move list and the Position
   panel. Both used to count from 1, and with Black to move the move list
