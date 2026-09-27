@@ -4,6 +4,10 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- The eval bar is greyed out until a search reports a score. When the
+  engine refused every search, the bar sat at an even split with no
+  number, which looked like an equal position.
+
 - In the CLI, an engine that answers with an illegal move no longer ends
   the program. The CLI says what it sent and carries on without an
   opponent, as it already did for an engine that stops.

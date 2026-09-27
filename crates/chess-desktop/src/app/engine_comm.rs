@@ -198,7 +198,7 @@ impl ChessApp {
     }
 
     /// True when the eval bar is on screen. Without a running engine it
-    /// would sit at an even split, which reads as "the position is equal".
+    /// would stay greyed out for good, so the board takes its width.
     pub(crate) fn shows_eval_bar(&self) -> bool {
         self.show_eval_bar && self.engine_in_use() && self.engine_status == EngineStatus::Ready
     }

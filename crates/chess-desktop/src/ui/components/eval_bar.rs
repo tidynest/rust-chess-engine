@@ -39,11 +39,17 @@ pub fn draw(app: &ChessApp, ui: &mut Ui) {
 
     painter.rect_filled(rect, radius, theme.text_secondary);
     let inner = rect.shrink(2.0);
+    // Until a search reports a score the bar stays greyed out: an even
+    // split would read as "the position is equal".
+    let Some(score) = app.engine_evaluation() else {
+        painter.rect_filled(inner, radius, theme.text_disabled);
+        return;
+    };
     painter.rect_filled(inner, radius, theme.eval_black);
 
     // White sits at the bottom unless the board is flipped.
     let white_at_bottom = !app.board_flip;
-    let share = app.engine_evaluation().map_or(0.5, white_share);
+    let share = white_share(score);
     let white_height = share * inner.height();
     let white_rect = if white_at_bottom {
         Rect::from_min_max(
@@ -66,10 +72,6 @@ pub fn draw(app: &ChessApp, ui: &mut Ui) {
         ],
         (1.0, theme.text_secondary),
     );
-
-    let Some(score) = app.engine_evaluation() else {
-        return;
-    };
 
     // The label sits at the leading side's edge, on that side's colour.
     let white_leads = share >= 0.5;
