@@ -4,6 +4,10 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- Under ten seconds the clock cuts the tenths instead of rounding them. It
+  used to read `0:10.0` between 9.95 and 10 seconds, and could show a
+  tenth more than was left.
+
 - Analysis runs again when its depth, time limit or mode changes, as it
   already did for the number of lines. A finished analysis used to keep
   its old depth until the position changed.

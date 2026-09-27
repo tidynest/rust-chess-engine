@@ -89,11 +89,10 @@ impl Clock {
 
     /// `m:ss`, with tenths under ten seconds.
     pub fn format(duration: Duration) -> String {
-        let secs = duration.as_secs_f64();
-        if secs < 10.0 {
-            format!("0:{secs:04.1}")
+        let whole = duration.as_secs();
+        if whole < 10 {
+            format!("0:{whole:02}.{}", duration.subsec_millis() / 100)
         } else {
-            let whole = duration.as_secs();
             format!("{}:{:02}", whole / 60, whole % 60)
         }
     }
@@ -177,6 +176,9 @@ mod tests {
     fn formatting() {
         assert_eq!(Clock::format(Duration::from_secs(300)), "5:00");
         assert_eq!(Clock::format(Duration::from_secs(65)), "1:05");
-        assert_eq!(Clock::format(Duration::from_millis(9_870)), "0:09.9");
+        // Tenths are cut, not rounded: the clock never shows more time than is left.
+        assert_eq!(Clock::format(Duration::from_millis(9_870)), "0:09.8");
+        assert_eq!(Clock::format(Duration::from_millis(9_960)), "0:09.9");
+        assert_eq!(Clock::format(Duration::from_millis(60)), "0:00.0");
     }
 }
