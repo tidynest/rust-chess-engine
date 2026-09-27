@@ -151,12 +151,7 @@ impl ChessApp {
                     binc: inc,
                 }
             }
-            _ => match self.engine_mode {
-                EngineMode::Depth => SearchLimit::Depth(self.engine_depth),
-                EngineMode::TimeLimit => {
-                    SearchLimit::MoveTime(self.engine_movetime.unwrap_or(1000))
-                }
-            },
+            _ => self.fixed_limit(),
         };
         let lines = match kind {
             SearchKind::Play => 1,
@@ -184,6 +179,28 @@ impl ChessApp {
         };
         self.search_kind = kind;
         self.engine_thinking = self.send(EngineCommand::Search(request));
+    }
+
+    /// The depth or time a search runs to without a clock.
+    fn fixed_limit(&self) -> SearchLimit {
+        match self.engine_mode {
+            EngineMode::Depth => SearchLimit::Depth(self.engine_depth),
+            EngineMode::TimeLimit => SearchLimit::MoveTime(self.engine_movetime.unwrap_or(1000)),
+        }
+    }
+
+    /// What an analysis runs to: its limit and how many lines it shows.
+    pub(crate) fn analysis_limits(&self) -> (SearchLimit, u32) {
+        (self.fixed_limit(), self.analysis_lines)
+    }
+
+    /// Run the analysis again after its limits changed. A search for the
+    /// computer's move runs on; the analysis follows it.
+    pub(crate) fn restart_analysis(&mut self) {
+        if self.search_kind == SearchKind::Analyse {
+            self.abort_search();
+        }
+        self.analysis_complete = false;
     }
 
     /// True while a search whose result will be played is running; board
@@ -702,6 +719,30 @@ mod tests {
         assert_eq!(app.engine_lines.len(), 1, "only the first line survives");
         app.start_search(SearchKind::Play);
         assert_eq!(app.engine_multipv, 1);
+    }
+
+    #[test]
+    fn test_new_analysis_limits_run_it_again() {
+        let mut app = ChessApp::headless();
+        let before = app.analysis_limits();
+        app.engine_elo = Some(1500);
+        assert_eq!(app.analysis_limits(), before, "strength shapes play only");
+        app.engine_depth += 5;
+        assert_ne!(app.analysis_limits(), before);
+
+        app.analysis_complete = true;
+        app.search_kind = SearchKind::Play;
+        app.engine_thinking = true;
+        app.restart_analysis();
+        assert!(!app.analysis_complete);
+        assert!(
+            app.engine_thinking,
+            "the computer's move is not thrown away"
+        );
+
+        app.search_kind = SearchKind::Analyse;
+        app.restart_analysis();
+        assert!(!app.engine_thinking, "the analysis starts over");
     }
 
     #[test]

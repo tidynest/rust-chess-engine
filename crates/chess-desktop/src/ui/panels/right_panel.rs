@@ -154,6 +154,7 @@ fn draw_color_selection(app: &mut ChessApp, ui: &mut egui::Ui) {
 
 /// Draw engine settings collapsible section
 fn draw_engine_settings(app: &mut ChessApp, ui: &mut egui::Ui) {
+    let limits = app.analysis_limits();
     ui.collapsing("Engine Settings", |ui| {
         ui.checkbox(&mut app.show_eval_bar, "Show evaluation bar");
         ui.separator();
@@ -203,16 +204,10 @@ fn draw_engine_settings(app: &mut ChessApp, ui: &mut egui::Ui) {
 
         if app.analysis {
             ui.separator();
-            let lines = app.analysis_lines;
             ui.horizontal(|ui| {
                 ui.label("Lines:");
                 ui.add(egui::Slider::new(&mut app.analysis_lines, 1..=5));
             });
-            // The running analysis was asked for the old number; start over.
-            if lines != app.analysis_lines {
-                app.abort_search();
-                app.analysis_complete = false;
-            }
         }
 
         ui.separator();
@@ -250,6 +245,10 @@ fn draw_engine_settings(app: &mut ChessApp, ui: &mut egui::Ui) {
             app.send_engine_options();
         }
     });
+    // An analysis that ran to the old depth, time or number of lines starts over.
+    if app.analysis_limits() != limits {
+        app.restart_analysis();
+    }
 }
 
 /// Draw thinking indicator
