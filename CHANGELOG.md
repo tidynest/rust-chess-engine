@@ -4,6 +4,10 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- After the engine refused an option, the next option it refused went
+  unreported: the check for the second one read the first one's "ready"
+  reply and passed. Each refusal is now reported with its own command.
+
 - When the engine refuses a search, for instance because it has no
   `UCI_Elo` option, the notice bar says so and the board takes moves
   again. The board used to wait for a reply that never came, and in a game

@@ -225,17 +225,20 @@ impl StockfishEngine {
         Ok(())
     }
 
-    /// Wait for the engine to be ready
+    /// Wait for the engine to be ready. The first command it refused since
+    /// the last wait is the error; its `readyok` is still read, so the next
+    /// wait does not take it for its own.
     pub async fn wait_ready(&mut self) -> Result<()> {
         self.send_command("isready").await?;
 
         timeout(Duration::from_secs(5), async {
+            let mut refusal = None;
             while let Some(line) = self.next_line().await {
                 if line == "readyok" {
-                    return Ok(());
+                    return refusal.map_or(Ok(()), |line| Err(anyhow::anyhow!("{line}")));
                 }
                 if is_refusal(&line) {
-                    return Err(anyhow::anyhow!("{line}"));
+                    refusal.get_or_insert(line);
                 }
             }
             Err(self.closed_error().context("waiting for readyok"))
@@ -483,13 +486,13 @@ mod tests {
     }
 
     /// A stand-in engine: a shell loop that answers `uci` and `isready` and
-    /// runs `on_go` when asked to search.
+    /// the other commands through `arms`, which are `sh` case arms.
     #[cfg(unix)]
-    fn fake_engine(on_go: &str) -> StockfishEngine {
+    fn fake_engine(arms: &str) -> StockfishEngine {
         let mut command = Command::new("sh");
         command.arg("-c").arg(format!(
             "while read cmd; do case $cmd in \
-             uci) echo uciok;; isready) echo readyok;; go*) {on_go};; \
+             uci) echo uciok;; isready) echo readyok;; {arms} \
              esac; done"
         ));
         StockfishEngine::spawn(command).unwrap()
@@ -510,7 +513,7 @@ mod tests {
             ),
             ("exit 1", "engine closed its output"),
         ] {
-            let mut engine = fake_engine(on_go);
+            let mut engine = fake_engine(&format!("go*) {on_go};;"));
             engine.initialise().await.unwrap();
             engine.go(SearchLimit::Depth(1)).await.unwrap();
             assert_eq!(engine.recv_response().await, None, "{on_go}");
@@ -520,8 +523,20 @@ mod tests {
 
     #[cfg(unix)]
     #[tokio::test]
+    async fn test_each_refusal_is_reported_by_its_own_command() {
+        let mut engine = fake_engine("setoption*) echo 'No such option: x';;");
+        engine.initialise().await.unwrap();
+        for name in ["Bogus", "Other"] {
+            let error = engine.set_option(name, 1).await.unwrap_err();
+            assert_eq!(error.to_string(), "No such option: x", "{name}");
+        }
+        engine.wait_ready().await.unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
     async fn test_a_leftover_process_holding_stderr_does_not_hang_the_caller() {
-        let mut engine = fake_engine("sleep 5 >/dev/null & exit 1");
+        let mut engine = fake_engine("go*) sleep 5 >/dev/null & exit 1;;");
         engine.initialise().await.unwrap();
         engine.go(SearchLimit::Depth(1)).await.unwrap();
         let response = timeout(Duration::from_secs(2), engine.recv_response()).await;
