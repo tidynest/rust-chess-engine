@@ -3,8 +3,8 @@
 All three were made on 2026-09-26; each section below keeps what was weighed.
 
 Everything else from `docs/AUDIT_2026-09-09.md` is done. These three change
-the licence, the dependency list or what is published, so they were not made
-by an autonomous session until the owner said so on 2026-09-26.
+the licence, the dependency list or what is published, so they waited until
+I decided them on 2026-09-26.
 
 ## 1. Replace the `chess` crate
 
