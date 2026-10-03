@@ -274,7 +274,7 @@ against the September tree; kept for the record.
 ### Git History
 
 - **6 commits**, clear development progression
-- **No AI attributions found** in commit messages or bodies
+- **No attribution trailers found** in commit messages or bodies
 - Commits align with documented project state
 
 ---
