@@ -22,10 +22,12 @@ pub fn parse_move(board: &Board, text: &str) -> Option<Move> {
 }
 
 /// The legal move written as `san` on `board`. Check marks and annotation
-/// glyphs are ignored, castling may use zeros, and `e8Q` is read as `e8=Q`.
-/// Matching against the formatter keeps the two in step.
+/// glyphs are ignored, as is an `e.p.` after an en passant capture,
+/// castling may use zeros, and `e8Q` is read as `e8=Q`. Matching against
+/// the formatter keeps the two in step.
 pub fn parse_san(board: &Board, san: &str) -> Option<Move> {
-    let mut wanted = san.trim_end_matches(['+', '#', '!', '?']).replace('0', "O");
+    let san = san.trim_end_matches(['+', '#', '!', '?']);
+    let mut wanted = san.strip_suffix("e.p.").unwrap_or(san).replace('0', "O");
     // A promotion piece without its "=": "e8Q", "axb8N".
     let bytes = wanted.as_bytes();
     if bytes.len() > 2

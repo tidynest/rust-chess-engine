@@ -4,6 +4,9 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- An `e.p.` after an en passant capture, as in `exd6 e.p.`, no longer
+  stops a PGN from loading at that move. The move box accepts it too.
+
 - The move box, the CLI and PGN import read SAN written with more or less
   than it needs, such as `ed5`, `Ng1f3`, `Ng1-f3` or `Pe4`, or an `x` on a
   move that takes nothing. A spelling is read only when exactly one legal

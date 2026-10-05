@@ -361,7 +361,8 @@ fn movetext_moves(text: &str) -> Vec<String> {
         if matches!(san, "1-0" | "0-1" | "1/2-1/2" | "*") {
             break;
         }
-        if !san.is_empty() && !san.starts_with('$') {
+        // "$1" is a glyph; "e.p." marks the en passant capture before it.
+        if !san.is_empty() && !san.starts_with('$') && san != "e.p." {
             moves.push(san.to_owned());
         }
     }
@@ -799,6 +800,14 @@ mod tests {
         // No blank line and no tags between the games: the result still ends it.
         let history = GameHistory::from_pgn("1. e4 e5 * 1. d4 d5").unwrap();
         assert_eq!(history.move_count(), 2);
+    }
+
+    #[test]
+    fn test_pgn_en_passant_marks() {
+        let text = "1. e4 a6 2. e5 d5 3. exd6 e.p. Qxd6 *";
+        assert_eq!(GameHistory::from_pgn(text).unwrap().move_count(), 6);
+        let text = "1. e4 a6 2. e5 d5 3. exd6e.p. Qxd6 *";
+        assert_eq!(GameHistory::from_pgn(text).unwrap().move_count(), 6);
     }
 
     #[test]
