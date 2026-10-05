@@ -2,9 +2,9 @@
 //! Both readers match against the legal moves, so only playable moves come
 //! back.
 
-use cozy_chess::{Board, Move, Piece};
+use cozy_chess::{Board, Move, Piece, Square};
 
-use crate::moves::{after, is_castling, is_checkmate, legal_moves, to_uci};
+use crate::moves::{after, destination, is_castling, is_checkmate, legal_moves, to_uci};
 
 /// The legal move written as `uci` on `board`, such as `e2e4` or `e7e8q`,
 /// in either case. Castling reads as `e1g1` or as cozy-chess's `e1h1`. A
@@ -37,6 +37,52 @@ pub fn parse_san(board: &Board, san: &str) -> Option<Move> {
     legal_moves(board)
         .into_iter()
         .find(|&mv| format_move_san(&mv, board).trim_end_matches(['+', '#']) == wanted)
+        .or_else(|| parse_loose_san(board, &wanted))
+}
+
+/// A move written with more or less than SAN asks for: `ed5`, `Ng1f3`,
+/// `Ng1-f3`, `Pe4`, or an `x` on a move that takes nothing. Read only when
+/// exactly one legal move fits.
+fn parse_loose_san(board: &Board, wanted: &str) -> Option<Move> {
+    let mut chars: Vec<char> = wanted
+        .chars()
+        .filter(|c| !matches!(c, 'x' | '=' | '-'))
+        .collect();
+    let piece = match chars.first()? {
+        'N' => Piece::Knight,
+        'B' => Piece::Bishop,
+        'R' => Piece::Rook,
+        'Q' => Piece::Queen,
+        'K' => Piece::King,
+        _ => Piece::Pawn,
+    };
+    if piece != Piece::Pawn || chars.first() == Some(&'P') {
+        chars.remove(0);
+    }
+    let promotion = match chars.last()? {
+        'N' => Some(Piece::Knight),
+        'B' => Some(Piece::Bishop),
+        'R' => Some(Piece::Rook),
+        'Q' => Some(Piece::Queen),
+        _ => None,
+    };
+    if promotion.is_some() {
+        chars.pop();
+    }
+    let split = chars.len().checked_sub(2)?;
+    let to: Square = chars[split..].iter().collect::<String>().parse().ok()?;
+    let hints = &chars[..split];
+
+    let mut fitting = legal_moves(board).into_iter().filter(|&mv| {
+        board.piece_on(mv.from) == Some(piece)
+            && destination(board, mv) == to
+            && mv.promotion == promotion
+            && hints
+                .iter()
+                .all(|&c| c == char::from(mv.from.file()) || c == char::from(mv.from.rank()))
+    });
+    let found = fitting.next()?;
+    fitting.next().is_none().then_some(found)
 }
 
 fn piece_letter(piece: Piece) -> char {
@@ -141,7 +187,6 @@ fn needs_disambiguation(board: &Board, mv: Move) -> Disambiguation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cozy_chess::Square;
 
     fn mv(from: Square, to: Square, promotion: Option<Piece>) -> Move {
         Move {
@@ -234,6 +279,39 @@ mod tests {
         assert_eq!(parse_san(&board, "axb8=N"), Some(promote));
         assert_eq!(parse_san(&board, "axb8N"), Some(promote));
         assert_eq!(parse_san(&board, "Nf3"), None);
+    }
+
+    #[test]
+    fn test_parse_san_reads_loose_spellings_with_one_meaning() {
+        let board = Board::default();
+        let nf3 = mv(Square::G1, Square::F3, None);
+        for loose in ["Ngf3", "N1f3", "Ng1f3", "Ng1-f3", "Nxf3"] {
+            assert_eq!(parse_san(&board, loose), Some(nf3), "{loose}");
+        }
+        assert_eq!(
+            parse_san(&board, "Pe4"),
+            Some(mv(Square::E2, Square::E4, None))
+        );
+
+        let board = "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2"
+            .parse::<Board>()
+            .unwrap();
+        let exd5 = mv(Square::E4, Square::D5, None);
+        assert_eq!(parse_san(&board, "ed5"), Some(exd5));
+        assert_eq!(parse_san(&board, "e4d5"), Some(exd5));
+
+        let board = "4k3/P7/8/8/8/8/8/1N2KN2 w - - 0 1"
+            .parse::<Board>()
+            .unwrap();
+        assert_eq!(parse_san(&board, "Nd2"), None, "either knight");
+        assert_eq!(
+            parse_san(&board, "Nbd2"),
+            Some(mv(Square::B1, Square::D2, None))
+        );
+        assert_eq!(parse_san(&board, "a8"), None, "a promotion needs its piece");
+        assert_eq!(parse_san(&board, "Kd3"), None, "not a legal move");
+        assert_eq!(parse_san(&board, "Nf3"), None, "not a legal move");
+        assert_eq!(parse_san(&board, "Nz3"), None);
     }
 
     #[test]

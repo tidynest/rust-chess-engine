@@ -4,6 +4,12 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- The move box, the CLI and PGN import read SAN written with more or less
+  than it needs, such as `ed5`, `Ng1f3`, `Ng1-f3` or `Pe4`, or an `x` on a
+  move that takes nothing. A spelling is read only when exactly one legal
+  move fits it, so `Nd2` with two knights able to go there is still
+  refused.
+
 - PGN files open when they start with a byte order mark, as files saved by
   Windows editors often do, and when they are not UTF-8, such as older
   exports with player names in Latin-1. Both used to fail: the first with
