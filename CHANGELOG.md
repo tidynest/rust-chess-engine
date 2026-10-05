@@ -4,6 +4,8 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- Castling typed as `o-o` or `o-o-o` is read, in the move box and the CLI.
+
 - A FEN without its two move counters, such as `... b KQkq -` as EPD files
   and many tools write it, is accepted in "Set up position", the CLI's
   `fen` and a PGN's FEN tag; the counters read as `0 1`. Extra spaces
