@@ -112,14 +112,9 @@ fn main() -> Result<()> {
             println!("{} ({})", opening.name, opening.eco);
         }
 
+        // The commands still work, so a finished game can be printed or taken back.
         if game.is_over() {
-            println!("\nGame Over!");
-            let again = prompt("Play again? (y/n): ")?;
-            if again.is_some_and(|answer| answer.trim().eq_ignore_ascii_case("y")) {
-                game = GameHistory::new();
-                continue;
-            }
-            break;
+            println!("\nGame over. Type 'new' for another game or 'pgn' to print this one.");
         }
 
         let Some(input) = prompt("\nEnter move: ")? else {
@@ -170,6 +165,7 @@ fn main() -> Result<()> {
                     Err(e) => println!("Invalid position: {e}"),
                 }
             }
+            _ if game.is_over() => println!("The game is over; type 'new' to start another"),
             _ => {
                 // SAN is case-sensitive, so the move is read as typed.
                 let board = game.current_board();

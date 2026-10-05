@@ -4,6 +4,12 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- The CLI no longer asks "Play again? (y/n)" when a game ends, where any
+  answer but `y` quit and the game was lost. It says the game is over and
+  keeps taking commands, so `pgn` prints the finished game, `undo` takes
+  moves back and `new` starts another. Moves are refused until then, which
+  matters after a draw, where legal moves still exist.
+
 - Ticking "Play vs Computer" during an analysis, with the computer to
   move, stops the analysis and lets the computer move at once. It used to
   wait for the analysis to finish, which at a high depth could take a

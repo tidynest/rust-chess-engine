@@ -27,3 +27,27 @@ fn cli_exits_when_its_input_ends() {
     };
     assert!(status.success());
 }
+
+/// Run the CLI on `input` to its end and return what it printed.
+fn run(input: &str) -> std::io::Result<String> {
+    let mut cli = Command::new(env!("CARGO_BIN_EXE_chess-cli"))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()?;
+    if let Some(mut stdin) = cli.stdin.take() {
+        stdin.write_all(input.as_bytes())?;
+    }
+    Ok(String::from_utf8_lossy(&cli.wait_with_output()?.stdout).into_owned())
+}
+
+#[test]
+fn a_finished_game_can_still_be_printed_or_taken_back() {
+    let out = run("f3\ne5\ng4\nQh4\npgn\nundo\nQe7\npgn\n").unwrap();
+    assert!(out.contains("1. f3 e5 2. g4 Qh4# 0-1"), "{out}");
+    assert!(out.contains("1. f3 e5 2. g4 Qe7 *"), "{out}");
+
+    // Bare kings: a draw, though the kings still have moves.
+    let out = run("fen 8/8/8/8/8/8/8/K6k w - - 0 1\nKb1\nfen\n").unwrap();
+    assert!(out.contains("The game is over"), "{out}");
+    assert!(out.contains("8/8/8/8/8/8/8/K6k w - - 0 1"), "{out}");
+}
