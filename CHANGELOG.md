@@ -4,6 +4,11 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- A test plays random games from five start positions, including one with
+  Black to move and two built for promotions and castling. Every legal
+  move on the way must read back from its SAN and UCI, and every game from
+  its PGN.
+
 - In analysis, the arrows, the engine's lines and "Play the best move"
   show only lines searched in the position on screen. Right after a move
   or a jump through the history they could show the old position's best
