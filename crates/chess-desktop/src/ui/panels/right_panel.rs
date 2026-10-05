@@ -301,10 +301,7 @@ fn draw_engine_analysis(app: &ChessApp, ui: &mut egui::Ui) {
 /// In analysis mode, a button that plays the first move of the best line.
 fn draw_play_best_move(app: &mut ChessApp, ui: &mut egui::Ui) {
     let best = app.best_move();
-    let allowed = app.analysis
-        && !app.is_game_over()
-        && app.pending_promotion.is_none()
-        && !app.waiting_for_engine_move();
+    let allowed = app.analysis && app.takes_moves();
     if let Some(mv) = best
         && ui
             .add_enabled(allowed, egui::Button::new("Play the best move"))

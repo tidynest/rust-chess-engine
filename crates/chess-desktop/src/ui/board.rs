@@ -262,10 +262,7 @@ impl ChessApp {
         board_rect: Rect,
         square_size: f32,
     ) {
-        // While the engine is not searching, the human may move either side:
-        // after browsing the history that is how play resumes.
-        if self.waiting_for_engine_move() || self.pending_promotion.is_some() || self.is_game_over()
-        {
+        if !self.takes_moves() {
             return;
         }
 

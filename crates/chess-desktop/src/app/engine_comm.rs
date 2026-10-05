@@ -236,6 +236,14 @@ impl ChessApp {
         self.engine_thinking && self.search_kind == SearchKind::Play
     }
 
+    /// True when a move may be made on the board: not while the computer
+    /// thinks, a promotion piece is being picked or the game is over. While
+    /// the engine is not searching, either side may move; after browsing the
+    /// history that is how play resumes.
+    pub(crate) fn takes_moves(&self) -> bool {
+        !self.waiting_for_engine_move() && self.pending_promotion.is_none() && !self.is_game_over()
+    }
+
     /// True when the engine panel has something to show.
     pub(crate) fn engine_in_use(&self) -> bool {
         self.play_vs_computer || self.analysis

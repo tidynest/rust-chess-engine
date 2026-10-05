@@ -2,6 +2,12 @@
 
 Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
+## Unreleased
+
+- `ChessApp::takes_moves` is the one check for whether a move may be made
+  now; the board, the move box and "Play the best move" each had their own
+  copy.
+
 ## 0.1.6 - 2026-10-05
 
 - The CLI no longer asks "Play again? (y/n)" when a game ends, where any

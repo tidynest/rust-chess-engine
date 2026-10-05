@@ -284,8 +284,7 @@ impl ChessApp {
     /// Play the move typed in the box, in either notation, when the board
     /// takes input; what will not parse is reported and left in the box.
     pub fn play_typed_move(&mut self) {
-        if self.waiting_for_engine_move() || self.pending_promotion.is_some() || self.is_game_over()
-        {
+        if !self.takes_moves() {
             return;
         }
         let text = self.move_input.trim().to_owned();
