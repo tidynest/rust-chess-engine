@@ -4,6 +4,10 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- A move made after the mover's time ran out, in the moment before the
+  clock's next check, loses on time instead of being played. It used to go
+  through and even collect the increment.
+
 - Castling typed as `o-o` or `o-o-o` is read, in the move box and the CLI.
 
 - A FEN without its two move counters, such as `... b KQkq -` as EPD files

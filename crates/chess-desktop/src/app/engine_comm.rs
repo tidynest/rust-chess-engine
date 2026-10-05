@@ -357,6 +357,15 @@ impl ChessApp {
     /// Play a legal move on the current position, whoever chose it.
     pub(crate) fn play_move(&mut self, mv: Move) {
         let mover = self.board().side_to_move();
+        let now = Instant::now();
+        // Time that ran out since the last frame's tick loses before the move.
+        if let Some(clock) = &mut self.clock
+            && clock.tick(mover, now)
+        {
+            self.timeout = Some(mover);
+            self.end_game();
+            return;
+        }
         let landing = moves::destination(self.board(), mv);
         let captures = self.board().color_on(mv.to) == Some(!mover)
             || (self.board().piece_on(mv.from) == Some(cozy_chess::Piece::Pawn)
@@ -371,7 +380,6 @@ impl ChessApp {
         } else {
             Cue::Move
         });
-        let now = Instant::now();
         if let Some(clock) = &mut self.clock {
             clock.press(mover, now, self.game_history.move_count());
         }
@@ -615,6 +623,21 @@ mod tests {
         app.new_game();
         assert_eq!(app.timeout, None);
         assert!(!app.is_game_over());
+    }
+
+    #[test]
+    fn test_a_move_after_the_flag_fell_is_not_played() {
+        use crate::app::clock::Clock;
+
+        let mut app = ChessApp::headless();
+        app.clock = Some(Clock::new(1, 5, 0));
+        play(&mut app, &["e2e4", "e7e5"]);
+        // White's time runs out between frames, before a frame notices.
+        let clock = app.clock.as_mut().unwrap();
+        assert!(clock.tick(ChessColor::White, Instant::now() + Duration::from_secs(120)));
+        play(&mut app, &["g1f3"]);
+        assert_eq!(app.timeout, Some(ChessColor::White));
+        assert_eq!(app.game_history.move_count(), 2, "the flag came first");
     }
 
     #[test]
