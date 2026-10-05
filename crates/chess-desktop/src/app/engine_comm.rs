@@ -211,6 +211,25 @@ impl ChessApp {
         self.analysis_complete = false;
     }
 
+    /// Follow the Play and Analyse switches after the user flipped them. A
+    /// mode switched off must not leave its search to land later, and a
+    /// computer switched on to move does not wait for an analysis to finish.
+    pub(crate) fn modes_changed(&mut self, was_playing: bool, was_analysing: bool) {
+        let dropped = match self.search_kind {
+            SearchKind::Play => was_playing && !self.play_vs_computer,
+            SearchKind::Analyse => was_analysing && !self.analysis,
+        };
+        if dropped {
+            self.abort_search();
+        }
+        if !was_playing && self.play_vs_computer {
+            if self.computer_to_move() {
+                self.restart_analysis();
+            }
+            self.face_computer();
+        }
+    }
+
     /// True while a search whose result will be played is running; board
     /// input waits for it. Analysis never blocks the board.
     pub(crate) fn waiting_for_engine_move(&self) -> bool {
@@ -630,6 +649,31 @@ mod tests {
         std::fs::remove_file(&path).unwrap();
         assert_eq!(app.notice, None);
         assert_eq!(app.game_history.move_count(), 2);
+    }
+
+    #[test]
+    fn test_the_computer_switched_on_does_not_wait_for_an_analysis() {
+        let mut app = ChessApp::headless();
+        let (commands, _engine_side) = tokio::sync::mpsc::unbounded_channel();
+        app.engine_tx = Some(commands);
+        app.engine_status = EngineStatus::Ready;
+        app.analysis = true;
+        app.auto_request();
+        assert!(app.engine_thinking && app.search_kind == SearchKind::Analyse);
+
+        app.play_vs_computer = true;
+        app.computer_side = ComputerSide::White;
+        app.modes_changed(false, true);
+        app.auto_request();
+        assert!(
+            app.waiting_for_engine_move(),
+            "White is the computer's to move"
+        );
+
+        // Switched off again, its search must not land later.
+        app.play_vs_computer = false;
+        app.modes_changed(true, true);
+        assert!(!app.engine_thinking);
     }
 
     #[test]

@@ -4,6 +4,11 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- Ticking "Play vs Computer" during an analysis, with the computer to
+  move, stops the analysis and lets the computer move at once. It used to
+  wait for the analysis to finish, which at a high depth could take a
+  long time.
+
 - An `e.p.` after an en passant capture, as in `exd6 e.p.`, no longer
   stops a PGN from loading at that move. The move box accepts it too.
 

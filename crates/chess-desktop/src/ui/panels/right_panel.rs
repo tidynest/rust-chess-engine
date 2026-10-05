@@ -108,17 +108,7 @@ fn draw_engine_controls(app: &mut ChessApp, ui: &mut egui::Ui) {
             let was_analysing = app.analysis;
             ui.checkbox(&mut app.play_vs_computer, "Play vs Computer");
             ui.checkbox(&mut app.analysis, "Analyse position");
-            // Switching a mode off must not leave its search to land later.
-            let dropped_play = was_playing && !app.play_vs_computer;
-            let dropped_analysis = was_analysing && !app.analysis;
-            if (dropped_play && app.search_kind == SearchKind::Play)
-                || (dropped_analysis && app.search_kind == SearchKind::Analyse)
-            {
-                app.abort_search();
-            }
-            if !was_playing && app.play_vs_computer {
-                app.face_computer();
-            }
+            app.modes_changed(was_playing, was_analysing);
         }
     }
 
