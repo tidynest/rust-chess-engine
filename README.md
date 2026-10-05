@@ -83,7 +83,7 @@ The last one only checks that Stockfish answers over UCI.
   runs.
 - CLI: `e2e4` or SAN (`Nf3`, `O-O`), `play` to face Stockfish, `fen` to print
   or set a position, `undo` and `redo` (with Stockfish's reply against it),
-  `pgn`.
+  `pgn`. They keep working after the game ends, until `new` or `quit`.
 - Play Stockfish as White or Black, or watch it play both sides, with a depth
   or time limit, at full strength or held to an Elo from 1320 to 3190.
   The engine gets the full move list, so it sees repetitions and the 50-move rule.
