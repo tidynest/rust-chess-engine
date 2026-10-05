@@ -4,6 +4,11 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- A FEN without its two move counters, such as `... b KQkq -` as EPD files
+  and many tools write it, is accepted in "Set up position", the CLI's
+  `fen` and a PGN's FEN tag; the counters read as `0 1`. Extra spaces
+  between the fields no longer make a FEN invalid either.
+
 - `ChessApp::takes_moves` is the one check for whether a move may be made
   now; the board, the move box and "Play the best move" each had their own
   copy.

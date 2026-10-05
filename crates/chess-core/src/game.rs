@@ -97,9 +97,15 @@ impl GameHistory {
         Ok(history)
     }
 
-    /// Start from a FEN; its clocks come along.
+    /// Start from a FEN; its clocks come along. Spacing between the fields
+    /// does not matter, and the two move counters may be left out, as EPD
+    /// and many tools do; they then read as `0 1`.
     pub fn from_fen(fen: &str) -> Result<Self, FenParseError> {
-        Ok(Self::from_board(fen.parse()?))
+        let mut fields: Vec<&str> = fen.split_whitespace().collect();
+        if fields.len() == 4 {
+            fields.extend(["0", "1"]);
+        }
+        Ok(Self::from_board(fields.join(" ").parse()?))
     }
 
     pub fn current_board(&self) -> &Board {
@@ -800,6 +806,22 @@ mod tests {
         // No blank line and no tags between the games: the result still ends it.
         let history = GameHistory::from_pgn("1. e4 e5 * 1. d4 d5").unwrap();
         assert_eq!(history.move_count(), 2);
+    }
+
+    #[test]
+    fn test_fen_without_move_counters_or_with_extra_spaces() {
+        let full = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1";
+        let expected = GameHistory::from_fen(full).unwrap();
+        for fen in [
+            "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -",
+            " rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR  b KQkq\t-  0 1 ",
+        ] {
+            let read = GameHistory::from_fen(fen).unwrap_or_else(|e| panic!("{fen:?}: {e}"));
+            assert_eq!(read.current_board(), expected.current_board(), "{fen:?}");
+        }
+        let pgn = "[FEN \"4k3/8/8/8/8/8/4P3/4K3 w - -\"]\n\n1. e4 *";
+        assert_eq!(GameHistory::from_pgn(pgn).unwrap().move_count(), 1);
+        assert!(GameHistory::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b").is_err());
     }
 
     #[test]
