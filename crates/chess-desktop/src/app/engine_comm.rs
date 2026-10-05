@@ -621,6 +621,18 @@ mod tests {
     }
 
     #[test]
+    fn test_a_pgn_file_that_is_not_utf8_opens() {
+        // Older exports write names in Latin-1: "M\xfcller".
+        let path = std::env::temp_dir().join(format!("latin1-{}.pgn", std::process::id()));
+        std::fs::write(&path, b"[White \"M\xfcller\"]\n\n1. e4 e5 *\n").unwrap();
+        let mut app = ChessApp::headless();
+        app.open_pgn_file(&path);
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(app.notice, None);
+        assert_eq!(app.game_history.move_count(), 2);
+    }
+
+    #[test]
     fn test_a_new_game_closes_the_resign_prompt() {
         let mut app = ChessApp::headless();
         play(&mut app, &["e2e4"]);

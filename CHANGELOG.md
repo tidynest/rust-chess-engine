@@ -2,6 +2,13 @@
 
 Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
+## Unreleased
+
+- PGN files open when they start with a byte order mark, as files saved by
+  Windows editors often do, and when they are not UTF-8, such as older
+  exports with player names in Latin-1. Both used to fail: the first with
+  a bad move, the second with "stream did not contain valid UTF-8".
+
 ## 0.1.5 - 2026-10-05
 
 - A test plays random games from five start positions, including one with

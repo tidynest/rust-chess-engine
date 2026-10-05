@@ -61,8 +61,10 @@ impl GameHistory {
 
     /// Read a PGN: a FEN tag sets the start, other tags are ignored, and the
     /// movetext is played with comments, variations, glyphs and the result
-    /// stripped. Stops at the first move that cannot be played.
+    /// stripped. Stops at the first move that cannot be played. A leading
+    /// byte order mark is skipped.
     pub fn from_pgn(text: &str) -> Result<Self, PgnError> {
+        let text = text.strip_prefix('\u{feff}').unwrap_or(text);
         let mut fen = None;
         let mut movetext = String::new();
         for line in text.lines() {
@@ -797,6 +799,22 @@ mod tests {
         // No blank line and no tags between the games: the result still ends it.
         let history = GameHistory::from_pgn("1. e4 e5 * 1. d4 d5").unwrap();
         assert_eq!(history.move_count(), 2);
+    }
+
+    #[test]
+    fn test_pgn_after_a_byte_order_mark() {
+        // Windows editors start UTF-8 files with one.
+        let text = "\u{feff}[Event \"x\"]\n[FEN \"4k3/8/8/8/8/8/4P3/4K3 w - - 0 1\"]\n\n1. e4 *";
+        let history = GameHistory::from_pgn(text).unwrap();
+        assert_eq!(history.move_count(), 1);
+        assert_ne!(*history.start_board(), Board::default());
+
+        assert_eq!(
+            GameHistory::from_pgn("\u{feff}1. e4 e5")
+                .unwrap()
+                .move_count(),
+            2
+        );
     }
 
     #[test]
