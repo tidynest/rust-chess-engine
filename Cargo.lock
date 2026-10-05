@@ -692,7 +692,7 @@ dependencies = [
 
 [[package]]
 name = "chess-core"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "cozy-chess",
  "thiserror 2.0.21",
@@ -700,7 +700,7 @@ dependencies = [
 
 [[package]]
 name = "chess-desktop"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "anyhow",
  "chess-core",
@@ -715,7 +715,7 @@ dependencies = [
 
 [[package]]
 name = "chess-engine"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "anyhow",
  "tokio",

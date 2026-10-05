@@ -2,7 +2,7 @@
 
 Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
-## Unreleased
+## 0.1.6 - 2026-10-05
 
 - The CLI no longer asks "Play again? (y/n)" when a game ends, where any
   answer but `y` quit and the game was lost. It says the game is over and
