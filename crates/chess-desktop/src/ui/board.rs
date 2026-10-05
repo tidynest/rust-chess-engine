@@ -226,8 +226,8 @@ impl ChessApp {
             return;
         }
         for (index, line) in self.engine_lines.iter().enumerate().rev() {
-            let Some(mv) = line
-                .pv
+            let Some(mv) = self
+                .line_moves(line)
                 .first()
                 .and_then(|uci| notation::parse_uci(self.board(), uci))
             else {

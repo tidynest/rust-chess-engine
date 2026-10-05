@@ -287,7 +287,7 @@ fn draw_engine_analysis(app: &ChessApp, ui: &mut egui::Ui) {
     let lines: Vec<&EngineLine> = app
         .engine_lines
         .iter()
-        .filter(|line| !line.pv.is_empty())
+        .filter(|line| !app.line_moves(line).is_empty())
         .collect();
     if !lines.is_empty() {
         ui.label(if lines.len() == 1 {
@@ -303,18 +303,14 @@ fn draw_engine_analysis(app: &ChessApp, ui: &mut egui::Ui) {
                     .monospace()
                     .strong(),
             );
-            ui.label(app.format_pv_san(&line.pv).join(" "));
+            ui.label(app.format_pv_san(app.line_moves(line)).join(" "));
         });
     }
 }
 
 /// In analysis mode, a button that plays the first move of the best line.
 fn draw_play_best_move(app: &mut ChessApp, ui: &mut egui::Ui) {
-    let best = app
-        .engine_lines
-        .first()
-        .and_then(|line| line.pv.first())
-        .and_then(|uci| chess_core::notation::parse_uci(app.board(), uci));
+    let best = app.best_move();
     let allowed = app.analysis
         && !app.is_game_over()
         && app.pending_promotion.is_none()

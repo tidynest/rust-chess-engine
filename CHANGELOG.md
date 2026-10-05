@@ -4,6 +4,13 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- In analysis, the arrows, the engine's lines and "Play the best move"
+  show only lines searched in the position on screen. Right after a move
+  or a jump through the history they could show the old position's best
+  move for a moment, and play it if it was legal in the new one. With
+  Stockfish stopped, the old line stayed for good. The score is kept
+  across the change as before, so the eval bar does not flicker.
+
 - After "Try again" restarts Stockfish, analysis asks the new engine for
   the number of lines again. It used to go on assuming the old engine's
   setting, so with three lines chosen the new one showed only one.

@@ -53,6 +53,9 @@ pub struct EngineLine {
     pub depth: u32,
     pub score: Score,
     pub pv: Vec<String>,
+    /// Hash of the position `pv` starts from. The score outlives a move so
+    /// the eval bar does not flicker; the moves must not.
+    pub position: u64,
 }
 
 /// Main application state
@@ -308,6 +311,21 @@ impl ChessApp {
     /// The first line's score, from White's side.
     pub fn engine_evaluation(&self) -> Option<Score> {
         self.engine_lines.first().map(|line| line.score)
+    }
+
+    /// The moves of `line`, or none if it starts from another position.
+    pub fn line_moves<'a>(&self, line: &'a EngineLine) -> &'a [String] {
+        if line.position == self.board().hash() {
+            &line.pv
+        } else {
+            &[]
+        }
+    }
+
+    /// The first move of the best line, if it was searched in this position.
+    pub fn best_move(&self) -> Option<Move> {
+        let uci = self.line_moves(self.engine_lines.first()?).first()?;
+        chess_core::notation::parse_uci(self.board(), uci)
     }
 
     /// The piece on `square`, with its colour.

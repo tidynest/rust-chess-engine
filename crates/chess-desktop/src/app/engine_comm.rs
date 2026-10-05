@@ -90,6 +90,7 @@ impl ChessApp {
                             score
                         },
                         pv,
+                        position: self.board().hash(),
                     };
                     // Lines arrive in order, so a gap can only be a line past
                     // the number asked for.
@@ -112,11 +113,16 @@ impl ChessApp {
                     }
                     // The line's first move is about to be played; keep the
                     // continuation so it still formats from the new position.
+                    let after = mv
+                        .as_deref()
+                        .and_then(|uci| notation::parse_uci(self.board(), uci))
+                        .map(|played| moves::after(self.board(), played).hash());
                     if let Some(first) = self.engine_lines.first_mut()
-                        && mv.is_some()
+                        && let Some(after) = after
                         && first.pv.first() == mv.as_ref()
                     {
                         first.pv.remove(0);
+                        first.position = after;
                     }
                     best_move = mv;
                 }
@@ -735,6 +741,68 @@ mod tests {
         assert_eq!(app.engine_lines.len(), 1, "only the first line survives");
         app.start_search(SearchKind::Play);
         assert_eq!(app.engine_multipv, 1);
+    }
+
+    #[test]
+    fn test_a_line_from_another_position_offers_no_move() {
+        let mut app = ChessApp::headless();
+        let (tx, rx) = std::sync::mpsc::channel();
+        app.engine_rx = Some(rx);
+        app.search_id = 1;
+        tx.send(EngineEvent::Search {
+            id: 1,
+            response: EngineResponse::Info {
+                depth: 10,
+                multipv: 1,
+                score: chess_engine::Score::Cp(30),
+                nodes: 0,
+                nps: 0,
+                pv: vec!["g1f3".to_owned(), "b8c6".to_owned()],
+            },
+        })
+        .unwrap();
+        app.poll_engine_responses();
+        assert_eq!(
+            app.best_move().map(|mv| mv.to.to_string()),
+            Some("f3".into())
+        );
+
+        // Nf3 is legal here too, but it was the answer to the start position.
+        play(&mut app, &["e2e4", "e7e5"]);
+        assert_eq!(app.best_move(), None);
+        assert!(app.line_moves(&app.engine_lines[0]).is_empty());
+        assert_eq!(
+            app.engine_evaluation(),
+            Some(chess_engine::Score::Cp(30)),
+            "the score stays so the eval bar does not flicker"
+        );
+    }
+
+    #[test]
+    fn test_the_computers_line_follows_its_move() {
+        let mut app = ChessApp::headless();
+        let (tx, rx) = std::sync::mpsc::channel();
+        app.engine_rx = Some(rx);
+        app.search_id = 1;
+        app.search_kind = SearchKind::Play;
+        let reply = |response| EngineEvent::Search { id: 1, response };
+        tx.send(reply(EngineResponse::Info {
+            depth: 10,
+            multipv: 1,
+            score: chess_engine::Score::Cp(30),
+            nodes: 0,
+            nps: 0,
+            pv: vec!["e2e4".to_owned(), "e7e5".to_owned()],
+        }))
+        .unwrap();
+        tx.send(reply(EngineResponse::BestMove {
+            mv: Some("e2e4".to_owned()),
+            ponder: None,
+        }))
+        .unwrap();
+        let best = app.poll_engine_responses().unwrap();
+        play(&mut app, &[&best]);
+        assert_eq!(app.line_moves(&app.engine_lines[0]), ["e7e5"]);
     }
 
     #[test]
