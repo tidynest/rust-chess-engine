@@ -2,7 +2,7 @@
 
 Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
-## Unreleased
+## 0.1.5 - 2026-10-05
 
 - A test plays random games from five start positions, including one with
   Black to move and two built for promotions and castling. Every legal
