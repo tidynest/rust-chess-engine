@@ -1,17 +1,22 @@
 # cargo-deny configuration. Run with `cargo deny check`.
 #
-# cargo-deny does not report unsound-only advisories and resolves the graph
-# for the host target, so this list is only what it can match on Linux CI.
+# cargo-deny resolves the graph for the host target, so this list is only
+# what it can match on Linux CI.
 
 [advisories]
 ignore = [
     { id = "RUSTSEC-2026-0192", reason = "ttf-parser 0.25.1 is the latest release and ab_glyph, via egui, requires it" },
+    # zbus 6 absorbed these three crates, but accesskit_unix 0.24.1, the newest,
+    # still needs zbus 5. Drop them once eframe's accesskit moves to zbus 6.
+    { id = "RUSTSEC-2026-0370", reason = "zvariant is unmaintained and comes in through eframe's accesskit" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names is unmaintained and comes in through eframe's accesskit" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive is unmaintained and comes in through eframe's accesskit" },
 ]
 
 [bans]
-# Two windows-sys generations sit under eframe (glutin and winit on 0.52 and
-# 0.59, arboard on 0.60). Warning about them on every run prints hundreds of
-# lines and nothing here can change it before egui 0.36.
+# Four windows-sys versions, 0.52 to 0.61, sit under eframe, tokio and the
+# crates they pull in. Warning about them on every run prints hundreds of
+# lines, and nothing in this workspace can change that.
 multiple-versions = "allow"
 
 [licenses]
