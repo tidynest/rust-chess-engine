@@ -4,6 +4,9 @@ Newest first. Items refer to `docs/AUDIT_2026-09-09.md` where one exists.
 
 ## Unreleased
 
+- egui and eframe 0.37. The Resign button shows its flag instead of an
+  empty box; the other button icons look as before.
+
 - tokio 1.54.1 replaces 1.53.1, which RUSTSEC-2026-0386 marks unsound.
   `deny.toml` ignores zvariant, zvariant_derive and zbus_names, now listed
   as unmaintained (RUSTSEC-2026-0370 to 0372). eframe's accesskit still
